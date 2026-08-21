@@ -1,0 +1,394 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+enum Role {
+  CUSTOMER
+  AMBASSADOR
+  STUDIO
+  DELIVERY
+  ADMIN
+  SUPER_ADMIN
+}
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String?   @unique
+  emailVerified DateTime?
+  image         String?
+  password      String?
+  role          Role      @default(CUSTOMER)
+  phone         String?   @unique
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  accounts      Account[]
+  sessions      Session[]
+
+  customerProfile   CustomerProfile?
+  ambassadorProfile AmbassadorProfile?
+  studioProfile     StudioProfile?
+  deliveryProfile   DeliveryProfile?
+  notifications     Notification[]
+  auditLogs         AuditLog[]
+}
+
+model Account {
+  id                 String  @id @default(cuid())
+  userId             String
+  type               String
+  provider           String
+  providerAccountId  String
+  refresh_token      String?
+  access_token       String?
+  expires_at         Int?
+  token_type         String?
+  scope              String?
+  id_token           String?
+  session_state      String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+model CustomerProfile {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  addresses Address[]
+  orders    Order[]
+  wishlist  Product[] @relation("Wishlist")
+}
+
+model Address {
+  id                String          @id @default(cuid())
+  customerProfileId String
+  customerProfile   CustomerProfile @relation(fields: [customerProfileId], references: [id], onDelete: Cascade)
+  label             String // e.g., Home, Work
+  street            String
+  city              String
+  state             String
+  zipCode           String
+  country           String          @default("India")
+  lat               Float?
+  lng               Float?
+}
+
+enum AmbassadorRank {
+  BRONZE
+  SILVER
+  GOLD
+  DIAMOND
+  ELITE
+}
+
+model AmbassadorProfile {
+  id           String         @id @default(cuid())
+  userId       String         @unique
+  user         User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  referralCode String         @unique
+  rank         AmbassadorRank @default(BRONZE)
+  totalEarned  Float          @default(0.0)
+  balance      Float          @default(0.0)
+  college      String?
+  
+  commissions  Commission[]
+}
+
+enum VerificationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model StudioProfile {
+  id                 String             @id @default(cuid())
+  userId             String             @unique
+  user               User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  businessName       String
+  gstNumber          String?
+  lat                Float?
+  lng                Float?
+  address            String?
+  workingHours       String?
+  verificationStatus VerificationStatus @default(PENDING)
+  
+  orders             Order[]
+}
+
+model DeliveryProfile {
+  id                 String             @id @default(cuid())
+  userId             String             @unique
+  user               User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  vehicleDetails     String?
+  licenseNumber      String?
+  isOnline           Boolean            @default(false)
+  lat                Float?
+  lng                Float?
+  verificationStatus VerificationStatus @default(PENDING)
+  rating             Float              @default(5.0)
+  
+  deliveries         DeliveryInfo[]
+}
+
+model Category {
+  id        String    @id @default(cuid())
+  name      String    @unique
+  slug      String    @unique
+  image     String?
+  
+  products  Product[]
+}
+
+model Product {
+  id            String   @id @default(cuid())
+  categoryId    String?
+  category      Category? @relation(fields: [categoryId], references: [id])
+  categoryName  String   @default("Frames")
+  name          String
+  slug          String   @unique
+  description   String
+  basePrice     Float
+  originalPrice Float?
+  rating        Float    @default(4.8)
+  reviews       Int      @default(1)
+  badgeTag      String?
+  badge         String?
+  images        String // JSON array of URLs
+  stock         Int      @default(50)
+  status        String   @default("Active") // Active, Low Stock, Out of Stock, Inactive
+  isActive      Boolean  @default(true)
+  variants      String? // JSON string
+  frameSizes    String? // JSON string
+  frameColors   String? // JSON string
+  polaroidSizes String? // JSON string
+  
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  orderItems    OrderItem[]
+  wishlistedBy  CustomerProfile[] @relation("Wishlist")
+}
+
+model Coupon {
+  id               String   @id @default(cuid())
+  code             String   @unique
+  type             String   @default("percentage") // percentage or flat
+  value            Float
+  minOrder         Float    @default(0)
+  maxCustomerLimit Int?
+  usageCount       Int      @default(0)
+  category         String   @default("All Categories")
+  status           String   @default("Active") // Active, Inactive
+  description      String?
+  createdBy        String   @default("Admin")
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+}
+
+enum OrderStatus {
+  PLACED
+  ASSIGNED_STUDIO
+  ACCEPTED_BY_STUDIO
+  DESIGNING
+  PRINTING
+  FRAMING
+  QUALITY_CHECK
+  READY_FOR_PICKUP
+  ASSIGNED_DELIVERY
+  PICKED_UP
+  OUT_FOR_DELIVERY
+  DELIVERED
+  CANCELLED
+  REFUND_REQUESTED
+  REFUNDED
+  REJECTED_BY_STUDIO
+}
+
+model Order {
+  id                String   @id @default(cuid())
+  customerProfileId String?
+  customerProfile   CustomerProfile? @relation(fields: [customerProfileId], references: [id])
+  
+  customerName      String
+  customerPhone     String
+  
+  studioProfileId   String?
+  studioProfile     StudioProfile?  @relation(fields: [studioProfileId], references: [id])
+  assignedStudio    String?
+  
+  totalAmount       Float
+  status            OrderStatus     @default(PLACED)
+  shippingAddress   String
+  deliveryType      String?         @default("Shipping") // "Direct Delivery" or "Shipping"
+  
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  items             OrderItem[]
+  history           OrderStatusHistory[]
+  deliveryInfo      DeliveryInfo?
+  transaction       Transaction?
+  commission        Commission?
+}
+
+model OrderStatusHistory {
+  id        String      @id @default(cuid())
+  orderId   String
+  order     Order       @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  status    OrderStatus
+  note      String?
+  createdAt DateTime    @default(now())
+}
+
+model OrderItem {
+  id                   String  @id @default(cuid())
+  orderId              String
+  order                Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId            String?
+  product              Product? @relation(fields: [productId], references: [id])
+  
+  name                 String
+  size                 String  @default("Standard")
+  quantity             Int     @default(1)
+  price                Float
+  image                String?
+  customizationDetails String? // JSON string containing uploaded photos array, text, frames
+}
+
+model DeliveryInfo {
+  id                String          @id @default(cuid())
+  orderId           String          @unique
+  order             Order           @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  
+  deliveryProfileId String?
+  deliveryProfile   DeliveryProfile? @relation(fields: [deliveryProfileId], references: [id])
+  
+  deliveryPartnerName String?
+  pickupTime          DateTime?
+  deliveryTime        DateTime?
+  trackingUrl         String?
+}
+
+model Commission {
+  id                  String            @id @default(cuid())
+  orderId             String            @unique
+  order               Order             @relation(fields: [orderId], references: [id])
+  ambassadorProfileId String?
+  ambassadorProfile   AmbassadorProfile? @relation(fields: [ambassadorProfileId], references: [id])
+  
+  referralCode        String?
+  amount              Float
+  status              String            @default("PENDING") // PENDING, ELIGIBLE, PAID, CANCELLED
+  
+  createdAt           DateTime          @default(now())
+}
+
+model Transaction {
+  id                String   @id @default(cuid())
+  orderId           String   @unique
+  order             Order    @relation(fields: [orderId], references: [id])
+  
+  paymentMethod     String   @default("UPI") // UPI, CARD, COD, RAZORPAY
+  razorpayOrderId   String?
+  razorpayPaymentId String?
+  amount            Float
+  status            String   @default("SUCCESS") // PENDING, SUCCESS, FAILED
+  
+  createdAt         DateTime @default(now())
+}
+
+model Notification {
+  id            String   @id @default(cuid())
+  userId        String?
+  user          User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role          String?  // CUSTOMER, STUDIO, DELIVERY, AMBASSADOR, ADMIN
+  type          String
+  title         String
+  message       String
+  referenceType String?  // ORDER, PROMO, COMMISSION
+  referenceId   String?
+  isRead        Boolean  @default(false)
+  createdAt     DateTime @default(now())
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id])
+  action    String
+  details   String?
+  createdAt DateTime @default(now())
+}
+
+model CartItem {
+  id         String   @id @default(cuid())
+  userId     String?
+  sessionId  String?
+  productId  String?
+  name       String
+  size       String   @default("Standard")
+  price      Float
+  quantity   Int      @default(1)
+  image      String
+  photos     String?  // JSON string
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+model WishlistItem {
+  id         String   @id @default(cuid())
+  userId     String?
+  sessionId  String?
+  productId  String?
+  name       String
+  category   String   @default("Frames")
+  price      Float
+  image      String
+  createdAt  DateTime @default(now())
+}
+
+model StudioInventory {
+  id         String   @id @default(cuid())
+  studioId   String?
+  itemName   String
+  category   String   @default("Frames")
+  stock      Int      @default(0)
+  unit       String   @default("pcs")
+  minAlert   Int      @default(10)
+  status     String   @default("In Stock")
+  updatedAt  DateTime @updatedAt
+}
+
+model SystemSetting {
+  key        String   @id
+  value      String   // JSON payload
+  updatedAt  DateTime @updatedAt
+}
+

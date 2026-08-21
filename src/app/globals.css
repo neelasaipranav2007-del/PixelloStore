@@ -1,0 +1,189 @@
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..900;1,400..900&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Poppins:wght@300;400;500;600;700&display=swap');
+
+@import "tailwindcss";
+@source "../";
+@source "../app/(customer)/product/\\[id\\]/page.tsx";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: 'Plus Jakarta Sans', 'Inter', 'Poppins', sans-serif;
+  --font-serif: 'Playfair Display', serif;
+  --font-heading: 'Playfair Display', serif;
+  --color-primary: #D89A86;
+  --color-primary-foreground: #FFFFFF;
+  --color-secondary: #F2C8B5;
+  --color-secondary-foreground: #3A2B24;
+  --color-accent: #F48A8A;
+  --color-accent-foreground: #FFFFFF;
+  --color-muted: #FFF8F2;
+  --color-muted-foreground: #6C5C54;
+  --color-card: #FFFFFF;
+  --color-card-foreground: #3A2B24;
+  --color-border: #EFE6DD;
+  --color-input: #EFE6DD;
+  --color-ring: #D89A86;
+  --radius-sm: 0.5rem;
+  --radius-md: 0.75rem;
+  --radius-lg: 1rem;
+  --radius-xl: 1.25rem;
+  --radius-2xl: 1.5rem;
+  --radius-3xl: 2rem;
+}
+
+:root {
+  --background: #F8F3EE;
+  --foreground: #3A2B24;
+  --card: #FFFFFF;
+  --card-foreground: #3A2B24;
+  --popover: #FFFFFF;
+  --popover-foreground: #3A2B24;
+  --primary: #D89A86;
+  --primary-foreground: #FFFFFF;
+  --secondary: #FFF8F2;
+  --secondary-foreground: #3A2B24;
+  --muted: #FFF8F2;
+  --muted-foreground: #6C5C54;
+  --accent: #F2C8B5;
+  --accent-foreground: #3A2B24;
+  --highlight: #F48A8A;
+  --destructive: #D96B6B;
+  --border: #EFE6DD;
+  --input: #FFF8F2;
+  --ring: #D89A86;
+  --radius: 1rem;
+}
+
+.dark {
+  --background: #15110F;
+  --foreground: #FFF8F2;
+  --card: #211A17;
+  --card-foreground: #FFF8F2;
+  --popover: #211A17;
+  --popover-foreground: #FFF8F2;
+  --primary: #D89A86;
+  --primary-foreground: #FFFFFF;
+  --secondary: #2C2320;
+  --secondary-foreground: #FFF8F2;
+  --muted: #211A17;
+  --muted-foreground: #D8C8BF;
+  --accent: #F2C8B5;
+  --accent-foreground: #15110F;
+  --destructive: #D96B6B;
+  --border: #3A2B24;
+  --input: #2C2320;
+  --ring: #D89A86;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    background-color: var(--background);
+    color: var(--foreground);
+    font-family: 'Plus Jakarta Sans', 'Inter', 'Poppins', sans-serif;
+  }
+  h1, h2, h3, .font-serif-brand {
+    font-family: 'Playfair Display', Georgia, serif;
+  }
+}
+
+/* Custom Pixello Brand Utilities */
+.btn-pixello-primary {
+  background-color: #D89A86;
+  color: #FFFFFF;
+  font-weight: 700;
+  border-radius: 9999px;
+  box-shadow: 0 2px 8px 0 rgba(216, 154, 134, 0.25);
+  transition: all 200ms ease;
+}
+
+.btn-pixello-primary:hover {
+  background-color: #C98572;
+  box-shadow: 0 4px 12px 0 rgba(201, 133, 114, 0.35);
+}
+
+.btn-pixello-secondary {
+  background-color: #F2C8B5;
+  color: #3A2B24;
+  font-weight: 700;
+  border-radius: 9999px;
+  transition: all 200ms ease;
+}
+
+.btn-pixello-secondary:hover {
+  background-color: #E5B29E;
+}
+
+.btn-pixello-danger {
+  background-color: #D96B6B;
+  color: #FFFFFF;
+  font-weight: 700;
+  border-radius: 9999px;
+  transition: all 200ms ease;
+}
+
+.btn-pixello-danger:hover {
+  background-color: #C55353;
+}
+
+.glass-card {
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(239, 230, 221, 0.9);
+  border-radius: 1rem;
+  box-shadow: 0 10px 30px -10px rgba(58, 43, 36, 0.05);
+}
+
+/* Hide browser default number input spin buttons for clean modern inputs */
+input::-webkit-outer-spin-button,
+input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type=number] {
+  -moz-appearance: textfield;
+}
+
+/* Custom scrollbars and no-scrollbar utilities */
+.no-scrollbar::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+.no-scrollbar {
+  -ms-overflow-style: none !important;
+  scrollbar-width: none !important;
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(216, 154, 134, 0.4);
+  border-radius: 9999px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(216, 154, 134, 0.7);
+}
+
+/* Hide Next.js Dev Indicator Badge / Turbopack Floating Pill */
+nextjs-portal,
+#nextjs-dev-indicator,
+[data-nextjs-dev-indicator],
+[data-nextjs-dialog-overlay],
+[data-nextjs-toast] {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
