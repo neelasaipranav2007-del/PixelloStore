@@ -15,6 +15,19 @@ export default function ReferralLandingPage() {
 
   useEffect(() => {
     if (typeof window !== "undefined") {
+      localStorage.setItem("pixello_referral_code", referralCode);
+      sessionStorage.setItem("pixello_referral_code", referralCode);
+      localStorage.setItem(
+        "pixello_cart_applied_promo",
+        JSON.stringify({
+          code: referralCode,
+          type: "percentage",
+          value: 10,
+          isAmbassador: true,
+        })
+      );
+      window.dispatchEvent(new Event("storage"));
+
       // Auto-redirect to catalog after 2.5 seconds
       const timer = setTimeout(() => {
         setRedirecting(true);

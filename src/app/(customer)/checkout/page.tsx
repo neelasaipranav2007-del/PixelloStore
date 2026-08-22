@@ -402,7 +402,7 @@ export default function CheckoutPage() {
 
   const normalizeCode = (c: string) => (c || "").replace(/\s+/g, "").toUpperCase();
 
-  const handleApplyPromoCode = (codeToApply?: string) => {
+  const handleApplyPromoCode = async (codeToApply?: string) => {
     const rawInput = (codeToApply || promoCodeInput).trim();
     if (!rawInput) return;
     const codeClean = rawInput.toUpperCase();
@@ -428,17 +428,32 @@ export default function CheckoutPage() {
       } catch (e) {}
     }
 
-    // Check store promo codes directory (supports spaces & case variations)
+    // 1. Check store promo codes directory (supports spaces & case variations)
     let found = livePromos.find((p: any) => {
       if (p.status !== "Active" && p.status !== undefined) return false;
       if (deletedList.some(d => normalizeCode(d) === normalizeCode(p.code))) return false;
       return normalizeCode(p.code) === normalizedInput;
     });
 
-    // If not found in store promos, check Ambassador Referral Codes
+    // 2. If not found in local cache, query the backend /api/promos endpoint directly
+    if (!found) {
+      try {
+        const res = await fetch(`/api/promos?code=${encodeURIComponent(normalizedInput)}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.success && data.promo) {
+            found = data.promo;
+          }
+        }
+      } catch (err) {
+        console.warn("Backend promo validation note:", err);
+      }
+    }
+
+    // 3. Check Ambassador Referral Codes fallback list
     if (!found) {
       const AMBASSADOR_CODES = [
-        "SREE20", "SREE10", "ARYAN20", "ARYAN24", "ANANYA10", "SID20", "POOJA10", "ROHAN10", "NEHA10", "SAIROHAN10", "VYSHU10"
+        "SREE20", "SREE10", "ARYAN20", "ARYAN24", "ANANYA10", "SID20", "POOJA10", "ROHAN10", "NEHA10", "SAIROHAN10", "VYSHU10", "ARJUN10"
       ];
       
       let isAmbassador = AMBASSADOR_CODES.some(a => normalizeCode(a) === normalizedInput);
@@ -475,17 +490,19 @@ export default function CheckoutPage() {
           status: "Active",
           isAmbassador: true,
         };
-        // Also persist referral attribution
-        if (typeof window !== "undefined") {
-          localStorage.setItem("pixello_referral_code", codeClean);
-          sessionStorage.setItem("pixello_referral_code", codeClean);
-        }
       }
     }
 
     if (!found) {
       setPromoError("Invalid promo code");
       return;
+    }
+
+    if (found.isAmbassador) {
+      if (typeof window !== "undefined") {
+        localStorage.setItem("pixello_referral_code", found.code || codeClean);
+        sessionStorage.setItem("pixello_referral_code", found.code || codeClean);
+      }
     }
 
     if (found.maxCustomerLimit && found.maxCustomerLimit > 0 && (found.usageCount || 0) >= found.maxCustomerLimit) {
@@ -510,8 +527,8 @@ export default function CheckoutPage() {
     setAppliedPromo({
       code: found.code || codeClean,
       discountAmount: finalDiscount,
-      type: found.type,
-      value: found.value,
+      type: found.type || "percentage",
+      value: found.value || 10,
     });
     setPromoCodeInput("");
   };

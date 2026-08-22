@@ -4,12 +4,175 @@ import { portalEvents } from "@/lib/events";
 
 export const dynamic = "force-dynamic";
 
-export async function GET() {
+export async function GET(req: Request) {
   try {
+    const { searchParams } = new URL(req.url);
+    const queryCode = searchParams.get("code");
+
+    if (queryCode) {
+      const clean = queryCode.replace(/\s+/g, "").toUpperCase();
+
+      const rawTrimmed = queryCode.trim().toUpperCase();
+
+      const allActiveCoupons = await prisma.coupon.findMany({
+        where: { status: "Active" },
+      });
+
+      const coupon = allActiveCoupons.find(
+        (c) => c.code.replace(/\s+/g, "").toUpperCase() === clean || c.code.trim().toUpperCase() === rawTrimmed
+      );
+
+      if (coupon) {
+        return NextResponse.json({
+          success: true,
+          promo: {
+            id: coupon.id,
+            code: coupon.code,
+            type: coupon.type,
+            value: coupon.value,
+            minOrder: coupon.minOrder,
+            maxCustomerLimit: coupon.maxCustomerLimit,
+            usageCount: coupon.usageCount,
+            category: coupon.category,
+            status: coupon.status,
+            description: coupon.description,
+            isAmbassador: false,
+          },
+        });
+      }
+
+      // 2. Check Ambassador Referral Code in Database
+      const ambassador = await prisma.ambassadorProfile.findFirst({
+        where: {
+          referralCode: { equals: clean },
+        },
+        include: { user: true },
+      });
+
+      if (ambassador) {
+        return NextResponse.json({
+          success: true,
+          promo: {
+            id: `amb_${ambassador.id}`,
+            code: ambassador.referralCode,
+            type: "percentage",
+            value: 10,
+            minOrder: 0,
+            maxCustomerLimit: null,
+            usageCount: 0,
+            category: "All Categories",
+            status: "Active",
+            description: `Campus Ambassador Code (${ambassador.user?.name || "Ambassador"} - ${ambassador.college})`,
+            isAmbassador: true,
+            ambassadorId: ambassador.id,
+            ambassadorName: ambassador.user?.name || "Ambassador",
+          },
+        });
+      }
+
+      // 3. Check Known Default Ambassador Codes fallback
+      const KNOWN_AMBASSADORS: Record<string, string> = {
+        "SREE20": "Sree Charani",
+        "SAIROHAN10": "Sai Rohan",
+        "ARYAN20": "Aryan Verma",
+        "VYSHU10": "Vyshu",
+        "ARJUN10": "Arjun",
+        "SREE10": "Sree Charani",
+        "ROHAN10": "Sai Rohan",
+        "POOJA10": "Pooja",
+        "NEHA10": "Neha",
+        "ANANYA10": "Ananya",
+      };
+
+      if (KNOWN_AMBASSADORS[clean]) {
+        return NextResponse.json({
+          success: true,
+          promo: {
+            id: `amb_${clean}`,
+            code: clean,
+            type: "percentage",
+            value: 10,
+            minOrder: 0,
+            maxCustomerLimit: null,
+            usageCount: 0,
+            category: "All Categories",
+            status: "Active",
+            description: `Campus Ambassador Code (${KNOWN_AMBASSADORS[clean]})`,
+            isAmbassador: true,
+            ambassadorName: KNOWN_AMBASSADORS[clean],
+          },
+        });
+      }
+
+      return NextResponse.json(
+        { success: false, error: "Invalid promo code" },
+        { status: 404 }
+      );
+    }
+
+    // Default: Return merged list of store coupons + ambassador codes
     const coupons = await prisma.coupon.findMany({
       orderBy: { createdAt: "desc" },
     });
-    return NextResponse.json({ success: true, promos: coupons });
+
+    const ambassadors = await prisma.ambassadorProfile.findMany({
+      include: { user: true },
+    });
+
+    const ambassadorCoupons = ambassadors.map((amb) => ({
+      id: `amb_${amb.id}`,
+      code: amb.referralCode,
+      type: "percentage",
+      value: 10,
+      minOrder: 0,
+      maxCustomerLimit: null,
+      usageCount: 0,
+      category: "All Categories",
+      status: "Active",
+      description: `Campus Ambassador Referral Code (${amb.user?.name || "Ambassador"} - ${amb.college})`,
+      isAmbassador: true,
+    }));
+
+    // Deduplicate by normalized uppercase code
+    const map = new Map<string, any>();
+    for (const c of coupons) {
+      map.set(c.code.replace(/\s+/g, "").toUpperCase(), c);
+    }
+    for (const a of ambassadorCoupons) {
+      const key = a.code.replace(/\s+/g, "").toUpperCase();
+      if (!map.has(key)) {
+        map.set(key, a);
+      }
+    }
+
+    // Add common fallback presets if missing
+    const FALLBACKS = [
+      { code: "SREE20", desc: "Sree Charani • Aurora University" },
+      { code: "SAIROHAN10", desc: "Sai Rohan • Aurora University" },
+      { code: "ARYAN20", desc: "Aryan Verma • IIT Bombay" },
+      { code: "VYSHU10", desc: "Vyshu • Sreenidhii Engineering" },
+      { code: "ARJUN10", desc: "Arjun • Narayana" },
+    ];
+    for (const fb of FALLBACKS) {
+      const key = fb.code;
+      if (!map.has(key)) {
+        map.set(key, {
+          id: `amb_${fb.code}`,
+          code: fb.code,
+          type: "percentage",
+          value: 10,
+          minOrder: 0,
+          maxCustomerLimit: null,
+          usageCount: 0,
+          category: "All Categories",
+          status: "Active",
+          description: `Campus Ambassador Code (${fb.desc})`,
+          isAmbassador: true,
+        });
+      }
+    }
+
+    return NextResponse.json({ success: true, promos: Array.from(map.values()) });
   } catch (error: any) {
     console.error("Error fetching coupons:", error);
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });
@@ -165,7 +328,6 @@ export async function DELETE(req: Request) {
         });
       }
     } catch (dbErr) {
-      // If direct delete fails, try deleteMany by code or ignore if already gone
       if (code) {
         try {
           await prisma.coupon.deleteMany({
