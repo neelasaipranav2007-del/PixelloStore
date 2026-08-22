@@ -106,17 +106,75 @@ enum AmbassadorRank {
 }
 
 model AmbassadorProfile {
-  id           String         @id @default(cuid())
-  userId       String         @unique
-  user         User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id              String         @id @default(cuid())
+  userId          String         @unique
+  user            User           @relation(fields: [userId], references: [id], onDelete: Cascade)
   
-  referralCode String         @unique
-  rank         AmbassadorRank @default(BRONZE)
-  totalEarned  Float          @default(0.0)
-  balance      Float          @default(0.0)
-  college      String?
+  referralCode    String         @unique
+  rank            AmbassadorRank @default(BRONZE)
+  totalEarned     Float          @default(0.0)
+  balance         Float          @default(0.0)
+  pendingBalance  Float          @default(0.0)
+  totalPaid       Float          @default(0.0)
+  commissionRate  Float          @default(0.10)
+  college         String?
+  branch          String?
+  year            String?
+  bio             String?
+  instagramHandle String?
+  upiId           String?
+  accountNumber   String?
+  status          String         @default("APPROVED")
   
-  commissions  Commission[]
+  commissions     Commission[]
+  orders          Order[]
+  payouts         AmbassadorPayout[]
+  rewards         AmbassadorReward[]
+  notifications   AmbassadorNotification[]
+  
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @default(now()) @updatedAt
+}
+
+model AmbassadorPayout {
+  id                  String            @id @default(cuid())
+  ambassadorProfileId String
+  ambassadorProfile   AmbassadorProfile @relation(fields: [ambassadorProfileId], references: [id], onDelete: Cascade)
+  
+  amount              Float
+  status              String            @default("PENDING") // PENDING, APPROVED, SETTLED, REJECTED
+  paymentMethod       String            @default("UPI") // UPI, BANK_TRANSFER
+  upiId               String?
+  accountNumber       String?
+  requestedAt         DateTime          @default(now())
+  processedAt         DateTime?
+  transactionRef      String?
+  notes               String?
+}
+
+model AmbassadorReward {
+  id                  String            @id @default(cuid())
+  ambassadorProfileId String
+  ambassadorProfile   AmbassadorProfile @relation(fields: [ambassadorProfileId], references: [id], onDelete: Cascade)
+  
+  title               String
+  badge               String
+  description         String
+  status              String            @default("UNLOCKED") // UNLOCKED, CLAIMED
+  achievedAt          DateTime          @default(now())
+}
+
+model AmbassadorNotification {
+  id                  String            @id @default(cuid())
+  ambassadorProfileId String
+  ambassadorProfile   AmbassadorProfile @relation(fields: [ambassadorProfileId], references: [id], onDelete: Cascade)
+  
+  title               String
+  message             String
+  type                String            @default("COMMISSION") // COMMISSION, TIER, PAYOUT, REWARD, SYSTEM
+  referenceId         String?
+  isRead              Boolean           @default(false)
+  createdAt           DateTime          @default(now())
 }
 
 enum VerificationStatus {
@@ -232,30 +290,36 @@ enum OrderStatus {
 }
 
 model Order {
-  id                String   @id @default(cuid())
-  customerProfileId String?
-  customerProfile   CustomerProfile? @relation(fields: [customerProfileId], references: [id])
+  id                  String   @id @default(cuid())
+  customerProfileId   String?
+  customerProfile     CustomerProfile? @relation(fields: [customerProfileId], references: [id])
   
-  customerName      String
-  customerPhone     String
+  customerName        String
+  customerPhone       String
   
-  studioProfileId   String?
-  studioProfile     StudioProfile?  @relation(fields: [studioProfileId], references: [id])
-  assignedStudio    String?
+  studioProfileId     String?
+  studioProfile       StudioProfile?  @relation(fields: [studioProfileId], references: [id])
+  assignedStudio      String?
   
-  totalAmount       Float
-  status            OrderStatus     @default(PLACED)
-  shippingAddress   String
-  deliveryType      String?         @default("Shipping") // "Direct Delivery" or "Shipping"
+  ambassadorProfileId String?
+  ambassadorProfile   AmbassadorProfile? @relation(fields: [ambassadorProfileId], references: [id])
+  referralCode        String?
+  referralDiscount    Float?          @default(0.0)
+  commissionEarned    Float?          @default(0.0)
   
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  totalAmount         Float
+  status              OrderStatus     @default(PLACED)
+  shippingAddress     String
+  deliveryType        String?         @default("Shipping") // "Direct Delivery" or "Shipping"
   
-  items             OrderItem[]
-  history           OrderStatusHistory[]
-  deliveryInfo      DeliveryInfo?
-  transaction       Transaction?
-  commission        Commission?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+  
+  items               OrderItem[]
+  history             OrderStatusHistory[]
+  deliveryInfo        DeliveryInfo?
+  transaction         Transaction?
+  commission          Commission?
 }
 
 model OrderStatusHistory {

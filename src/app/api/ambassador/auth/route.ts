@@ -86,68 +86,59 @@ export async function POST(req: Request) {
       );
     }
 
-    // 1. Try finding Ambassador in Database
-    let dbAmbassador = await prisma.ambassadorProfile.findFirst({
+    // 1. Try finding User by phone
+    let targetUser = await prisma.user.findFirst({
       where: {
-        user: {
-          OR: [
-            { phone: `+91 ${cleanMobile}` },
-            { phone: cleanMobile },
-            { phone: { endsWith: cleanMobile } },
-          ],
-        },
+        OR: [
+          { phone: `+91 ${cleanMobile}` },
+          { phone: cleanMobile },
+          { phone: { contains: cleanMobile } },
+        ],
       },
-      include: { user: true },
+      include: {
+        ambassadorProfile: true,
+      },
     });
 
-    // 2. If not yet in database, find in default list or create
+    let dbAmbassador = targetUser?.ambassadorProfile || null;
+
+    // 2. If user exists but ambassadorProfile is missing, look up by referral code or create
     const defaultMatch = DEFAULT_AMBASSADORS.find(
       (a) => a.phone === cleanMobile || a.phone.slice(-10) === cleanMobile
     );
 
-    if (!dbAmbassador && defaultMatch) {
-      try {
-        // Create user & ambassador profile
-        const createdUser = await prisma.user.upsert({
-          where: { phone: `+91 ${cleanMobile}` },
-          update: {
-            name: defaultMatch.name,
-            role: "AMBASSADOR",
-            password: defaultMatch.defaultPin,
-          },
-          create: {
-            name: defaultMatch.name,
-            phone: `+91 ${cleanMobile}`,
-            email: defaultMatch.email,
-            role: "AMBASSADOR",
-            password: defaultMatch.defaultPin,
-          },
-        });
+    if (targetUser && !dbAmbassador && defaultMatch) {
+      dbAmbassador = await prisma.ambassadorProfile.create({
+        data: {
+          userId: targetUser.id,
+          referralCode: defaultMatch.promoCode,
+          college: defaultMatch.college,
+          rank: defaultMatch.rank as any,
+          totalEarned: defaultMatch.earnings,
+          balance: defaultMatch.balance,
+        },
+      });
+    } else if (!targetUser && defaultMatch) {
+      targetUser = await prisma.user.create({
+        data: {
+          name: defaultMatch.name,
+          phone: `+91 ${cleanMobile}`,
+          email: defaultMatch.email,
+          role: "AMBASSADOR",
+          password: defaultMatch.defaultPin,
+        },
+      });
 
-        const createdProfile = await prisma.ambassadorProfile.upsert({
-          where: { userId: createdUser.id },
-          update: {
-            referralCode: defaultMatch.promoCode,
-            college: defaultMatch.college,
-            rank: defaultMatch.rank as any,
-            totalEarned: defaultMatch.earnings,
-            balance: defaultMatch.balance,
-          },
-          create: {
-            userId: createdUser.id,
-            referralCode: defaultMatch.promoCode,
-            college: defaultMatch.college,
-            rank: defaultMatch.rank as any,
-            totalEarned: defaultMatch.earnings,
-            balance: defaultMatch.balance,
-          },
-          include: { user: true },
-        });
-
-        dbAmbassador = createdProfile;
-      } catch (err) {
-        console.warn("DB ambassador bootstrap note:", err);
-      }
+      dbAmbassador = await prisma.ambassadorProfile.create({
+        data: {
+          userId: targetUser.id,
+          referralCode: defaultMatch.promoCode,
+          college: defaultMatch.college,
+          rank: defaultMatch.rank as any,
+          totalEarned: defaultMatch.earnings,
+          balance: defaultMatch.balance,
+        },
+      });
     }
 
     // 3. Check password / PIN verification
@@ -174,16 +165,17 @@ export async function POST(req: Request) {
     }
 
     // 4. Build ambassador session data
-    const ambName = dbAmbassador?.user?.name || defaultMatch?.name || `Ambassador (${cleanMobile.slice(-4)})`;
+    const ambUserId = targetUser?.id || dbAmbassador?.userId || `usr_amb_${cleanMobile}`;
+    const ambName = targetUser?.name || dbAmbassador?.user?.name || defaultMatch?.name || `Ambassador (${cleanMobile.slice(-4)})`;
     const ambCollege = dbAmbassador?.college || defaultMatch?.college || "Campus Representative";
     const ambPromo = dbAmbassador?.referralCode || defaultMatch?.promoCode || `AMB${cleanMobile.slice(-4)}`;
-    const ambEmail = dbAmbassador?.user?.email || defaultMatch?.email || `${cleanMobile}@pixello.store`;
+    const ambEmail = targetUser?.email || dbAmbassador?.user?.email || defaultMatch?.email || `${cleanMobile}@pixello.store`;
     const ambRank = dbAmbassador?.rank || defaultMatch?.rank || "GOLD";
     const ambEarned = dbAmbassador?.totalEarned || defaultMatch?.earnings || 6400;
     const ambBalance = dbAmbassador?.balance || defaultMatch?.balance || 4250;
 
     const token = createCustomerToken({
-      userId: dbAmbassador?.userId || `amb_${cleanMobile}`,
+      userId: ambUserId,
       phone: `+91 ${cleanMobile}`,
       email: ambEmail,
       name: ambName,

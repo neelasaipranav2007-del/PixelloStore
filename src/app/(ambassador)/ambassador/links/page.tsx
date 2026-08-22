@@ -15,70 +15,55 @@ export default function AmbassadorLinksPage() {
   const [qrDataUrl, setQrDataUrl] = useState<string>("");
   const [isGenerating, setIsGenerating] = useState(false);
 
-  // Ambassador Profile Details
   const [ambassadorProfile, setAmbassadorProfile] = useState({
-    name: "Sai Rohan",
-    college: "Aurora Deemed to Be University",
+    name: "Campus Ambassador",
+    college: "Campus Partner",
   });
 
-  // Live Admin Promo Code & Referral Link Configurations
-  const [promoConfig, setPromoConfig] = useState(() => {
-    if (typeof window !== "undefined") {
-      const saved = localStorage.getItem("pixello_ambassador_promo_config");
-      if (saved) {
-        try {
-          return JSON.parse(saved);
-        } catch (e) {
-          console.error(e);
-        }
-      }
-    }
-    return {
-      promoCode: "SAIROHAN10",
-      baseUrl: "https://pixellostore.com/ref/",
-      discountPercent: "10%",
-      commissionPercent: "10%",
-    };
+  const [promoConfig, setPromoConfig] = useState({
+    promoCode: "AMB10",
+    baseUrl: "https://pixellostore.com/ref/",
+    discountPercent: "10% OFF",
+    commissionPercent: "10%",
   });
 
-  useEffect(() => {
-    const syncConfig = () => {
-      if (typeof window !== "undefined") {
-        const saved = localStorage.getItem("pixello_ambassador_promo_config");
-        if (saved) {
-          try {
-            setPromoConfig(JSON.parse(saved));
-          } catch (e) {
-            console.error(e);
+  const fetchLinksData = async () => {
+    try {
+      const token = typeof window !== "undefined" ? localStorage.getItem("pixello_ambassador_token") : null;
+      const headers: Record<string, string> = {};
+      if (token) headers["Authorization"] = `Bearer ${token}`;
+
+      const res = await fetch("/api/ambassador/links", { headers });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success) {
+          setAmbassadorProfile({
+            name: data.ambassadorName,
+            college: data.college,
+          });
+          setPromoConfig({
+            promoCode: data.promoCode,
+            baseUrl: data.referralUrl.replace(data.promoCode, ""),
+            discountPercent: data.discountPercent,
+            commissionPercent: data.commissionPercent,
+          });
+          if (data.qrCodeDataUrl) {
+            setQrDataUrl(data.qrCodeDataUrl);
           }
         }
-        const savedProfile = localStorage.getItem("pixello_ambassador_profile");
-        if (savedProfile) {
-          try {
-            const parsed = JSON.parse(savedProfile);
-            if (parsed.name) {
-              setAmbassadorProfile({
-                name: parsed.name,
-                college: parsed.college || "Campus Partner",
-              });
-            }
-            if (parsed.promoCode && !saved) {
-              setPromoConfig((prev: any) => ({ ...prev, promoCode: parsed.promoCode }));
-            }
-          } catch (e) {}
-        }
       }
-    };
-    syncConfig();
-    window.addEventListener("pixello_promo_config_updated", syncConfig);
-    window.addEventListener("pixello_ambassador_profile_updated", syncConfig);
-    window.addEventListener("pixello_ambassadors_updated", syncConfig);
-    window.addEventListener("storage", syncConfig);
+    } catch (e) {
+      console.error("Error loading links data:", e);
+    }
+  };
+
+  useEffect(() => {
+    fetchLinksData();
+
+    const handleSync = () => fetchLinksData();
+    window.addEventListener("pixello_ambassador_profile_updated", handleSync);
     return () => {
-      window.removeEventListener("pixello_promo_config_updated", syncConfig);
-      window.removeEventListener("pixello_ambassador_profile_updated", syncConfig);
-      window.removeEventListener("pixello_ambassadors_updated", syncConfig);
-      window.removeEventListener("storage", syncConfig);
+      window.removeEventListener("pixello_ambassador_profile_updated", handleSync);
     };
   }, []);
 

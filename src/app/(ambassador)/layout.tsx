@@ -13,93 +13,78 @@ import { useOrders } from "@/context/OrderContext";
 export default function AmbassadorLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
-  const { orders } = useOrders();
-  const [profile, setProfile] = useState({
-    name: "Sree Charani Grandhe",
-    college: "Aurora Deemed To Be A University",
+  const [profile, setProfile] = useState<{
+    name: string;
+    college: string;
+    tier: string;
+    balance: number;
+    referralCode: string;
+  }>({
+    name: "Campus Ambassador",
+    college: "Campus Partner",
+    tier: "Gold Tier",
+    balance: 0,
+    referralCode: "",
   });
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
 
-  const [payoutHistory, setPayoutHistory] = useState<any[]>(() => {
-    if (typeof window !== "undefined") {
-      const saved = localStorage.getItem("pixello_ambassador_payouts_v1");
-      if (saved) {
-        try {
-          const parsed = JSON.parse(saved);
-          if (Array.isArray(parsed)) return parsed;
-        } catch (e) {}
+  const fetchAmbassadorProfile = async () => {
+    try {
+      const token = typeof window !== "undefined" ? localStorage.getItem("pixello_ambassador_token") : null;
+      const headers: Record<string, string> = {};
+      if (token) headers["Authorization"] = `Bearer ${token}`;
+
+      const res = await fetch("/api/ambassador/me", { headers });
+      if (res.status === 401) {
+        setIsAuthenticated(false);
+        if (pathname !== "/ambassador/login") {
+          router.push(`/ambassador/login?redirect=${encodeURIComponent(pathname)}`);
+        }
+        return;
       }
+
+      const data = await res.json();
+      if (data.success && data.ambassador) {
+        setIsAuthenticated(true);
+        setProfile({
+          name: data.ambassador.name,
+          college: data.ambassador.college,
+          tier: `${data.ambassador.rank.charAt(0)}${data.ambassador.rank.slice(1).toLowerCase()} Tier`,
+          balance: data.ambassador.balance,
+          referralCode: data.ambassador.referralCode,
+        });
+      }
+    } catch (e) {
+      console.error("Error loading ambassador profile:", e);
     }
-    return [];
-  });
-
-  const totalBalance = useMemo(() => {
-    const liveReferred = (orders || []).filter((o) => Boolean(o.referralCode));
-    const liveCommissionTotal = liveReferred.reduce((sum, o) => {
-      if (o.status === "Cancelled") return sum;
-      return sum + Math.round((o.totalAmount || 0) * 0.10);
-    }, 0);
-
-    const settledPayoutsTotal = payoutHistory
-      .filter((p) => p.status === "SETTLED")
-      .reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
-
-    const pendingPayoutsTotal = payoutHistory
-      .filter((p) => p.status === "PENDING")
-      .reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
-
-    return Math.max(0, 4250 + liveCommissionTotal - settledPayoutsTotal - pendingPayoutsTotal);
-  }, [orders, payoutHistory]);
+  };
 
   useEffect(() => {
-    const checkAuthAndLoadProfile = () => {
-      if (typeof window !== "undefined") {
-        const isAuth = localStorage.getItem("pixello_ambassador_authenticated") === "true";
-        setIsAuthenticated(isAuth);
+    if (pathname === "/ambassador/login") return;
 
-        if (!isAuth && pathname !== "/ambassador/login") {
-          router.push(`/ambassador/login?redirect=${encodeURIComponent(pathname)}`);
-          return;
-        }
+    fetchAmbassadorProfile();
 
-        const saved = localStorage.getItem("pixello_ambassador_profile");
-        if (saved) {
-          try {
-            const parsed = JSON.parse(saved);
-            if (parsed.name) {
-              setProfile(parsed);
-            }
-          } catch (e) {
-            console.error(e);
-          }
-        }
-        const savedPayouts = localStorage.getItem("pixello_ambassador_payouts_v1");
-        if (savedPayouts) {
-          try {
-            setPayoutHistory(JSON.parse(savedPayouts));
-          } catch (e) {}
-        }
-      }
+    const handleProfileSync = () => {
+      fetchAmbassadorProfile();
     };
 
-    checkAuthAndLoadProfile();
-    window.addEventListener("pixello_ambassador_authenticated", checkAuthAndLoadProfile);
-    window.addEventListener("pixello_ambassador_profile_updated", checkAuthAndLoadProfile);
-    window.addEventListener("pixello_payout_requested", checkAuthAndLoadProfile);
-    window.addEventListener("storage", checkAuthAndLoadProfile);
+    window.addEventListener("pixello_ambassador_profile_updated", handleProfileSync);
+    window.addEventListener("pixello_payout_requested", handleProfileSync);
+    window.addEventListener("pixello_orders_updated", handleProfileSync);
     return () => {
-      window.removeEventListener("pixello_ambassador_authenticated", checkAuthAndLoadProfile);
-      window.removeEventListener("pixello_ambassador_profile_updated", checkAuthAndLoadProfile);
-      window.removeEventListener("pixello_payout_requested", checkAuthAndLoadProfile);
-      window.removeEventListener("storage", checkAuthAndLoadProfile);
+      window.removeEventListener("pixello_ambassador_profile_updated", handleProfileSync);
+      window.removeEventListener("pixello_payout_requested", handleProfileSync);
+      window.removeEventListener("pixello_orders_updated", handleProfileSync);
     };
-  }, [pathname, router]);
+  }, [pathname]);
 
   const handleSignOut = () => {
     if (typeof window !== "undefined") {
       localStorage.removeItem("pixello_ambassador_authenticated");
       localStorage.removeItem("pixello_ambassador_token");
       localStorage.removeItem("pixello_ambassador_profile");
+      localStorage.removeItem("pixello_ambassador_promo_config");
+      document.cookie = "pixello_ambassador_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
       window.dispatchEvent(new Event("storage"));
     }
     router.push("/ambassador/login");
@@ -193,7 +178,7 @@ export default function AmbassadorLayout({ children }: { children: React.ReactNo
 
           <div className="flex items-center gap-4">
             <div className="text-xs font-semibold text-[#6C5C54] bg-[#FFF8F2] border border-[#EFE6DD] px-3.5 py-1.5 rounded-full flex items-center gap-1.5">
-              Available Balance: <span suppressHydrationWarning className="text-emerald-600 font-extrabold">₹{totalBalance.toLocaleString("en-IN")}</span>
+              Available Balance: <span suppressHydrationWarning className="text-emerald-600 font-extrabold">₹{profile.balance.toLocaleString("en-IN")}</span>
             </div>
 
             <Link href="/products" target="_blank">
@@ -214,7 +199,7 @@ export default function AmbassadorLayout({ children }: { children: React.ReactNo
                       <p className="text-xs font-bold text-[#3A2B24]">{profile.name}</p>
                       <ChevronDown className="h-3 w-3 text-[#6C5C54]" />
                     </div>
-                    <p className="text-[10px] text-[#D89A86] font-extrabold">{profile.college} • Gold Tier</p>
+                    <p className="text-[10px] text-[#D89A86] font-extrabold">{profile.college} • {profile.tier}</p>
                   </div>
                 </div>
               </DropdownMenuTrigger>
@@ -226,11 +211,11 @@ export default function AmbassadorLayout({ children }: { children: React.ReactNo
                     <div className="flex items-center justify-between mb-1">
                       <span className="text-xs font-bold text-[#D89A86]">{profile.name}</span>
                       <span className="text-[10px] bg-[#FFF8F2]/15 text-[#FFF8F2] font-bold px-2 py-0.5 rounded-full border border-[#D89A86]/40">
-                        Gold Tier
+                        {profile.tier}
                       </span>
                     </div>
                     <p className="text-[11px] text-[#EFE6DD] font-medium">{profile.college}</p>
-                    <p className="text-[10px] text-emerald-300 font-bold mt-1">₹4,250 Wallet Balance</p>
+                    <p className="text-[10px] text-emerald-300 font-bold mt-1">₹{profile.balance.toLocaleString("en-IN")} Wallet Balance</p>
                   </div>
                 </Link>
 
