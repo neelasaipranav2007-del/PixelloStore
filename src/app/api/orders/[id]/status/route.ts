@@ -5,12 +5,25 @@ import { OrderStatus } from "@prisma/client";
 
 export const dynamic = "force-dynamic";
 
+function mapUiStatusToDb(uiStatus: string): OrderStatus {
+  const s = (uiStatus || "").trim().toUpperCase();
+  if (s === "DELIVERED") return "DELIVERED";
+  if (s === "CANCELLED" || s === "CANCELED") return "CANCELLED";
+  if (s === "OUT FOR DELIVERY" || s === "OUT_FOR_DELIVERY") return "OUT_FOR_DELIVERY";
+  if (s === "DELIVERY PICKED UP" || s === "PICKED_UP" || s === "PICKED UP") return "PICKED_UP";
+  if (s === "PACKED" || s === "QUALITY_CHECK") return "QUALITY_CHECK";
+  if (s === "PRINTING") return "PRINTING";
+  if (s === "REPLACEMENT" || s === "REPLACEMENT REQUESTED" || s === "REPLACEMENT_REQUESTED") return "PLACED";
+  return "PLACED";
+}
+
 export async function PATCH(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id: orderId } = await params;
+    const { id: rawOrderId } = await params;
+    const orderId = decodeURIComponent(rawOrderId);
     const body = await req.json();
     const { status, note } = body;
 
@@ -21,26 +34,39 @@ export async function PATCH(
       );
     }
 
-    // Map UI status strings to DB OrderStatus enum if needed
-    let dbStatus: OrderStatus = status as OrderStatus;
-    if (status === "Processing") dbStatus = "PLACED";
-    if (status === "Printing") dbStatus = "PRINTING";
-    if (status === "Packed") dbStatus = "QUALITY_CHECK";
-    if (status === "Delivery Picked Up") dbStatus = "PICKED_UP";
-    if (status === "Out for Delivery") dbStatus = "OUT_FOR_DELIVERY";
-    if (status === "Delivered") dbStatus = "DELIVERED";
-    if (status === "Cancelled") dbStatus = "CANCELLED";
+    const dbStatus = mapUiStatusToDb(status);
 
     const updatedOrder = await prisma.$transaction(async (tx) => {
-      // 1. Update Order Status
-      const order = await tx.order.update({
+      // 1. Find Order by exact ID or flexible match
+      let targetOrder = await tx.order.findUnique({
         where: { id: orderId },
+      });
+
+      if (!targetOrder) {
+        targetOrder = await tx.order.findFirst({
+          where: {
+            OR: [
+              { id: orderId.toUpperCase() },
+              { id: orderId.toLowerCase() },
+              { id: { contains: orderId } },
+            ],
+          },
+        });
+      }
+
+      if (!targetOrder) {
+        return null;
+      }
+
+      // 2. Update Order Status
+      const order = await tx.order.update({
+        where: { id: targetOrder.id },
         data: {
           status: dbStatus,
         },
       });
 
-      // 2. Append OrderStatusHistory Entry
+      // 3. Append OrderStatusHistory Entry
       await tx.orderStatusHistory.create({
         data: {
           orderId: order.id,
@@ -49,8 +75,8 @@ export async function PATCH(
         },
       });
 
-      // 3. Create or update Delivery assignment when READY_FOR_PICKUP / PICKED_UP
-      if (dbStatus === "READY_FOR_PICKUP" || dbStatus === "PICKED_UP" || dbStatus === "OUT_FOR_DELIVERY" || dbStatus === "DELIVERED") {
+      // 4. Create or update Delivery assignment when PICKED_UP / OUT_FOR_DELIVERY / DELIVERED
+      if (dbStatus === "PICKED_UP" || dbStatus === "OUT_FOR_DELIVERY" || dbStatus === "DELIVERED") {
         await tx.deliveryInfo.upsert({
           where: { orderId: order.id },
           update: {
@@ -70,8 +96,16 @@ export async function PATCH(
       return order;
     });
 
-    // Broadcast real-time update
+    if (!updatedOrder) {
+      return NextResponse.json(
+        { success: false, error: `Order #${orderId} not found in database` },
+        { status: 404 }
+      );
+    }
+
+    // Broadcast real-time update to all listeners
     portalEvents.emit("order_change", { action: "STATUS_UPDATE", orderId: updatedOrder.id, status: dbStatus });
+    portalEvents.emit("order_update", { action: "STATUS_UPDATE", orderId: updatedOrder.id, status: dbStatus });
 
     return NextResponse.json({ success: true, order: updatedOrder });
   } catch (error: any) {

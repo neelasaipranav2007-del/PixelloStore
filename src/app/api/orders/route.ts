@@ -2,8 +2,34 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { portalEvents } from "@/lib/events";
 import { getAuthenticatedUser } from "@/lib/session";
+import { OrderStatus } from "@prisma/client";
 
 export const dynamic = "force-dynamic";
+
+function mapDbStatusToUi(dbStatus: string): string {
+  const s = (dbStatus || "").trim().toUpperCase();
+  if (s === "DELIVERED") return "Delivered";
+  if (s === "CANCELLED" || s === "CANCELED") return "Cancelled";
+  if (s === "REPLACEMENT" || s === "REPLACEMENT_REQUESTED" || s === "REPLACEMENT REQUESTED") return "Replacement Requested";
+  if (s === "OUT_FOR_DELIVERY" || s === "OUT FOR DELIVERY") return "Out for Delivery";
+  if (s === "PICKED_UP" || s === "DELIVERY PICKED UP" || s === "DELIVERY_PICKED_UP") return "Delivery Picked Up";
+  if (s === "QUALITY_CHECK" || s === "PACKED") return "Packed";
+  if (s === "PRINTING" || s === "FRAMING") return "Printing";
+  if (s === "OUT_OF_STOCK") return "Out of Stock (Refill Pending)";
+  return "Processing";
+}
+
+function mapUiStatusToDb(uiStatus: string): OrderStatus {
+  const s = (uiStatus || "").trim().toUpperCase();
+  if (s === "DELIVERED") return "DELIVERED";
+  if (s === "CANCELLED" || s === "CANCELED") return "CANCELLED";
+  if (s === "OUT FOR DELIVERY" || s === "OUT_FOR_DELIVERY") return "OUT_FOR_DELIVERY";
+  if (s === "DELIVERY PICKED UP" || s === "PICKED_UP" || s === "PICKED UP") return "PICKED_UP";
+  if (s === "PACKED" || s === "QUALITY_CHECK") return "QUALITY_CHECK";
+  if (s === "PRINTING") return "PRINTING";
+  if (s === "REPLACEMENT" || s === "REPLACEMENT REQUESTED" || s === "REPLACEMENT_REQUESTED") return "PLACED";
+  return "PLACED";
+}
 
 export async function GET(req: Request) {
   try {
@@ -66,11 +92,16 @@ export async function GET(req: Request) {
         customerName: o.customerName,
         customerPhone: o.customerPhone,
         totalAmount: o.totalAmount,
-        status: o.status,
+        subtotal: o.totalAmount,
+        status: mapDbStatusToUi(o.status),
         assignedStudio: o.assignedStudio || "Studio Alpha (Central Powai Branch)",
         deliveryAddress: o.shippingAddress,
         items: parsedItems,
         deliveryPartner: o.deliveryInfo?.deliveryPartnerName || "Ramesh Kumar",
+        referralCode: o.referralCode || undefined,
+        referralDiscount: o.referralDiscount || undefined,
+        paymentMethod: o.transaction?.paymentMethod || "COD",
+        deliveryType: (o.deliveryType as any) || "Shipping",
       };
     });
 
@@ -102,52 +133,42 @@ export async function POST(req: Request) {
       items,
       totalAmount,
       referralCode,
-      assignedStudio,
+      paymentMethod,
+      deliveryType,
     } = body;
+
+    const authenticatedCustomerName = user.name || bodyName || "Verified Customer";
+    const authenticatedCustomerPhone = user.phone || bodyPhone || "Customer";
 
     if (!items || !Array.isArray(items) || items.length === 0) {
       return NextResponse.json(
-        { success: false, error: "Order must contain at least one item." },
+        { success: false, error: "Cart is empty. Please add items before placing order." },
         { status: 400 }
       );
     }
 
-    // Assign customer details strictly from authenticated database user
-    const authenticatedCustomerName = user.name || bodyName || "Customer";
-    const authenticatedCustomerPhone = user.phone || bodyPhone || "+91 9999999999";
-    const authenticatedCustomerProfileId = user.customerProfile?.id || null;
+    // Generate readable PXL Order ID format
+    const cleanPhoneDigits = (authenticatedCustomerPhone || "").replace(/\D/g, "");
+    const last4Phone = cleanPhoneDigits.length >= 4 ? cleanPhoneDigits.slice(-4) : "1000";
+    const pincodeMatch = (deliveryAddress || "").match(/\b\d{6}\b/) || (deliveryAddress || "").match(/\b\d{4,6}\b/);
+    const last4Pincode = pincodeMatch ? pincodeMatch[0].slice(-4) : "5000";
+    const randomSuffix = Math.floor(100 + Math.random() * 900);
+    const generatedOrderId = `PXL-${last4Phone}-${last4Pincode}-${randomSuffix}`;
 
-    const cleanPhone = authenticatedCustomerPhone.replace(/\D/g, "");
-    const last4Phone = cleanPhone.length >= 4 ? cleanPhone.slice(-4) : "1234";
-
-    const addressStr = deliveryAddress || "";
-    const pincodeMatch = addressStr.match(/\b\d{6}\b/) || addressStr.match(/\b\d{4,6}\b/);
-    let last4Pincode = "5000";
-    if (pincodeMatch) {
-      last4Pincode = pincodeMatch[0].slice(-4);
-    } else {
-      const cleanAddrDigits = addressStr.replace(/\D/g, "");
-      if (cleanAddrDigits.length >= 4) {
-        last4Pincode = cleanAddrDigits.slice(-4);
-      }
-    }
-
-    const orderId = `PXL-${last4Phone}-${last4Pincode}`;
-    const studioName = assignedStudio || "Studio Alpha (Central Powai Branch)";
-
-    // Use Prisma Transaction for ACID Order Creation
     const createdOrder = await prisma.$transaction(async (tx) => {
-      // 1. Create Main Order linked strictly to authenticated customerProfile
+      // 1. Create main Order in DB
       const newOrder = await tx.order.create({
         data: {
-          id: orderId,
-          customerProfileId: authenticatedCustomerProfileId,
+          id: generatedOrderId,
+          customerProfileId: user.customerProfile?.id,
           customerName: authenticatedCustomerName,
           customerPhone: authenticatedCustomerPhone,
           totalAmount: Number(totalAmount) || 0,
           status: "PLACED",
-          assignedStudio: studioName,
+          deliveryType: deliveryType || "Shipping",
+          assignedStudio: "Studio Alpha (Central Powai Branch)",
           shippingAddress: deliveryAddress || "CHRISTIANS COLONY, HASTINAPURAM, Sarada Nagar, Hyderabad",
+          referralCode: referralCode ? referralCode.toUpperCase() : null,
           items: {
             create: items.map((it: any) => ({
               name: it.name || "Custom Frame",
@@ -167,7 +188,7 @@ export async function POST(req: Request) {
           transaction: {
             create: {
               amount: Number(totalAmount) || 0,
-              paymentMethod: "UPI",
+              paymentMethod: paymentMethod || "COD",
               status: "SUCCESS",
             },
           },
@@ -223,10 +244,94 @@ export async function POST(req: Request) {
 
     // Broadcast real-time event to all connected portals
     portalEvents.emit("order_change", { action: "CREATE", orderId: createdOrder.id });
+    portalEvents.emit("order_update", { action: "CREATE", orderId: createdOrder.id });
 
     return NextResponse.json({ success: true, order: createdOrder });
   } catch (error: any) {
     console.error("Error creating order:", error);
+    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+  }
+}
+
+export async function PATCH(req: Request) {
+  try {
+    const body = await req.json();
+    const { orderId, id, status, note } = body;
+    const targetId = orderId || id;
+
+    if (!targetId || !status) {
+      return NextResponse.json(
+        { success: false, error: "Missing orderId or status" },
+        { status: 400 }
+      );
+    }
+
+    const dbStatus = mapUiStatusToDb(status);
+
+    const updated = await prisma.$transaction(async (tx) => {
+      let targetOrder = await tx.order.findUnique({
+        where: { id: targetId },
+      });
+
+      if (!targetOrder) {
+        targetOrder = await tx.order.findFirst({
+          where: {
+            OR: [
+              { id: targetId.toUpperCase() },
+              { id: targetId.toLowerCase() },
+              { id: { contains: targetId } },
+            ],
+          },
+        });
+      }
+
+      if (!targetOrder) {
+        return null;
+      }
+
+      const order = await tx.order.update({
+        where: { id: targetOrder.id },
+        data: { status: dbStatus },
+      });
+
+      await tx.orderStatusHistory.create({
+        data: {
+          orderId: order.id,
+          status: dbStatus,
+          note: note || `Order status updated to ${status}`,
+        },
+      });
+
+      if (dbStatus === "PICKED_UP" || dbStatus === "OUT_FOR_DELIVERY" || dbStatus === "DELIVERED") {
+        await tx.deliveryInfo.upsert({
+          where: { orderId: order.id },
+          update: {
+            deliveryPartnerName: "Ramesh Kumar",
+            ...(dbStatus === "PICKED_UP" ? { pickupTime: new Date() } : {}),
+            ...(dbStatus === "DELIVERED" ? { deliveryTime: new Date() } : {}),
+          },
+          create: {
+            orderId: order.id,
+            deliveryPartnerName: "Ramesh Kumar",
+            ...(dbStatus === "PICKED_UP" ? { pickupTime: new Date() } : {}),
+            ...(dbStatus === "DELIVERED" ? { deliveryTime: new Date() } : {}),
+          },
+        });
+      }
+
+      return order;
+    });
+
+    if (!updated) {
+      return NextResponse.json({ success: false, error: "Order not found" }, { status: 404 });
+    }
+
+    portalEvents.emit("order_change", { action: "STATUS_UPDATE", orderId: updated.id, status: dbStatus });
+    portalEvents.emit("order_update", { action: "STATUS_UPDATE", orderId: updated.id, status: dbStatus });
+
+    return NextResponse.json({ success: true, order: updated });
+  } catch (error: any) {
+    console.error("Error updating order status:", error);
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });
   }
 }
