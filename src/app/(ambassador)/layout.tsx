@@ -3,30 +3,55 @@
 import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { LayoutDashboard, Users, Trophy, Wallet, User, LogOut, Link2, Heart, Sparkles, ShoppingBag, ExternalLink, ChevronDown } from "lucide-react";
+import { LayoutDashboard, Users, Trophy, Wallet, User, LogOut, Link2, Heart, Sparkles, ShoppingBag, ExternalLink, ChevronDown, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
-import { useOrders } from "@/context/OrderContext";
 
 export default function AmbassadorLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
+
   const [profile, setProfile] = useState<{
     name: string;
     college: string;
     tier: string;
     balance: number;
     referralCode: string;
-  }>({
-    name: "Campus Ambassador",
-    college: "Campus Partner",
-    tier: "Gold Tier",
-    balance: 0,
-    referralCode: "",
+  }>(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("pixello_ambassador_profile");
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          return {
+            name: parsed.name || "Campus Ambassador",
+            college: parsed.college || "Campus Partner",
+            tier: `${(parsed.rank || "GOLD").charAt(0)}${(parsed.rank || "GOLD").slice(1).toLowerCase()} Tier`,
+            balance: parsed.balance || 0,
+            referralCode: parsed.referralCode || parsed.promoCode || "",
+          };
+        } catch (e) {}
+      }
+    }
+    return {
+      name: "Campus Ambassador",
+      college: "Campus Partner",
+      tier: "Gold Tier",
+      balance: 0,
+      referralCode: "",
+    };
   });
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
+
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(() => {
+    if (typeof window !== "undefined") {
+      const isAuth = localStorage.getItem("pixello_ambassador_authenticated") === "true";
+      const hasToken = Boolean(localStorage.getItem("pixello_ambassador_token"));
+      return isAuth && hasToken;
+    }
+    return null;
+  });
 
   const fetchAmbassadorProfile = async () => {
     try {
@@ -38,7 +63,11 @@ export default function AmbassadorLayout({ children }: { children: React.ReactNo
       if (res.status === 401) {
         setIsAuthenticated(false);
         if (pathname !== "/ambassador/login") {
-          router.push(`/ambassador/login?redirect=${encodeURIComponent(pathname)}`);
+          if (typeof window !== "undefined") {
+            window.location.replace(`/ambassador/login?redirect=${encodeURIComponent(pathname)}`);
+          } else {
+            router.push(`/ambassador/login?redirect=${encodeURIComponent(pathname)}`);
+          }
         }
         return;
       }
@@ -53,6 +82,10 @@ export default function AmbassadorLayout({ children }: { children: React.ReactNo
           balance: data.ambassador.balance,
           referralCode: data.ambassador.referralCode,
         });
+        if (typeof window !== "undefined") {
+          localStorage.setItem("pixello_ambassador_authenticated", "true");
+          localStorage.setItem("pixello_ambassador_profile", JSON.stringify(data.ambassador));
+        }
       }
     } catch (e) {
       console.error("Error loading ambassador profile:", e);
@@ -82,22 +115,50 @@ export default function AmbassadorLayout({ children }: { children: React.ReactNo
     if (typeof window !== "undefined") {
       localStorage.removeItem("pixello_ambassador_authenticated");
       localStorage.removeItem("pixello_ambassador_token");
+      localStorage.removeItem("pixello_auth_token");
       localStorage.removeItem("pixello_ambassador_profile");
       localStorage.removeItem("pixello_ambassador_promo_config");
       document.cookie = "pixello_ambassador_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
       window.dispatchEvent(new Event("storage"));
+      window.location.replace("/ambassador/login");
     }
-    router.push("/ambassador/login");
   };
 
-  // If on login page, render children without the dashboard layout wrapper
+  // If on login page, render children directly without dashboard shell
   if (pathname === "/ambassador/login") {
     return <>{children}</>;
   }
 
-  // Prevent flash while checking auth
+  // If not authenticated, render clear redirecting view with direct button
   if (isAuthenticated === false) {
-    return null;
+    return (
+      <div className="flex h-screen w-screen flex-col items-center justify-center bg-[#F8F3EE] p-6 text-center">
+        <div className="flex flex-col items-center max-w-sm p-8 bg-white rounded-3xl shadow-sm border border-[#EFE6DD] gap-4">
+          <div className="h-12 w-12 rounded-2xl bg-[#FFF8F2] border border-[#EFE6DD] flex items-center justify-center text-[#D89A86]">
+            <Lock className="h-6 w-6" />
+          </div>
+          <div>
+            <h3 className="font-serif-brand font-bold text-lg text-[#3A2B24]">Ambassador Portal Login Required</h3>
+            <p className="text-xs text-[#6C5C54] mt-1">Please enter your verified ambassador mobile number & PIN to access your personal dashboard.</p>
+          </div>
+          <Link href={`/ambassador/login?redirect=${encodeURIComponent(pathname)}`} className="w-full">
+            <Button className="btn-pixello-primary w-full h-11 rounded-xl text-xs font-bold shadow-xs">
+              Go to Ambassador Login →
+            </Button>
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  // If loading, render elegant loader
+  if (isAuthenticated === null) {
+    return (
+      <div className="flex h-screen w-screen flex-col items-center justify-center bg-[#F8F3EE] gap-3">
+        <div className="h-10 w-10 border-4 border-[#D89A86] border-t-transparent rounded-full animate-spin" />
+        <span className="font-serif-brand font-bold text-sm text-[#3A2B24]">Loading Ambassador Portal...</span>
+      </div>
+    );
   }
 
   const nameParts = profile.name.trim().split(" ");
@@ -138,32 +199,46 @@ export default function AmbassadorLayout({ children }: { children: React.ReactNo
               const isActive = pathname === item.href;
               const Icon = item.icon;
               return (
-                <Link key={item.label} href={item.href}>
-                  <span
-                    className={`flex items-center gap-3 px-3.5 py-3 text-sm transition-all cursor-pointer ${
-                      isActive
-                        ? "bg-[#FFF8F2]/20 text-white font-bold border-l-4 border-[#D89A86] rounded-r-2xl shadow-xs"
-                        : "text-white/90 font-semibold hover:bg-[#FFF8F2]/15 hover:text-white rounded-2xl"
-                    }`}
-                  >
-                    <Icon className={`h-5 w-5 ${isActive ? "text-[#D89A86]" : "text-white"}`} />
-                    {item.label}
-                  </span>
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className={`flex items-center gap-3 px-3.5 py-3 rounded-2xl text-xs font-bold transition-all ${
+                    isActive
+                      ? "bg-[#D89A86] text-white shadow-xs font-extrabold"
+                      : "text-[#EFE6DD]/85 hover:bg-[#FFF8F2]/10 hover:text-white"
+                  }`}
+                >
+                  <Icon className={`h-4 w-4 ${isActive ? "text-white" : "text-[#D89A86]"}`} />
+                  <span>{item.label}</span>
+                  {isActive && (
+                    <span className="ml-auto w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
+                  )}
                 </Link>
               );
             })}
           </nav>
         </div>
 
-        {/* Footer / Sign Out */}
-        <div className="p-4 border-t border-[#4E3D35] bg-[#2E201A]">
-          <Button 
-            onClick={handleSignOut}
-            variant="ghost" 
-            className="w-full justify-start text-white hover:text-white hover:bg-[#FFF8F2]/15 rounded-2xl text-xs font-bold h-11 cursor-pointer"
-          >
-            <LogOut className="h-4 w-4 mr-2.5 text-[#D89A86]" /> Sign Out
-          </Button>
+        {/* Sidebar Footer User Card */}
+        <div className="p-3 border-t border-[#4E3D35] bg-[#2E201A]">
+          <div className="flex items-center gap-3 p-2 rounded-2xl bg-[#3A2B24]/80 border border-[#4E3D35]">
+            <Avatar className="h-9 w-9 border border-[#D89A86]/60">
+              <AvatarFallback className="bg-[#FFF8F2] text-[#3A2B24] font-bold text-xs">
+                {initials}
+              </AvatarFallback>
+            </Avatar>
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-bold text-white truncate">{profile.name}</p>
+              <p className="text-[10px] text-[#D89A86] font-medium truncate">{profile.college}</p>
+            </div>
+            <button
+              onClick={handleSignOut}
+              title="Sign Out"
+              className="p-1.5 text-[#EFE6DD]/60 hover:text-rose-400 hover:bg-rose-950/30 rounded-xl transition-colors"
+            >
+              <LogOut className="h-4 w-4" />
+            </button>
+          </div>
         </div>
       </aside>
 
@@ -275,4 +350,3 @@ export default function AmbassadorLayout({ children }: { children: React.ReactNo
     </div>
   );
 }
-
