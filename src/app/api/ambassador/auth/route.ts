@@ -102,43 +102,72 @@ export async function POST(req: Request) {
 
     let dbAmbassador = targetUser?.ambassadorProfile || null;
 
-    // 2. If user exists but ambassadorProfile is missing, look up by referral code or create
     const defaultMatch = DEFAULT_AMBASSADORS.find(
       (a) => a.phone === cleanMobile || a.phone.slice(-10) === cleanMobile
     );
 
-    if (targetUser && !dbAmbassador && defaultMatch) {
-      dbAmbassador = await prisma.ambassadorProfile.create({
-        data: {
-          userId: targetUser.id,
-          referralCode: defaultMatch.promoCode,
-          college: defaultMatch.college,
-          rank: defaultMatch.rank as any,
-          totalEarned: defaultMatch.earnings,
-          balance: defaultMatch.balance,
+    // 2. If not found by user relation, check if an AmbassadorProfile already exists by promoCode or user phone
+    if (!dbAmbassador && defaultMatch) {
+      dbAmbassador = await prisma.ambassadorProfile.findFirst({
+        where: {
+          OR: [
+            { referralCode: defaultMatch.promoCode },
+            { user: { phone: { contains: cleanMobile } } },
+          ],
         },
-      });
-    } else if (!targetUser && defaultMatch) {
-      targetUser = await prisma.user.create({
-        data: {
-          name: defaultMatch.name,
-          phone: `+91 ${cleanMobile}`,
-          email: defaultMatch.email,
-          role: "AMBASSADOR",
-          password: defaultMatch.defaultPin,
-        },
+        include: { user: true },
       });
 
-      dbAmbassador = await prisma.ambassadorProfile.create({
-        data: {
-          userId: targetUser.id,
-          referralCode: defaultMatch.promoCode,
-          college: defaultMatch.college,
-          rank: defaultMatch.rank as any,
-          totalEarned: defaultMatch.earnings,
-          balance: defaultMatch.balance,
-        },
+      if (dbAmbassador && targetUser && dbAmbassador.userId !== targetUser.id) {
+        try {
+          await prisma.ambassadorProfile.update({
+            where: { id: dbAmbassador.id },
+            data: { userId: targetUser.id },
+          });
+          dbAmbassador.userId = targetUser.id;
+        } catch (e) {
+          console.warn("Relink note:", e);
+        }
+      }
+    }
+
+    // 3. If still not in database and defaultMatch exists, safely create user & profile
+    if (!dbAmbassador && defaultMatch) {
+      if (!targetUser) {
+        targetUser = await prisma.user.create({
+          data: {
+            name: defaultMatch.name,
+            phone: `+91 ${cleanMobile}`,
+            email: defaultMatch.email,
+            role: "AMBASSADOR",
+            password: defaultMatch.defaultPin,
+          },
+        });
+      }
+
+      // Check if promoCode is already taken by another record
+      const existingByCode = await prisma.ambassadorProfile.findUnique({
+        where: { referralCode: defaultMatch.promoCode },
       });
+
+      if (existingByCode) {
+        await prisma.ambassadorProfile.update({
+          where: { id: existingByCode.id },
+          data: { userId: targetUser.id },
+        });
+        dbAmbassador = existingByCode;
+      } else {
+        dbAmbassador = await prisma.ambassadorProfile.create({
+          data: {
+            userId: targetUser.id,
+            referralCode: defaultMatch.promoCode,
+            college: defaultMatch.college,
+            rank: defaultMatch.rank as any,
+            totalEarned: defaultMatch.earnings,
+            balance: defaultMatch.balance,
+          },
+        });
+      }
     }
 
     // 3. Check password / PIN verification
