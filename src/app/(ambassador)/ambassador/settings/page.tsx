@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { User, Mail, Phone, GraduationCap, Building, Save, CheckCircle2, AlertCircle, BookOpen, Calendar, Instagram } from "lucide-react";
+import { User, Mail, Phone, GraduationCap, Building, Save, CheckCircle2, AlertCircle, BookOpen, Calendar, AtSign, Camera } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -207,7 +207,7 @@ export default function AmbassadorSettingsPage() {
 
               <div className="sm:col-span-2">
                 <label className="text-xs font-bold text-[#3A2B24] mb-1.5 flex items-center gap-1.5">
-                  <Instagram className="h-3.5 w-3.5 text-[#D89A86]" /> Instagram Handle
+                  <AtSign className="h-3.5 w-3.5 text-[#D89A86]" /> Instagram Handle
                 </label>
                 <Input 
                   value={profile.instagramHandle} 
