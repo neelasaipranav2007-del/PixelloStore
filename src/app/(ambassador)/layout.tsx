@@ -62,12 +62,15 @@ export default function AmbassadorLayout({ children }: { children: React.ReactNo
       const res = await fetch("/api/ambassador/me", { headers });
       if (res.status === 401) {
         setIsAuthenticated(false);
+        if (typeof window !== "undefined") {
+          localStorage.removeItem("pixello_ambassador_authenticated");
+          localStorage.removeItem("pixello_ambassador_token");
+          localStorage.removeItem("pixello_auth_token");
+          localStorage.removeItem("pixello_ambassador_profile");
+          document.cookie = "pixello_ambassador_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+        }
         if (pathname !== "/ambassador/login") {
-          if (typeof window !== "undefined") {
-            window.location.replace(`/ambassador/login?redirect=${encodeURIComponent(pathname)}`);
-          } else {
-            router.push(`/ambassador/login?redirect=${encodeURIComponent(pathname)}`);
-          }
+          router.replace("/ambassador/login");
         }
         return;
       }

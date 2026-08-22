@@ -48,9 +48,29 @@ export default function AmbassadorLoginPage() {
   useEffect(() => {
     setIsMounted(true);
     if (typeof window !== "undefined") {
-      const isAuth = localStorage.getItem("pixello_ambassador_authenticated");
-      if (isAuth === "true") {
-        router.push(redirectParam || "/ambassador");
+      const token = localStorage.getItem("pixello_ambassador_token");
+      if (token) {
+        // Silently verify if existing session is still valid
+        fetch("/api/ambassador/me", {
+          headers: { Authorization: `Bearer ${token}` },
+        })
+          .then((res) => res.json())
+          .then((data) => {
+            if (data.success && data.ambassador) {
+              router.replace(redirectParam || "/ambassador");
+            } else {
+              localStorage.removeItem("pixello_ambassador_authenticated");
+              localStorage.removeItem("pixello_ambassador_token");
+              localStorage.removeItem("pixello_ambassador_profile");
+            }
+          })
+          .catch(() => {
+            localStorage.removeItem("pixello_ambassador_authenticated");
+            localStorage.removeItem("pixello_ambassador_token");
+            localStorage.removeItem("pixello_ambassador_profile");
+          });
+      } else {
+        localStorage.removeItem("pixello_ambassador_authenticated");
       }
     }
   }, [router, redirectParam]);
