@@ -421,32 +421,6 @@ export default function CartPage() {
                           Apply
                         </Button>
                       </div>
-
-                      {/* Clickable Available Offers Pills */}
-                      {availablePromos.length > 0 && (
-                        <div className="mt-2.5">
-                          <p className="text-[10px] font-bold text-[#6C5C54] mb-1 flex items-center gap-1">
-                            <Sparkles className="h-3 w-3 text-[#D89A86]" /> Available Store Offers (Click to apply):
-                          </p>
-                          <div className="flex flex-wrap gap-1.5">
-                            {availablePromos.map((p: any) => (
-                              <button
-                                key={p.id || p.code}
-                                type="button"
-                                onClick={() => {
-                                  setPromoCodeInput(p.code);
-                                  handleApplyPromoCode(p.code);
-                                }}
-                                className="text-[10px] font-bold bg-[#FFF8F2] hover:bg-[#F8F3EE] text-[#3A2B24] border border-[#D89A86]/50 px-2.5 py-1 rounded-lg flex items-center gap-1 transition-all cursor-pointer shadow-2xs"
-                              >
-                                <Tag className="h-2.5 w-2.5 text-[#D89A86]" />
-                                <span className="font-mono font-extrabold">{p.code}</span>
-                                <span className="text-[#D89A86] font-bold">({p.type === "percentage" ? `${p.value}% OFF` : `₹${p.value} OFF`})</span>
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-                      )}
                     </div>
                   )}
 
