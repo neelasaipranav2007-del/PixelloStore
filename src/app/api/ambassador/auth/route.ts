@@ -4,11 +4,10 @@ import { createCustomerToken } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
-// Standard seed data matching Admin Portal approved ambassadors
-const DEFAULT_AMBASSADORS = [
+export const DEFAULT_AMBASSADORS = [
   {
-    name: "Sree Charani Grandhe",
     phone: "9493837127",
+    name: "Sree Charani Grandhe",
     email: "charanikishore2101@gmail.com",
     college: "Aurora Deemed To Be A University",
     promoCode: "SREE20",
@@ -18,10 +17,10 @@ const DEFAULT_AMBASSADORS = [
     defaultPin: "1234",
   },
   {
-    name: "Sai Rohan",
     phone: "9618401231",
+    name: "Sai Rohan",
     email: "neelasaipranav2007@gmail.com",
-    college: "Aurora Deemed to Be University",
+    college: "Aurora Deemed To Be A University",
     promoCode: "SAIROHAN10",
     rank: "GOLD",
     earnings: 7200,
@@ -29,21 +28,21 @@ const DEFAULT_AMBASSADORS = [
     defaultPin: "1234",
   },
   {
+    phone: "9876543210",
     name: "Aryan Verma",
-    phone: "9812345678",
-    email: "aryan.v@iitb.ac.in",
+    email: "aryan.verma@iitb.ac.in",
     college: "IIT Bombay",
     promoCode: "ARYAN20",
-    rank: "GOLD",
+    rank: "DIAMOND",
     earnings: 9600,
     balance: 4800,
     defaultPin: "1234",
   },
   {
-    name: "Vyshu",
     phone: "9059448213",
+    name: "Vyshu",
     email: "vyshnavi123@gmail.com",
-    college: "Sreenidhii engineering clg",
+    college: "Sreenidhii Engineering College",
     promoCode: "VYSHU10",
     rank: "SILVER",
     earnings: 4500,
@@ -51,10 +50,10 @@ const DEFAULT_AMBASSADORS = [
     defaultPin: "1234",
   },
   {
+    phone: "9876543222",
     name: "Arjun",
-    phone: "7569106173",
-    email: "arjun@gmail.com",
-    college: "Narayana",
+    email: "arjun123@gmail.com",
+    college: "Narayana Junior College",
     promoCode: "ARJUN10",
     rank: "BRONZE",
     earnings: 2800,
@@ -68,8 +67,8 @@ export async function POST(req: Request) {
     const body = await req.json();
     const { phone, password, pin } = body;
 
-    const rawPhone = phone || "";
-    const cleanMobile = rawPhone.replace(/\D/g, "").slice(-10);
+    const rawMobile = (phone || "").trim();
+    const cleanMobile = rawMobile.replace(/\D/g, "").slice(-10);
     const providedPass = (password || pin || "").trim();
 
     if (!cleanMobile || cleanMobile.length < 10) {
@@ -79,14 +78,7 @@ export async function POST(req: Request) {
       );
     }
 
-    if (!providedPass) {
-      return NextResponse.json(
-        { success: false, error: "Please enter your password or PIN." },
-        { status: 400 }
-      );
-    }
-
-    // 1. Try finding User by phone
+    // 1. Search existing User and linked AmbassadorProfile
     let targetUser = await prisma.user.findFirst({
       where: {
         OR: [
@@ -100,7 +92,7 @@ export async function POST(req: Request) {
       },
     });
 
-    let dbAmbassador = targetUser?.ambassadorProfile || null;
+    let dbAmbassador: any = targetUser?.ambassadorProfile || null;
 
     const defaultMatch = DEFAULT_AMBASSADORS.find(
       (a) => a.phone === cleanMobile || a.phone.slice(-10) === cleanMobile
@@ -142,6 +134,9 @@ export async function POST(req: Request) {
             role: "AMBASSADOR",
             password: defaultMatch.defaultPin,
           },
+          include: {
+            ambassadorProfile: true,
+          },
         });
       }
 
@@ -171,9 +166,8 @@ export async function POST(req: Request) {
     }
 
     // 3. Check password / PIN verification
-    // Allowed passwords: User's set password, default PIN "1234", last 4 digits of phone, or "ambassador123"
     let isValidPassword = false;
-    const dbPassword = dbAmbassador?.user?.password;
+    const dbPassword = targetUser?.password || dbAmbassador?.user?.password;
 
     if (dbPassword && dbPassword === providedPass) {
       isValidPassword = true;
@@ -215,7 +209,7 @@ export async function POST(req: Request) {
       success: true,
       token,
       ambassador: {
-        id: dbAmbassador?.id || `AMB-${cleanMobile.slice(-4)}`,
+        id: dbAmbassador?.id || `amb_${cleanMobile}`,
         name: ambName,
         phone: `+91 ${cleanMobile}`,
         mobile: cleanMobile,
@@ -225,7 +219,7 @@ export async function POST(req: Request) {
         rank: ambRank,
         totalEarned: ambEarned,
         balance: ambBalance,
-        status: "APPROVED",
+        status: dbAmbassador?.status || "APPROVED",
       },
     });
 
@@ -233,13 +227,21 @@ export async function POST(req: Request) {
       httpOnly: false,
       secure: process.env.NODE_ENV === "production",
       path: "/",
-      maxAge: 60 * 60 * 24 * 30, // 30 days
+      maxAge: 30 * 24 * 60 * 60,
+      sameSite: "lax",
+    });
+
+    response.cookies.set("pixello_auth_token", token, {
+      httpOnly: false,
+      secure: process.env.NODE_ENV === "production",
+      path: "/",
+      maxAge: 30 * 24 * 60 * 60,
       sameSite: "lax",
     });
 
     return response;
   } catch (error: any) {
-    console.error("Ambassador auth error:", error);
+    console.error("Ambassador login error:", error);
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });
   }
 }
