@@ -113,86 +113,51 @@ export default function CartPage() {
     const normalizedInput = normalizeCode(rawInput);
     setPromoError("");
 
-    let deletedList: string[] = [];
+    let found: any = null;
+
+    // 1. Direct Backend Query (handles Coupon DB, Ambassador DB, and presets)
     try {
-      const savedDeleted = localStorage.getItem("pixello_deleted_promos");
-      if (savedDeleted) deletedList = JSON.parse(savedDeleted);
-    } catch (e) {}
-
-    if (deletedList.some(d => normalizeCode(d) === normalizedInput)) {
-      setPromoError("Invalid promo code");
-      return;
-    }
-
-    let livePromos = availablePromos;
-    if (livePromos.length === 0 && typeof window !== "undefined") {
-      try {
-        const saved = localStorage.getItem("pixello_promo_codes_directory_v1");
-        if (saved) livePromos = JSON.parse(saved);
-      } catch (e) {}
-    }
-
-    // 1. Check store promo codes directory (supports spaces & case variations)
-    let found = livePromos.find((p: any) => {
-      if (p.status !== "Active" && p.status !== undefined) return false;
-      if (deletedList.some(d => normalizeCode(d) === normalizeCode(p.code))) return false;
-      return normalizeCode(p.code) === normalizedInput;
-    });
-
-    // 2. If not found in local cache, query backend /api/promos endpoint
-    if (!found) {
-      try {
-        const res = await fetch(`/api/promos?code=${encodeURIComponent(normalizedInput)}`);
-        if (res.ok) {
-          const data = await res.json();
-          if (data.success && data.promo) {
-            found = data.promo;
-          }
-        }
-      } catch (err) {
-        console.warn("Backend promo validation note:", err);
-      }
-    }
-
-    // 3. Check Ambassador Referral Codes fallback list
-    if (!found) {
-      const AMBASSADOR_CODES = [
-        "SREE20", "SREE10", "ARYAN20", "ARYAN24", "ANANYA10", "SID20", "POOJA10", "ROHAN10", "NEHA10", "SAIROHAN10", "VYSHU10", "ARJUN10"
-      ];
-      
-      let isAmbassador = AMBASSADOR_CODES.some(a => normalizeCode(a) === normalizedInput);
-      if (!isAmbassador && typeof window !== "undefined") {
-        try {
-          const savedAmbassadors = localStorage.getItem("pixello_ambassadors_directory_v3");
-          if (savedAmbassadors) {
-            const ambList = JSON.parse(savedAmbassadors);
-            if (Array.isArray(ambList)) {
-              isAmbassador = ambList.some((a: any) => normalizeCode(a.promoCode) === normalizedInput);
-            }
-          }
-          if (!isAmbassador) {
-            const savedPromo = localStorage.getItem("pixello_ambassador_promo_config");
-            if (savedPromo) {
-              const promoObj = JSON.parse(savedPromo);
-              if (normalizeCode(promoObj?.promoCode) === normalizedInput) isAmbassador = true;
-            }
-          }
-          if (!isAmbassador) {
-            const directCode = localStorage.getItem("pixello_ambassador_promo_code");
-            if (directCode && normalizeCode(directCode) === normalizedInput) isAmbassador = true;
-          }
-        } catch (e) {
-          console.error(e);
+      const res = await fetch(`/api/promos?code=${encodeURIComponent(normalizedInput)}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success && data.promo) {
+          found = data.promo;
         }
       }
+    } catch (err) {
+      console.warn("Backend promo validation note:", err);
+    }
 
-      if (isAmbassador) {
+    // 2. In-memory availablePromos fallback
+    if (!found && availablePromos.length > 0) {
+      found = availablePromos.find((p: any) => {
+        if (p.status !== "Active" && p.status !== undefined) return false;
+        return normalizeCode(p.code) === normalizedInput;
+      });
+    }
+
+    // 3. Known Ambassador Referral Codes fallback list
+    if (!found) {
+      const KNOWN_AMBASSADORS: Record<string, string> = {
+        "VYSHU10": "Vyshu",
+        "SREE20": "Sree Charani",
+        "SAIROHAN10": "Sai Rohan",
+        "ARYAN20": "Aryan Verma",
+        "ARJUN10": "Arjun",
+        "SREE10": "Sree Charani",
+        "POOJA10": "Pooja",
+        "NEHA10": "Neha",
+        "ANANYA10": "Ananya",
+      };
+
+      if (KNOWN_AMBASSADORS[normalizedInput] || KNOWN_AMBASSADORS[codeClean]) {
         found = {
           code: codeClean,
           type: "percentage",
           value: 10,
           status: "Active",
           isAmbassador: true,
+          ambassadorName: KNOWN_AMBASSADORS[normalizedInput] || KNOWN_AMBASSADORS[codeClean],
         };
       }
     }
@@ -200,6 +165,20 @@ export default function CartPage() {
     if (!found) {
       setPromoError("Invalid promo code");
       return;
+    }
+
+    // Clean up stale deleted list if it was mistakenly in localStorage
+    if (typeof window !== "undefined") {
+      try {
+        const savedDeleted = localStorage.getItem("pixello_deleted_promos");
+        if (savedDeleted) {
+          const list = JSON.parse(savedDeleted);
+          if (Array.isArray(list)) {
+            const filtered = list.filter((c: string) => normalizeCode(c) !== normalizedInput);
+            localStorage.setItem("pixello_deleted_promos", JSON.stringify(filtered));
+          }
+        }
+      } catch (e) {}
     }
 
     if (found.isAmbassador) {
@@ -221,7 +200,7 @@ export default function CartPage() {
 
     let discountVal = 0;
     if (found.type === "percentage") {
-      discountVal = Math.round(subtotal * (found.value / 100));
+      discountVal = Math.round(subtotal * (Number(found.value) / 100));
     } else {
       discountVal = Number(found.value) || 0;
     }
@@ -232,7 +211,7 @@ export default function CartPage() {
       code: found.code || codeClean,
       discountAmount: finalDiscount,
       type: found.type || "percentage",
-      value: found.value || 10,
+      value: Number(found.value) || 10,
     });
     setPromoCodeInput("");
   };

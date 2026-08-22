@@ -14,6 +14,39 @@ export async function GET(req: Request) {
 
       const rawTrimmed = queryCode.trim().toUpperCase();
 
+      // 1. Check Ambassador Referral Code in Database first
+      const ambassador = await prisma.ambassadorProfile.findFirst({
+        where: {
+          OR: [
+            { referralCode: { equals: clean } },
+            { referralCode: { equals: rawTrimmed } },
+          ],
+        },
+        include: { user: true },
+      });
+
+      if (ambassador) {
+        return NextResponse.json({
+          success: true,
+          promo: {
+            id: `amb_${ambassador.id}`,
+            code: ambassador.referralCode,
+            type: "percentage",
+            value: 10,
+            minOrder: 0,
+            maxCustomerLimit: null,
+            usageCount: 0,
+            category: "All Categories",
+            status: "Active",
+            description: `Campus Ambassador Code (${ambassador.user?.name || "Ambassador"} - ${ambassador.college})`,
+            isAmbassador: true,
+            ambassadorId: ambassador.id,
+            ambassadorName: ambassador.user?.name || "Ambassador",
+          },
+        });
+      }
+
+      // 2. Check Store Coupon in Database
       const allActiveCoupons = await prisma.coupon.findMany({
         where: { status: "Active" },
       });
@@ -37,35 +70,6 @@ export async function GET(req: Request) {
             status: coupon.status,
             description: coupon.description,
             isAmbassador: false,
-          },
-        });
-      }
-
-      // 2. Check Ambassador Referral Code in Database
-      const ambassador = await prisma.ambassadorProfile.findFirst({
-        where: {
-          referralCode: { equals: clean },
-        },
-        include: { user: true },
-      });
-
-      if (ambassador) {
-        return NextResponse.json({
-          success: true,
-          promo: {
-            id: `amb_${ambassador.id}`,
-            code: ambassador.referralCode,
-            type: "percentage",
-            value: 10,
-            minOrder: 0,
-            maxCustomerLimit: null,
-            usageCount: 0,
-            category: "All Categories",
-            status: "Active",
-            description: `Campus Ambassador Code (${ambassador.user?.name || "Ambassador"} - ${ambassador.college})`,
-            isAmbassador: true,
-            ambassadorId: ambassador.id,
-            ambassadorName: ambassador.user?.name || "Ambassador",
           },
         });
       }
