@@ -966,7 +966,7 @@ export default function CheckoutPage() {
                         <div className="flex flex-col items-center flex-shrink-0">
                           <div className="p-3 bg-white rounded-2xl border-2 border-[#D89A86]/30 shadow-md flex items-center justify-center">
                             <img
-                              src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(
+                              src={`https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(
                                 `upi://pay?pa=9618401231-2@ybl&pn=Pixello%20Store&am=${total}&cu=INR&tn=Pixello%20Store%20Order`
                               )}`}
                               alt="Scan UPI QR Code to Pay"
@@ -980,54 +980,42 @@ export default function CheckoutPage() {
 
                         {/* UPI Details & Actions */}
                         <div className="flex-1 flex flex-col items-center md:items-start text-center md:text-left">
-                          <div className="text-xs font-bold text-[#D89A86] uppercase tracking-wider mb-1">
-                            Pay via UPI ID
+                          <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-[#5AAE7F]/10 text-[#5AAE7F] border border-[#5AAE7F]/20 rounded-full text-xs font-bold mb-2">
+                            <CheckCircle2 className="h-3.5 w-3.5" /> Ready for Payment
                           </div>
-                          <div className="flex items-center gap-2 p-2.5 px-3.5 bg-[#FFF8F2] border border-[#D89A86]/30 rounded-xl w-full max-w-sm justify-between">
-                            <span className="font-mono font-bold text-sm text-[#3A2B24] tracking-wide">
-                              9618401231-2@ybl
-                            </span>
-                            <button
+
+                          <div className="text-sm text-[#6C5C54] mb-1">
+                            Scan with <strong className="text-[#3A2B24]">Google Pay</strong>, <strong className="text-[#3A2B24]">PhonePe</strong>, or <strong className="text-[#3A2B24]">Paytm</strong>
+                          </div>
+
+                          <div className="text-lg font-serif-brand font-bold text-[#3A2B24] mb-3">
+                            Total Amount: <span className="text-[#D89A86]">₹{total}</span>
+                          </div>
+
+                          {/* Direct Action Buttons */}
+                          <div className="w-full flex flex-col sm:flex-row items-center gap-2.5">
+                            <Button
                               type="button"
                               onClick={(e) => {
                                 e.stopPropagation();
-                                navigator.clipboard.writeText("9618401231-2@ybl");
-                                setCopiedUpi(true);
-                                setTimeout(() => setCopiedUpi(false), 2000);
+                                handlePayment();
                               }}
-                              className="flex items-center gap-1 text-xs font-bold text-[#D89A86] hover:text-[#3A2B24] bg-white px-2.5 py-1 rounded-lg border border-[#D89A86]/30 shadow-2xs transition-all cursor-pointer"
+                              className="w-full sm:w-auto bg-[#D89A86] hover:bg-[#C27E6A] text-white font-bold text-xs py-3 px-5 rounded-xl transition-all shadow-sm flex items-center justify-center gap-2 cursor-pointer"
                             >
-                              {copiedUpi ? (
-                                <>
-                                  <Check className="h-3.5 w-3.5 text-[#5AAE7F]" /> Copied!
-                                </>
-                              ) : (
-                                <>
-                                  <Copy className="h-3.5 w-3.5" /> Copy
-                                </>
-                              )}
-                            </button>
-                          </div>
+                              <CheckCircle2 className="h-4 w-4" /> I Have Paid — Place Order
+                            </Button>
 
-                          <div className="mt-3 flex items-center gap-2 text-xs text-[#6C5C54]">
-                            <span>Merchant: <strong className="text-[#3A2B24]">Pixello Store</strong></span>
-                            <span>•</span>
-                            <span>Amount: <strong className="text-[#D89A86]">₹{total}</strong></span>
-                          </div>
-
-                          {/* Direct Mobile UPI Pay Button */}
-                          <div className="mt-4 w-full flex flex-col sm:flex-row items-center gap-2">
                             <a
                               href={`upi://pay?pa=9618401231-2@ybl&pn=Pixello%20Store&am=${total}&cu=INR&tn=Pixello%20Store%20Order`}
                               onClick={(e) => e.stopPropagation()}
-                              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-[#3A2B24] hover:bg-[#2A1E18] text-[#FFF8F2] text-xs font-bold py-2.5 px-4 rounded-xl transition-all shadow-xs"
+                              className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 bg-[#3A2B24] hover:bg-[#2A1E18] text-[#FFF8F2] text-xs font-semibold py-2.5 px-4 rounded-xl transition-all shadow-xs"
                             >
-                              <ExternalLink className="h-3.5 w-3.5 text-[#F2C8B5]" /> Open UPI App (Mobile)
+                              <ExternalLink className="h-3.5 w-3.5 text-[#F2C8B5]" /> Pay on Mobile App
                             </a>
                           </div>
 
                           {/* Optional UTR / Reference ID Field */}
-                          <div className="mt-3 w-full max-w-sm">
+                          <div className="mt-3.5 w-full max-w-sm">
                             <input
                               type="text"
                               value={utrNumber}
