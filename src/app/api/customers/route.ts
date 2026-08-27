@@ -17,9 +17,13 @@ export async function GET() {
       } catch (e) {}
     }
 
+    const allOrders = await prisma.order.findMany({
+      select: { customerProfileId: true, customerPhone: true, totalAmount: true },
+    });
+
     const customers = await prisma.user.findMany({
       where: {
-        role: "CUSTOMER",
+        role: { notIn: ["ADMIN", "SUPER_ADMIN", "STUDIO", "DELIVERY"] },
       },
       include: {
         customerProfile: {
@@ -33,18 +37,22 @@ export async function GET() {
     });
 
     const formatted = customers.map((c) => {
-      const orders = c.customerProfile?.orders || [];
-      const totalSpent = orders.reduce((sum, o) => sum + o.totalAmount, 0);
       const cleanMob = (c.phone || "").replace(/\D/g, "").slice(-10);
+      const matchedOrders = allOrders.filter(
+        (o) =>
+          (c.customerProfile?.id && o.customerProfileId === c.customerProfile.id) ||
+          (cleanMob && o.customerPhone && o.customerPhone.replace(/\D/g, "").slice(-10) === cleanMob)
+      );
+      const totalSpent = matchedOrders.reduce((sum, o) => sum + o.totalAmount, 0);
       const status = statusMap[c.id] || (cleanMob ? statusMap[cleanMob] : null) || "Active";
       return {
         id: c.id,
         name: c.name || "Customer",
-        email: c.email || "",
-        phone: c.phone || "",
+        email: c.email || `${cleanMob}@pixello.store`,
+        phone: c.phone || `+91 ${cleanMob}`,
         mobile: cleanMob,
         status: status,
-        orderCount: orders.length,
+        orderCount: matchedOrders.length,
         totalSpent,
         createdAt: c.createdAt,
         addresses: c.customerProfile?.addresses || [],
