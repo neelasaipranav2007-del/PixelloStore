@@ -180,12 +180,22 @@ export async function POST(req: Request) {
       }
     }
 
-    // Generate readable permanent PXL Order ID format
+    // Generate readable permanent PXL Order ID format: PXL-<Last 4 Phone>-<Last 4 Pincode>
     const last4Phone = cleanPhoneDigits.length >= 4 ? cleanPhoneDigits.slice(-4) : "1000";
     const pincodeMatch = (deliveryAddress || "").match(/\b\d{6}\b/) || (deliveryAddress || "").match(/\b\d{4,6}\b/);
     const last4Pincode = pincodeMatch ? pincodeMatch[0].slice(-4) : "5000";
-    const randomSuffix = Math.floor(100 + Math.random() * 900);
-    const generatedOrderId = `PXL-${last4Phone}-${last4Pincode}-${randomSuffix}`;
+    const baseOrderId = `PXL-${last4Phone}-${last4Pincode}`;
+    let generatedOrderId = baseOrderId;
+
+    // Ensure database primary key uniqueness
+    const existingOrder = await prisma.order.findUnique({ where: { id: generatedOrderId } });
+    if (existingOrder) {
+      let seq = 2;
+      while (await prisma.order.findUnique({ where: { id: `${baseOrderId}-${seq}` } })) {
+        seq++;
+      }
+      generatedOrderId = `${baseOrderId}-${seq}`;
+    }
 
     const createdOrder = await prisma.$transaction(async (tx) => {
       // 1. Create main Order in Central DB

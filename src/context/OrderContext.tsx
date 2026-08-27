@@ -91,7 +91,7 @@ const OrderContext = createContext<OrderContextType | undefined>(undefined);
 
 export function generatePxlOrderId(phone?: string, address?: string): string {
   const cleanPhone = (phone || "").replace(/\D/g, "");
-  const last4Phone = cleanPhone.length >= 4 ? cleanPhone.slice(-4) : "1234";
+  const last4Phone = cleanPhone.length >= 4 ? cleanPhone.slice(-4) : "1000";
 
   const pincodeMatch = (address || "").match(/\b\d{6}\b/) || (address || "").match(/\b\d{4,6}\b/);
   let last4Pincode = "5000";
@@ -104,8 +104,7 @@ export function generatePxlOrderId(phone?: string, address?: string): string {
     }
   }
 
-  const randomSuffix = Math.floor(100 + Math.random() * 900);
-  return `PXL-${last4Phone}-${last4Pincode}-${randomSuffix}`;
+  return `PXL-${last4Phone}-${last4Pincode}`;
 }
 
 export function OrderProvider({ children }: { children: React.ReactNode }) {
