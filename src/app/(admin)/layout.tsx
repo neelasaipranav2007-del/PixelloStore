@@ -362,20 +362,20 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         <div className="flex-1 overflow-y-auto no-scrollbar py-3 px-3">
           <nav className="flex flex-col gap-1">
             {SIDEBAR_ITEMS.map((item) => {
-              const isActive = pathname === item.href;
+              const isActive = pathname === item.href || (item.href === "/admin/ambassadors/leaderboard" && pathname === "/admin/leaderboard");
               const Icon = item.icon;
               return (
-                <Link key={item.label} href={item.href}>
-                  <span
-                    className={`flex items-center gap-3 px-3.5 py-2.5 text-xs transition-all cursor-pointer ${
-                      isActive
-                        ? "bg-[#FFF8F2]/20 text-white font-bold border-l-4 border-[#D89A86] rounded-r-xl shadow-xs"
-                        : "text-white/90 font-medium hover:bg-[#FFF8F2]/15 hover:text-white rounded-xl"
-                    }`}
-                  >
-                    <Icon className={`h-4.5 w-4.5 ${isActive ? "text-[#D89A86]" : "text-white"}`} />
-                    {item.label}
-                  </span>
+                <Link
+                  key={item.label}
+                  href={item.href}
+                  className={`flex items-center gap-3 px-3.5 py-2.5 text-xs transition-all cursor-pointer select-none ${
+                    isActive
+                      ? "bg-[#FFF8F2]/20 text-white font-bold border-l-4 border-[#D89A86] rounded-r-xl shadow-xs"
+                      : "text-white/90 font-medium hover:bg-[#FFF8F2]/15 hover:text-white rounded-xl"
+                  }`}
+                >
+                  <Icon className={`h-4.5 w-4.5 ${isActive ? "text-[#D89A86]" : "text-white"}`} />
+                  <span>{item.label}</span>
                 </Link>
               );
             })}

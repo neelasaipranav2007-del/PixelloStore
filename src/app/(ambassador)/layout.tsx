@@ -173,7 +173,7 @@ export default function AmbassadorLayout({ children }: { children: React.ReactNo
     { label: "Dashboard", href: "/ambassador", icon: LayoutDashboard },
     { label: "My Referrals", href: "/ambassador/referrals", icon: Users },
     { label: "Promo Links & QR", href: "/ambassador/links", icon: Link2 },
-    { label: "Leaderboard", href: "/ambassador/leaderboard", icon: Trophy },
+    { label: "Leaderboard of Ambassadors", href: "/ambassador/leaderboard", icon: Trophy },
     { label: "Wallet & Payouts", href: "/ambassador/wallet", icon: Wallet },
     { label: "My Profile", href: "/ambassador/settings", icon: User },
   ];
