@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useOrders, OrderStatus, Order } from "@/context/OrderContext";
 import { OrderStatusBadge } from "@/components/ui/status-badge";
-import { ChevronDown, Search, X, Eye, Download, FileText, Image as ImageIcon, MessageCircle, Upload, Package, Check, Paperclip, Truck, Bike, Gift } from "lucide-react";
+import { ChevronDown, Search, X, Eye, Download, FileText, Image as ImageIcon, MessageCircle, Upload, Package, Check, Paperclip, Truck, Bike, Gift, User, Phone, Store, Calendar, MapPin } from "lucide-react";
 
 const STATUS_CONFIG: Record<string, { label: string; symbol: string; badgeClass: string; dotClass: string; itemBgClass: string }> = {
   "Processing": { label: "Processing", symbol: "⏳", badgeClass: "bg-amber-100 text-amber-900 border-amber-300", dotClass: "bg-amber-500", itemBgClass: "bg-amber-50/90 hover:bg-amber-100/90 border-amber-200 text-amber-950" },
@@ -744,36 +744,83 @@ export default function AdminOrdersPage() {
                 </div>
               )}
 
-              {/* CUSTOMER & SHIPPING ADDRESS FOOTER (Matching Pic 1) */}
-              <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 pt-2 border-t border-[#EFE6DD]">
-                <div className="flex flex-col gap-1 text-xs text-[#6C5C54]">
-                  <div>
-                    Customer: <span className="font-bold text-[#3A2B24]">{order.customerName} ({order.customerPhone})</span>
-                  </div>
-                  <div>
-                    Shipping Address: <span className="font-medium text-[#3A2B24]">{order.deliveryAddress || "N/A"}</span>
-                  </div>
-                  <div>
-                    Date: <span className="font-semibold text-[#3A2B24]">{order.date}</span> • Studio: <span className="font-semibold text-[#D89A86]">{order.assignedStudio}</span>
-                  </div>
-                  {order.referralCode && (
-                    <div className="mt-1 text-xs text-emerald-800 font-bold bg-emerald-50 border border-emerald-200 px-3 py-1.5 rounded-xl w-fit flex flex-wrap items-center gap-2 shadow-2xs">
-                      <span>🎟️ Ambassador Code Used: <strong className="font-mono text-emerald-950 text-xs">{order.referralCode}</strong></span>
-                      {order.ambassadorName && <span>• Partner: <strong>{order.ambassadorName}</strong></span>}
-                      {order.referralDiscount && <span className="text-emerald-700 font-extrabold">• Discount: -₹{order.referralDiscount.toFixed(2)}</span>}
+              {/* CUSTOMER & FULFILLMENT STRUCTURED INFO GRID */}
+              <div className="pt-3 border-t border-[#EFE6DD] flex flex-col gap-3">
+                {/* 3-Column Modern Information Cards */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
+                  {/* Card 1: Customer Contact Info */}
+                  <div className="p-3 bg-[#FAF7F4] border border-[#EFE6DD] rounded-2xl flex flex-col gap-1 shadow-2xs">
+                    <div className="flex items-center gap-1.5 text-[10px] font-extrabold text-[#6C5C54] uppercase tracking-wider">
+                      <User className="h-3.5 w-3.5 text-[#D89A86]" /> Customer
                     </div>
-                  )}
+                    <div className="font-extrabold text-sm text-[#3A2B24]">
+                      {order.customerName}
+                    </div>
+                    <a
+                      href={`tel:${order.customerPhone}`}
+                      className="inline-flex items-center gap-1 text-xs font-semibold text-[#D89A86] hover:underline w-fit"
+                    >
+                      <Phone className="h-3 w-3" /> {order.customerPhone}
+                    </a>
+                  </div>
+
+                  {/* Card 2: Delivery & Shipping Address */}
+                  <div className="p-3 bg-[#FAF7F4] border border-[#EFE6DD] rounded-2xl flex flex-col gap-1 shadow-2xs">
+                    <div className="flex items-center gap-1.5 text-[10px] font-extrabold text-[#6C5C54] uppercase tracking-wider">
+                      <MapPin className="h-3.5 w-3.5 text-[#D89A86]" /> Shipping Address
+                    </div>
+                    <p className="text-xs text-[#3A2B24] font-medium leading-relaxed line-clamp-2">
+                      {order.deliveryAddress || "Standard Delivery Address"}
+                    </p>
+                  </div>
+
+                  {/* Card 3: Fulfillment Studio & Date */}
+                  <div className="p-3 bg-[#FAF7F4] border border-[#EFE6DD] rounded-2xl flex flex-col justify-between gap-1 shadow-2xs">
+                    <div>
+                      <div className="flex items-center gap-1.5 text-[10px] font-extrabold text-[#6C5C54] uppercase tracking-wider mb-0.5">
+                        <Store className="h-3.5 w-3.5 text-[#D89A86]" /> Studio &amp; Date
+                      </div>
+                      <div className="text-xs text-[#3A2B24] font-bold truncate">
+                        {order.assignedStudio}
+                      </div>
+                      <div className="text-[11px] text-[#6C5C54] flex items-center gap-1 mt-0.5">
+                        <Calendar className="h-3 w-3 text-[#9C8C84]" /> {order.date}
+                      </div>
+                    </div>
+                  </div>
                 </div>
 
-                {/* GREEN MESSAGE CUSTOMER BUTTON (Matching Pic 1 exact green WhatsApp button) */}
-                <Button
-                  type="button"
-                  onClick={() => handleSendMessageWhatsApp(order)}
-                  className="bg-[#25D366] hover:bg-[#1DA851] text-white font-bold text-xs rounded-xl h-10 px-5 shadow-sm flex items-center gap-2 cursor-pointer flex-shrink-0"
-                >
-                  <MessageCircle className="h-4 w-4 fill-white text-[#25D366]" />
-                  <span>Message Customer</span>
-                </Button>
+                {/* Bottom Row: Ambassador Code Badge & WhatsApp Action */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1">
+                  <div>
+                    {order.referralCode ? (
+                      <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-purple-50 text-purple-900 border border-purple-200 rounded-xl text-xs font-bold shadow-2xs flex-wrap">
+                        <span className="flex items-center gap-1.5">
+                          <span>🎟️</span>
+                          <span>Ambassador Code: <strong className="font-mono bg-white px-2 py-0.5 rounded-lg border border-purple-200 text-purple-950 font-black">{order.referralCode}</strong></span>
+                        </span>
+                        {order.ambassadorName && (
+                          <span className="text-purple-700 font-semibold">• Partner: {order.ambassadorName}</span>
+                        )}
+                        {order.referralDiscount && (
+                          <span className="text-emerald-700 font-extrabold bg-emerald-100/80 px-2 py-0.5 rounded-md">• Discount: -₹{order.referralDiscount.toFixed(2)}</span>
+                        )}
+                      </div>
+                    ) : (
+                      <span className="text-[11px] text-[#6C5C54] font-medium italic">Direct Organic Customer Order</span>
+                    )}
+                  </div>
+
+                  {/* GREEN MESSAGE CUSTOMER BUTTON */}
+                  <Button
+                    type="button"
+                    onClick={() => handleSendMessageWhatsApp(order)}
+                    className="bg-[#25D366] hover:bg-[#1DA851] text-white font-bold text-xs rounded-xl h-10 px-5 shadow-sm flex items-center gap-2 cursor-pointer flex-shrink-0"
+                  >
+                    <MessageCircle className="h-4 w-4 fill-white text-[#25D366]" />
+                    <span>Message Customer</span>
+                  </Button>
+                </div>
               </div>
             </div>
           ))
