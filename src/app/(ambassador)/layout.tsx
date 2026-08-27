@@ -164,8 +164,10 @@ export default function AmbassadorLayout({ children }: { children: React.ReactNo
     );
   }
 
-  const nameParts = profile.name.trim().split(" ");
-  const initials = nameParts.length >= 2 ? `${nameParts[0][0]}${nameParts[1][0]}`.toUpperCase() : profile.name.slice(0, 2).toUpperCase();
+  const nameParts = (profile.name || "Ambassador").trim().split(/\s+/);
+  const initials = nameParts.length >= 2 && nameParts[0] && nameParts[1]
+    ? `${nameParts[0][0]}${nameParts[1][0]}`.toUpperCase()
+    : (profile.name || "AM").slice(0, 2).toUpperCase();
 
   const SIDEBAR_ITEMS = [
     { label: "Dashboard", href: "/ambassador", icon: LayoutDashboard },
@@ -179,7 +181,7 @@ export default function AmbassadorLayout({ children }: { children: React.ReactNo
   return (
     <div className="flex h-screen w-screen bg-[#F8F3EE] overflow-hidden">
       {/* Pixello Light-Dark Espresso Sidebar (#3A2B24) */}
-      <aside className="w-64 bg-[#3A2B24] text-white flex flex-col flex-shrink-0 border-r border-[#4E3D35] shadow-md select-none z-20">
+      <aside className="w-64 bg-[#3A2B24] text-white flex flex-col flex-shrink-0 border-r border-[#4E3D35] shadow-md z-20">
         {/* Logo & Brand Header */}
         <div className="h-20 flex flex-col justify-center px-6 border-b border-[#4E3D35] bg-[#2E201A]">
           <div className="flex items-center gap-2">
@@ -205,7 +207,7 @@ export default function AmbassadorLayout({ children }: { children: React.ReactNo
                 <Link
                   key={item.href}
                   href={item.href}
-                  className={`flex items-center gap-3 px-3.5 py-3 rounded-2xl text-xs font-bold transition-all ${
+                  className={`flex items-center gap-3 px-3.5 py-3 rounded-2xl text-xs font-bold transition-all cursor-pointer ${
                     isActive
                       ? "bg-[#D89A86] text-white shadow-xs font-extrabold"
                       : "text-[#EFE6DD]/85 hover:bg-[#FFF8F2]/10 hover:text-white"

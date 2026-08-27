@@ -128,6 +128,7 @@ export default function AmbassadorLoginPage() {
         if (data.token) {
           localStorage.setItem("pixello_ambassador_token", data.token);
           localStorage.setItem("pixello_auth_token", data.token);
+          document.cookie = `pixello_ambassador_token=${data.token}; path=/; max-age=2592000; SameSite=Lax`;
         }
         if (data.ambassador) {
           localStorage.setItem("pixello_ambassador_profile", JSON.stringify(data.ambassador));

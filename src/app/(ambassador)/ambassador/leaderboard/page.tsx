@@ -18,6 +18,15 @@ export interface LeaderboardEntry {
   isCurrentUser: boolean;
 }
 
+export function getInitials(name?: string) {
+  if (!name) return "AM";
+  const parts = name.trim().split(/\s+/);
+  if (parts.length >= 2 && parts[0] && parts[1]) {
+    return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
+  }
+  return name.slice(0, 2).toUpperCase();
+}
+
 export function getTierInfo(referrals: number) {
   if (referrals >= 50) {
     return { name: "Diamond Tier", color: "bg-[#3A2B24] text-white border border-[#4E3D35]", comm: "15%", icon: "💎" };
@@ -119,7 +128,7 @@ export default function AmbassadorLeaderboardPage() {
                 <div className="relative mb-3">
                   <Avatar className="h-16 w-16 border-2 border-[#D89A86] shadow-sm">
                     <AvatarFallback className="bg-[#FFF8F2] text-[#3A2B24] font-bold text-lg">
-                      {item.name.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase()}
+                      {getInitials(item.name)}
                     </AvatarFallback>
                   </Avatar>
                   <div
@@ -209,7 +218,7 @@ export default function AmbassadorLeaderboardPage() {
                         <div className="flex items-center gap-2.5">
                           <Avatar className="h-8 w-8 border border-[#EFE6DD]">
                             <AvatarFallback className="bg-[#FFF8F2] text-[#3A2B24] text-xs font-bold">
-                              {item.name.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase()}
+                              {getInitials(item.name)}
                             </AvatarFallback>
                           </Avatar>
                           <div>
