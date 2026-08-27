@@ -90,17 +90,31 @@ export async function getAuthenticatedUser(req?: Request) {
   if (!payload || !payload.userId) return null;
 
   try {
-    const user = await prisma.user.findUnique({
+    let user = await prisma.user.findUnique({
       where: { id: payload.userId },
       include: {
         customerProfile: true,
       },
     });
 
+    if (!user && (payload.phone || payload.email)) {
+      user = await prisma.user.findFirst({
+        where: {
+          OR: [
+            payload.phone ? { phone: payload.phone } : {},
+            payload.email ? { email: payload.email } : {},
+          ],
+        },
+        include: {
+          customerProfile: true,
+        },
+      });
+    }
+
     if (!user) return null;
 
     // Auto create CustomerProfile if missing
-    if (!user.customerProfile && user.role === "CUSTOMER") {
+    if (!user.customerProfile) {
       const profile = await prisma.customerProfile.create({
         data: { userId: user.id },
       });
