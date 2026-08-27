@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useOrders, OrderStatus, Order } from "@/context/OrderContext";
 import { OrderStatusBadge } from "@/components/ui/status-badge";
-import { ChevronDown, Search, X, Eye, Download, FileText, Image as ImageIcon, MessageCircle, Upload, Package, Check, Paperclip, Truck, Bike, Gift, User, Phone, Store, Calendar, MapPin } from "lucide-react";
+import { ChevronDown, Search, X, Eye, Download, FileText, Image as ImageIcon, MessageCircle, Upload, Package, Check, Paperclip, Truck, Bike, Gift, User, Phone, Store, Calendar, MapPin, RefreshCw } from "lucide-react";
 
 const STATUS_CONFIG: Record<string, { label: string; symbol: string; badgeClass: string; dotClass: string; itemBgClass: string }> = {
   "Processing": { label: "Processing", symbol: "⏳", badgeClass: "bg-amber-100 text-amber-900 border-amber-300", dotClass: "bg-amber-500", itemBgClass: "bg-amber-50/90 hover:bg-amber-100/90 border-amber-200 text-amber-950" },
@@ -149,7 +149,18 @@ export default function AdminOrdersPage() {
   };
 
   const handleStatusChange = (orderId: string, newStatus: OrderStatus) => {
-    updateOrderStatus(orderId, newStatus);
+    const order = orders.find(o => o.id === orderId);
+    const isRep = order?.status === "Replacement Requested" || (order?.history && order.history.some((h: any) => h.status === "Replacement Requested" || (h.note && h.note.includes("Replacement"))));
+    
+    let note = `Status updated to ${newStatus}`;
+    if (isRep) {
+      if (newStatus === "Processing") note = "Replacement in Production / Re-Printing in Studio";
+      else if (newStatus === "Packed") note = "Replacement Quality Check Passed & Protective Packed";
+      else if (newStatus === "Out for Delivery") note = "Replacement Out for Doorstep Handover";
+      else if (newStatus === "Delivered") note = "Replacement Delivered Successfully to Customer";
+      else if (newStatus === "Replacement Requested") note = "Replacement Requested by Admin / Customer";
+    }
+    updateOrderStatus(orderId, newStatus, note);
   };
 
   const [previewModal, setPreviewModal] = useState<{
@@ -420,101 +431,135 @@ export default function AdminOrdersPage() {
               className="bg-white rounded-3xl border border-[#EFE6DD] shadow-sm p-6 flex flex-col gap-5 hover:shadow-md transition-shadow"
             >
               {/* ORDER HEADER (Matching Pic 1: Order # ID, Method, Amount, Status Dropdown) */}
-              <div className="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-[#EFE6DD]">
-                <div className="flex items-center gap-3">
-                  <h3 className="font-sans font-extrabold text-lg sm:text-xl text-[#3A2B24]">
-                    Order #{order.id}
-                  </h3>
-                  <span className="text-xs font-medium text-[#6C5C54]">
-                    Method: <span className="font-bold text-[#3A2B24]">{order.paymentMethod || "COD"}</span>
-                  </span>
-                </div>
-
-                <div className="flex flex-wrap items-center gap-3">
-                  {/* Delivery Mode Toggle (Direct Delivery vs Shipping) */}
-                  <div className="flex items-center gap-1 p-1 bg-[#FFF8F2] border border-[#EFE6DD] rounded-full text-xs font-bold shadow-2xs">
-                    <button
-                      type="button"
-                      onClick={() => handleSelectDeliveryType(order.id, "Direct Delivery")}
-                      className={`px-3.5 py-1.5 rounded-full flex items-center gap-1.5 transition-all cursor-pointer ${
-                        getDeliveryType(order) === "Direct Delivery"
-                          ? "bg-[#D96B00] text-white shadow-xs font-bold"
-                          : "text-[#6C5C54] hover:text-[#3A2B24] hover:bg-white/60 font-semibold"
-                      }`}
-                    >
-                      <Bike className="h-3.5 w-3.5" />
-                      <span>Direct Delivery</span>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => handleSelectDeliveryType(order.id, "Shipping")}
-                      className={`px-3.5 py-1.5 rounded-full flex items-center gap-1.5 transition-all cursor-pointer ${
-                        getDeliveryType(order) === "Shipping"
-                          ? "bg-[#D96B00] text-white shadow-xs font-bold"
-                          : "text-[#6C5C54] hover:text-[#3A2B24] hover:bg-white/60 font-semibold"
-                      }`}
-                    >
-                      <Truck className="h-3.5 w-3.5" />
-                      <span>Shipping</span>
-                    </button>
-                  </div>
-
-                  {/* Order Total Price */}
-                  <span className="font-extrabold text-xl text-pink-600">
-                    ₹{order.totalAmount.toLocaleString("en-IN", { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
-                  </span>
-
-                  {/* Custom Order Status Select Dropdown with Direct Buttons & Popover */}
-                  <div className="relative">
-                    <button
-                      type="button"
-                      onClick={() => setOpenStatusDropdownId(openStatusDropdownId === order.id ? null : order.id)}
-                      className={`h-9 px-3 text-xs font-extrabold rounded-xl border flex items-center gap-2 shadow-2xs transition-all hover:scale-102 cursor-pointer ${getStatusConfig(order.status).badgeClass}`}
-                    >
-                      <span className="text-sm">{getStatusConfig(order.status).symbol}</span>
-                      <span>{getStatusConfig(order.status).label}</span>
-                      <ChevronDown className="h-3.5 w-3.5 opacity-60 ml-0.5" />
-                    </button>
-
-                    {openStatusDropdownId === order.id && (
-                      <>
-                        <div
-                          className="fixed inset-0 z-40"
-                          onClick={() => setOpenStatusDropdownId(null)}
-                        />
-                        <div className="absolute right-0 top-11 w-64 p-1.5 rounded-2xl border-[#EFE6DD] shadow-2xl bg-white space-y-1 z-50 animate-in fade-in duration-150">
-                          <div className="px-3 py-1.5 text-[10px] font-bold text-[#6C5C54] uppercase tracking-wider border-b border-[#EFE6DD]">
-                            Select Order Status
-                          </div>
-                          {Object.entries(STATUS_CONFIG).map(([stKey, cfg]) => {
-                            const isSelected = normalizeStatus(order.status) === stKey;
-                            return (
-                              <button
-                                key={stKey}
-                                type="button"
-                                onClick={() => {
-                                  handleStatusChange(order.id, stKey as OrderStatus);
-                                  setOpenStatusDropdownId(null);
-                                }}
-                                className={`w-full flex items-center justify-between p-2.5 my-1 rounded-xl cursor-pointer border transition-all text-left ${cfg.itemBgClass} ${
-                                  isSelected ? "ring-2 ring-offset-1 ring-[#D89A86] font-extrabold shadow-2xs" : "font-semibold opacity-95 hover:opacity-100"
-                                }`}
-                              >
-                                <div className="flex items-center gap-2.5">
-                                  <span className="text-base">{cfg.symbol}</span>
-                                  <span className="text-xs font-bold">{cfg.label}</span>
-                                </div>
-                                <span className={`h-3 w-3 rounded-full ${cfg.dotClass} shadow-2xs border border-white/60`} />
-                              </button>
-                            );
-                          })}
+              {(() => {
+                const isReplacementOrder = order.status === "Replacement Requested" || (order.history && order.history.some((h: any) => h.status === "Replacement Requested" || (h.note && h.note.includes("Replacement"))));
+                return (
+                  <div className="flex flex-col gap-3 pb-4 border-b border-[#EFE6DD]">
+                    {isReplacementOrder && (
+                      <div className="w-full p-2.5 bg-purple-50 border border-purple-200 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-2 shadow-2xs">
+                        <div className="flex items-center gap-2">
+                          <RefreshCw className="h-4 w-4 text-purple-700 animate-spin" style={{ animationDuration: "3s" }} />
+                          <span className="text-xs font-black text-purple-950">
+                            🔄 REPLACEMENT ORDER ACTIVE
+                          </span>
+                          <span className="text-[10px] font-extrabold text-purple-900 bg-purple-100/90 border border-purple-300 px-2 py-0.5 rounded-full">
+                            Current Stage: {order.status}
+                          </span>
                         </div>
-                      </>
+                        <span className="text-[10px] text-purple-700 font-semibold italic">
+                          Progressing through fresh re-fulfillment &amp; doorstep delivery
+                        </span>
+                      </div>
                     )}
+
+                    <div className="flex flex-wrap items-center justify-between gap-4">
+                      <div className="flex items-center gap-3">
+                        <h3 className="font-sans font-extrabold text-lg sm:text-xl text-[#3A2B24]">
+                          Order #{order.id}
+                        </h3>
+                        <span className="text-xs font-medium text-[#6C5C54]">
+                          Method: <span className="font-bold text-[#3A2B24]">{order.paymentMethod || "COD"}</span>
+                        </span>
+                      </div>
+
+                      <div className="flex flex-wrap items-center gap-3">
+                        {/* Delivery Mode Toggle (Direct Delivery vs Shipping) */}
+                        <div className="flex items-center gap-1 p-1 bg-[#FFF8F2] border border-[#EFE6DD] rounded-full text-xs font-bold shadow-2xs">
+                          <button
+                            type="button"
+                            onClick={() => handleSelectDeliveryType(order.id, "Direct Delivery")}
+                            className={`px-3.5 py-1.5 rounded-full flex items-center gap-1.5 transition-all cursor-pointer ${
+                              getDeliveryType(order) === "Direct Delivery"
+                                ? "bg-[#D96B00] text-white shadow-xs font-bold"
+                                : "text-[#6C5C54] hover:text-[#3A2B24] hover:bg-white/60 font-semibold"
+                            }`}
+                          >
+                            <Bike className="h-3.5 w-3.5" />
+                            <span>Direct Delivery</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => handleSelectDeliveryType(order.id, "Shipping")}
+                            className={`px-3.5 py-1.5 rounded-full flex items-center gap-1.5 transition-all cursor-pointer ${
+                              getDeliveryType(order) === "Shipping"
+                                ? "bg-[#D96B00] text-white shadow-xs font-bold"
+                                : "text-[#6C5C54] hover:text-[#3A2B24] hover:bg-white/60 font-semibold"
+                            }`}
+                          >
+                            <Truck className="h-3.5 w-3.5" />
+                            <span>Shipping</span>
+                          </button>
+                        </div>
+
+                        {/* Order Total Price */}
+                        <span className="font-extrabold text-xl text-pink-600">
+                          ₹{order.totalAmount.toLocaleString("en-IN", { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
+                        </span>
+
+                        {/* Custom Order Status Select Dropdown with Direct Buttons & Popover */}
+                        <div className="relative">
+                          <button
+                            type="button"
+                            onClick={() => setOpenStatusDropdownId(openStatusDropdownId === order.id ? null : order.id)}
+                            className={`h-9 px-3 text-xs font-extrabold rounded-xl border flex items-center gap-2 shadow-2xs transition-all hover:scale-102 cursor-pointer ${
+                              isReplacementOrder ? "bg-purple-100 text-purple-950 border-purple-300" : getStatusConfig(order.status).badgeClass
+                            }`}
+                          >
+                            <span className="text-sm">{isReplacementOrder ? "🔄" : getStatusConfig(order.status).symbol}</span>
+                            <span>{isReplacementOrder ? `Replacement: ${order.status}` : getStatusConfig(order.status).label}</span>
+                            <ChevronDown className="h-3.5 w-3.5 opacity-60 ml-0.5" />
+                          </button>
+
+                          {openStatusDropdownId === order.id && (
+                            <>
+                              <div
+                                className="fixed inset-0 z-40"
+                                onClick={() => setOpenStatusDropdownId(null)}
+                              />
+                              <div className="absolute right-0 top-11 w-68 p-1.5 rounded-2xl border-[#EFE6DD] shadow-2xl bg-white space-y-1 z-50 animate-in fade-in duration-150">
+                                <div className="px-3 py-1.5 text-[10px] font-bold text-[#6C5C54] uppercase tracking-wider border-b border-[#EFE6DD]">
+                                  {isReplacementOrder ? "🔄 Update Replacement Stage" : "Select Order Status"}
+                                </div>
+                                {Object.entries(STATUS_CONFIG).map(([stKey, cfg]) => {
+                                  const isSelected = normalizeStatus(order.status) === stKey;
+                                  let stageDisplayLabel = cfg.label;
+                                  if (isReplacementOrder) {
+                                    if (stKey === "Processing") stageDisplayLabel = "Replacement: In Processing";
+                                    else if (stKey === "Packed") stageDisplayLabel = "Replacement: Packed (QA Passed)";
+                                    else if (stKey === "Out for Delivery") stageDisplayLabel = "Replacement: Out for Delivery";
+                                    else if (stKey === "Delivered") stageDisplayLabel = "Replacement: Delivered";
+                                  }
+
+                                  return (
+                                    <button
+                                      key={stKey}
+                                      type="button"
+                                      onClick={() => {
+                                        handleStatusChange(order.id, stKey as OrderStatus);
+                                        setOpenStatusDropdownId(null);
+                                      }}
+                                      className={`w-full flex items-center justify-between p-2.5 my-1 rounded-xl cursor-pointer border transition-all text-left ${cfg.itemBgClass} ${
+                                        isSelected ? "ring-2 ring-offset-1 ring-[#D89A86] font-extrabold shadow-2xs" : "font-semibold opacity-95 hover:opacity-100"
+                                      }`}
+                                    >
+                                      <div className="flex items-center gap-2.5">
+                                        <span className="text-base">{cfg.symbol}</span>
+                                        <span className="text-xs font-bold">{stageDisplayLabel}</span>
+                                      </div>
+                                      <span className={`h-3 w-3 rounded-full ${cfg.dotClass} shadow-2xs border border-white/60`} />
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    </div>
                   </div>
-                </div>
-              </div>
+                );
+              })()}
 
               {/* ORDERED ITEMS SECTION */}
               <div className="flex flex-col gap-2.5">
