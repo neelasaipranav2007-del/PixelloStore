@@ -114,17 +114,7 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   try {
-    const user = await getAuthenticatedUser(req);
-    if (!user) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Authentication required to place an order. Please sign in to continue.",
-        },
-        { status: 401 }
-      );
-    }
-
+    let user = await getAuthenticatedUser(req);
     const body = await req.json();
     const {
       customerName: bodyName,
@@ -137,8 +127,10 @@ export async function POST(req: Request) {
       deliveryType,
     } = body;
 
-    const authenticatedCustomerName = user.name || bodyName || "Verified Customer";
-    const authenticatedCustomerPhone = user.phone || bodyPhone || "Customer";
+    const rawPhone = (user?.phone || bodyPhone || "").trim();
+    const cleanPhoneDigits = rawPhone.replace(/\D/g, "").slice(-10);
+    const authenticatedCustomerName = user?.name || bodyName || `Customer (${cleanPhoneDigits.slice(-4)})`;
+    const authenticatedCustomerPhone = user?.phone || (cleanPhoneDigits ? `+91 ${cleanPhoneDigits}` : "Customer");
 
     if (!items || !Array.isArray(items) || items.length === 0) {
       return NextResponse.json(
@@ -147,8 +139,48 @@ export async function POST(req: Request) {
       );
     }
 
-    // Generate readable PXL Order ID format
-    const cleanPhoneDigits = (authenticatedCustomerPhone || "").replace(/\D/g, "");
+    // Auto find or create User & CustomerProfile if token was not passed
+    let customerProfileId = user?.customerProfile?.id;
+    if (!customerProfileId && cleanPhoneDigits) {
+      try {
+        let existingUser = await prisma.user.findFirst({
+          where: {
+            OR: [
+              { phone: `+91 ${cleanPhoneDigits}` },
+              { phone: cleanPhoneDigits },
+              { phone: { contains: cleanPhoneDigits } },
+            ],
+          },
+          include: { customerProfile: true },
+        });
+
+        if (!existingUser) {
+          existingUser = await prisma.user.create({
+            data: {
+              name: authenticatedCustomerName,
+              phone: `+91 ${cleanPhoneDigits}`,
+              email: `${cleanPhoneDigits}@pixello.store`,
+              role: "CUSTOMER",
+              customerProfile: {
+                create: {},
+              },
+            },
+            include: { customerProfile: true },
+          });
+        } else if (!existingUser.customerProfile) {
+          const profile = await prisma.customerProfile.create({
+            data: { userId: existingUser.id },
+          });
+          existingUser.customerProfile = profile;
+        }
+
+        customerProfileId = existingUser.customerProfile?.id;
+      } catch (err) {
+        console.warn("Auto profile creation note:", err);
+      }
+    }
+
+    // Generate readable permanent PXL Order ID format
     const last4Phone = cleanPhoneDigits.length >= 4 ? cleanPhoneDigits.slice(-4) : "1000";
     const pincodeMatch = (deliveryAddress || "").match(/\b\d{6}\b/) || (deliveryAddress || "").match(/\b\d{4,6}\b/);
     const last4Pincode = pincodeMatch ? pincodeMatch[0].slice(-4) : "5000";
@@ -156,11 +188,11 @@ export async function POST(req: Request) {
     const generatedOrderId = `PXL-${last4Phone}-${last4Pincode}-${randomSuffix}`;
 
     const createdOrder = await prisma.$transaction(async (tx) => {
-      // 1. Create main Order in DB
+      // 1. Create main Order in Central DB
       const newOrder = await tx.order.create({
         data: {
           id: generatedOrderId,
-          customerProfileId: user.customerProfile?.id,
+          customerProfileId: customerProfileId || null,
           customerName: authenticatedCustomerName,
           customerPhone: authenticatedCustomerPhone,
           totalAmount: Number(totalAmount) || 0,
@@ -196,6 +228,7 @@ export async function POST(req: Request) {
         include: {
           items: true,
           history: true,
+          transaction: true,
         },
       });
 
@@ -242,7 +275,7 @@ export async function POST(req: Request) {
       return newOrder;
     });
 
-    // Broadcast real-time event to all connected portals
+    // Broadcast real-time event to all connected portals (Admin, Customer, Studio, Delivery)
     portalEvents.emit("order_change", { action: "CREATE", orderId: createdOrder.id });
     portalEvents.emit("order_update", { action: "CREATE", orderId: createdOrder.id });
 
