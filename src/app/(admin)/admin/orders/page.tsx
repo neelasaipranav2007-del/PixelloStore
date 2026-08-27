@@ -351,43 +351,45 @@ export default function AdminOrdersPage() {
         </div>
       </div>
 
-      {/* Status Sections Segmented Bar - Single Frame Layout */}
-      <div className="bg-white p-1.5 rounded-2xl border border-[#EFE6DD] shadow-xs flex items-center justify-between gap-1 w-full overflow-hidden">
-        {STATUS_TABS.map((tab) => {
-          let count = 0;
-          if (tab.id === "ALL") {
-            count = orders.length;
-          } else {
-            const normTab = normalizeStatus(tab.id);
-            count = orders.filter((o) => normalizeStatus(o.status) === normTab).length;
-          }
+      {/* Sticky Status Sections Segmented Bar */}
+      <div className="sticky top-0 z-30 bg-[#F8F3EE]/95 backdrop-blur-md py-2.5 -my-2.5">
+        <div className="bg-white p-1.5 rounded-2xl border border-[#EFE6DD] shadow-sm flex items-center justify-between gap-1 w-full overflow-hidden">
+          {STATUS_TABS.map((tab) => {
+            let count = 0;
+            if (tab.id === "ALL") {
+              count = orders.length;
+            } else {
+              const normTab = normalizeStatus(tab.id);
+              count = orders.filter((o) => normalizeStatus(o.status) === normTab).length;
+            }
 
-          const isActive = activeStatusTab === tab.id;
+            const isActive = activeStatusTab === tab.id;
 
-          return (
-            <button
-              key={tab.id}
-              onClick={() => setActiveStatusTab(tab.id)}
-              className={`flex-1 py-2 px-2 rounded-xl text-xs font-bold transition-all duration-200 flex items-center justify-center gap-1.5 whitespace-nowrap cursor-pointer ${
-                isActive
-                  ? "bg-[#3A2B24] text-white shadow-sm font-extrabold"
-                  : "text-[#6C5C54] hover:text-[#3A2B24] hover:bg-[#FAF7F4]"
-              }`}
-            >
-              <span className="text-sm leading-none flex-shrink-0">{tab.symbol}</span>
-              <span className="text-[11px] sm:text-xs font-bold">{tab.label}</span>
-              <span
-                className={`px-1.5 py-0.5 rounded-full text-[10px] font-black flex-shrink-0 ${
+            return (
+              <button
+                key={tab.id}
+                onClick={() => setActiveStatusTab(tab.id)}
+                className={`flex-1 py-2 px-2 rounded-xl text-xs font-bold transition-all duration-200 flex items-center justify-center gap-1.5 whitespace-nowrap cursor-pointer ${
                   isActive
-                    ? "bg-[#D89A86] text-white"
-                    : "bg-[#F8F3EE] text-[#6C5C54] border border-[#EFE6DD]"
+                    ? "bg-[#3A2B24] text-white shadow-sm font-extrabold"
+                    : "text-[#6C5C54] hover:text-[#3A2B24] hover:bg-[#FAF7F4]"
                 }`}
               >
-                {count}
-              </span>
-            </button>
-          );
-        })}
+                <span className="text-sm leading-none flex-shrink-0">{tab.symbol}</span>
+                <span className="text-[11px] sm:text-xs font-bold">{tab.label}</span>
+                <span
+                  className={`px-1.5 py-0.5 rounded-full text-[10px] font-black flex-shrink-0 ${
+                    isActive
+                      ? "bg-[#D89A86] text-white"
+                      : "bg-[#F8F3EE] text-[#6C5C54] border border-[#EFE6DD]"
+                  }`}
+                >
+                  {count}
+                </span>
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       {/* Orders List Container - PIC 1 ORDER CARDS FORMAT */}
