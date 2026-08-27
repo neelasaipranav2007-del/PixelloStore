@@ -1321,16 +1321,20 @@ export default function ProductDetailsPage({ params }: { params: Promise<any> })
               <div>
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-3 gap-2">
                   <div className="flex items-center gap-2">
-                    <h3 className="font-semibold text-sm text-[#3A2B24]">
-                      {isPhotoOptional
-                        ? "Upload Custom Photo (Optional)"
-                        : `Upload Photos for ${isPolaroid ? `${selectedPolaroidSize} Polaroid` : selectedSizeLabel} (${uploadedCount}/${totalRequiredPhotos} Uploaded)`}
-                    </h3>
-                    {isPhotoOptional && (
-                      <span className="text-[10px] bg-[#FFF8F2] text-[#D89A86] font-bold border border-[#D89A86]/30 px-2 py-0.5 rounded-full">
-                        Optional
+                    <h3 className="font-semibold text-sm text-[#3A2B24] flex items-center gap-1.5">
+                      {!isPhotoOptional ? (
+                        <span className="text-red-600 font-extrabold text-[10px] bg-red-50 border border-red-200 px-2 py-0.5 rounded-full shadow-2xs">
+                          * Compulsory
+                        </span>
+                      ) : (
+                        <span className="text-[10px] bg-[#FFF8F2] text-[#D89A86] font-bold border border-[#D89A86]/30 px-2 py-0.5 rounded-full">
+                          Optional
+                        </span>
+                      )}
+                      <span>
+                        Upload Photos for <strong className="text-[#D89A86]">{isPolaroid ? `${selectedPolaroidSize} Polaroid` : selectedSizeLabel}</strong> ({uploadedCount}/{totalRequiredPhotos} Uploaded)
                       </span>
-                    )}
+                    </h3>
                   </div>
                 </div>
 
@@ -1554,7 +1558,7 @@ export default function ProductDetailsPage({ params }: { params: Promise<any> })
                 className="flex-1 h-14 text-lg rounded-full btn-pixello-primary cursor-pointer"
                 onClick={() => {
                   if (!isComplete && !isPhotoOptional) {
-                    alert(`Please upload all ${totalRequiredPhotos} photo(s) before adding to cart! (${uploadedCount}/${totalRequiredPhotos} uploaded)`);
+                    alert(`⚠️ Photo upload is compulsory for Frames & Polaroids! Please upload all ${totalRequiredPhotos} photo(s) before adding to cart (${uploadedCount}/${totalRequiredPhotos} uploaded).`);
                     return;
                   }
                   const chosenSize = isPaperWeight
@@ -1591,7 +1595,7 @@ export default function ProductDetailsPage({ params }: { params: Promise<any> })
               className="flex-1 h-14 text-lg rounded-full bg-[#3A2B24] text-white hover:bg-[#544036] cursor-pointer"
               onClick={() => {
                 if (!isComplete && !isPhotoOptional) {
-                  alert(`Please upload all ${totalRequiredPhotos} photo(s) before checkout! (${uploadedCount}/${totalRequiredPhotos} uploaded)`);
+                  alert(`⚠️ Photo upload is compulsory for Frames & Polaroids! Please upload all ${totalRequiredPhotos} photo(s) before checkout (${uploadedCount}/${totalRequiredPhotos} uploaded).`);
                   return;
                 }
                 const chosenSize = isPaperWeight
