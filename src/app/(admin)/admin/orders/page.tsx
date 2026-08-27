@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useOrders, OrderStatus, Order } from "@/context/OrderContext";
 import { OrderStatusBadge } from "@/components/ui/status-badge";
-import { ChevronDown, Search, X, Eye, Download, FileText, Image as ImageIcon, MessageCircle, Upload, Package, Check, Paperclip, Truck, Bike } from "lucide-react";
+import { ChevronDown, Search, X, Eye, Download, FileText, Image as ImageIcon, MessageCircle, Upload, Package, Check, Paperclip, Truck, Bike, Gift } from "lucide-react";
 
 const STATUS_CONFIG: Record<string, { label: string; symbol: string; badgeClass: string; dotClass: string; itemBgClass: string }> = {
   "Processing": { label: "Processing", symbol: "⏳", badgeClass: "bg-amber-100 text-amber-900 border-amber-300", dotClass: "bg-amber-500", itemBgClass: "bg-amber-50/90 hover:bg-amber-100/90 border-amber-200 text-amber-950" },
@@ -48,23 +48,23 @@ const STATUS_TABS: { id: string; label: string; symbol: string; activeClass: str
   { id: "Cancelled", label: "Cancelled", symbol: "❌", activeClass: "bg-slate-700 text-white" },
 ];
 
-const getItemPhotosList = (item: { image?: string; photos?: string[]; quantity?: number }) => {
-  const qty = item?.quantity || 1;
-  let photos: string[] = [];
-  if (item?.photos && item.photos.length > 0) {
-    photos = item.photos.map(p => (typeof p === "string" && (p.startsWith("data:") || p.startsWith("http") || p.startsWith("/"))) ? p : (item.image || "https://images.unsplash.com/photo-1513519245088-0e12902e5a38?w=800&q=80"));
-  } else if (item?.image) {
-    photos = [item.image];
-  } else {
-    photos = ["https://images.unsplash.com/photo-1513519245088-0e12902e5a38?w=800&q=80"];
+const getItemPhotosList = (item: { image?: string; photos?: string[]; quantity?: number; name?: string; size?: string }) => {
+  // If item has explicit custom uploaded photos from customer
+  if (item?.photos && Array.isArray(item.photos) && item.photos.length > 0) {
+    const customPhotos = item.photos.filter((p: any) => typeof p === "string" && (p.startsWith("data:") || p.startsWith("blob:") || (p.startsWith("http") && !p.includes("images.unsplash.com"))));
+    if (customPhotos.length > 0) {
+      return { photos: customPhotos, isCustomUploaded: true };
+    }
   }
 
-  const targetCount = Math.max(photos.length, qty);
-  const result: string[] = [];
-  for (let i = 0; i < targetCount; i++) {
-    result.push(photos[i] || photos[0]);
+  // If item image is a custom user upload (data URL or blob)
+  if (item?.image && (item.image.startsWith("data:") || item.image.startsWith("blob:"))) {
+    return { photos: [item.image], isCustomUploaded: true };
   }
-  return result;
+
+  // Standard gift / catalog item without uploaded custom photos
+  const defaultImage = item?.image || "https://images.unsplash.com/photo-1513519245088-0e12902e5a38?w=800&q=80";
+  return { photos: [defaultImage], isCustomUploaded: false };
 };
 
 export default function AdminOrdersPage() {
@@ -521,7 +521,7 @@ export default function AdminOrdersPage() {
                 <span className="text-xs font-bold text-[#6C5C54]">Ordered Items / Photos:</span>
                 <div className="flex flex-col gap-2.5">
                   {order.items.map((item, idx) => {
-                    const photoList = getItemPhotosList(item);
+                    const { photos: photoList, isCustomUploaded } = getItemPhotosList(item);
                     return (
                       <div
                         key={idx}
@@ -557,28 +557,34 @@ export default function AdminOrdersPage() {
                             
                             {/* Photo list pills */}
                             <div className="flex flex-wrap gap-1 mt-1.5">
-                              {photoList.map((_, pIdx) => (
-                                <button
-                                  key={pIdx}
-                                  type="button"
-                                  onClick={() =>
-                                    setPreviewModal({
-                                      isOpen: true,
-                                      orderId: order.id,
-                                      customerName: order.customerName,
-                                      customerPhone: order.customerPhone,
-                                      itemName: item.name,
-                                      itemSize: item.size,
-                                      photos: photoList,
-                                      activePhotoIdx: pIdx,
-                                      assignedStudio: order.assignedStudio,
-                                    })
-                                  }
-                                  className="text-[9px] font-bold text-emerald-800 bg-emerald-100 hover:bg-emerald-200 border border-emerald-300 px-2 py-0.5 rounded-full inline-flex items-center gap-1 cursor-pointer transition-colors"
-                                >
-                                  <ImageIcon className="h-2.5 w-2.5 text-emerald-600" /> Photo #{pIdx + 1}
-                                </button>
-                              ))}
+                              {isCustomUploaded ? (
+                                photoList.map((_, pIdx) => (
+                                  <button
+                                    key={pIdx}
+                                    type="button"
+                                    onClick={() =>
+                                      setPreviewModal({
+                                        isOpen: true,
+                                        orderId: order.id,
+                                        customerName: order.customerName,
+                                        customerPhone: order.customerPhone,
+                                        itemName: item.name,
+                                        itemSize: item.size,
+                                        photos: photoList,
+                                        activePhotoIdx: pIdx,
+                                        assignedStudio: order.assignedStudio,
+                                      })
+                                    }
+                                    className="text-[9px] font-bold text-emerald-800 bg-emerald-100 hover:bg-emerald-200 border border-emerald-300 px-2 py-0.5 rounded-full inline-flex items-center gap-1 cursor-pointer transition-colors"
+                                  >
+                                    <ImageIcon className="h-2.5 w-2.5 text-emerald-600" /> Photo #{pIdx + 1}
+                                  </button>
+                                ))
+                              ) : (
+                                <span className="text-[10px] font-medium text-[#6C5C54] bg-[#FFF8F2] border border-[#EFE6DD] px-2 py-0.5 rounded-full inline-flex items-center gap-1">
+                                  <Gift className="h-3 w-3 text-[#D89A86]" /> Standard Gift (No Custom Photo)
+                                </span>
+                              )}
                             </div>
                           </div>
                         </div>

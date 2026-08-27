@@ -405,7 +405,9 @@ export default function ProductDetailsPage({ params }: { params: Promise<any> })
   const totalOriginalPrice = unitOriginalPrice * quantity;
 
   // Photos Upload State
-  const totalRequiredPhotos = (isPanda || isLiquidTimer || isPaperWeight) ? 0 : quantity;
+  const isGiftProduct = baseProduct.category === "Gifts" || isPanda || isLiquidTimer || isPaperWeight || id === "3" || id === "4" || id === "5" || id === "7" || id === "8" || id === "9";
+  const isPhotoOptional = isGiftProduct;
+  const totalRequiredPhotos = isGiftProduct ? (isPanda || isLiquidTimer || isPaperWeight ? 0 : 1) : quantity;
   const [uploadedPhotos, setUploadedPhotos] = useState<(File | null)[]>(() => Array(totalRequiredPhotos).fill(null));
   const [uploadedPhotoDataUrls, setUploadedPhotoDataUrls] = useState<(string | null)[]>(() => Array(totalRequiredPhotos).fill(null));
   const [previewPhotoModal, setPreviewPhotoModal] = useState<{ index: number; file: File; url: string } | null>(null);
@@ -433,7 +435,7 @@ export default function ProductDetailsPage({ params }: { params: Promise<any> })
       }
       return updated.slice(0, totalRequiredPhotos);
     });
-  }, [quantity, totalRequiredPhotos, isPanda, isLiquidTimer, isPaperWeight]);
+  }, [quantity, totalRequiredPhotos, isPanda, isLiquidTimer, isPaperWeight, isGiftProduct]);
 
   const handleSingleFileUpload = (file: File, slotIdx: number) => {
     setUploadedPhotos((prev) => {
@@ -526,7 +528,7 @@ export default function ProductDetailsPage({ params }: { params: Promise<any> })
   };
 
   const uploadedCount = uploadedPhotos.filter(Boolean).length;
-  const isComplete = (isPanda || isLiquidTimer || isPaperWeight) ? true : (uploadedCount === totalRequiredPhotos);
+  const isComplete = isPhotoOptional ? true : (isPanda || isLiquidTimer || isPaperWeight) ? true : (uploadedCount === totalRequiredPhotos);
 
   const product = { 
     id, 
@@ -1318,18 +1320,29 @@ export default function ProductDetailsPage({ params }: { params: Promise<any> })
             {!isPanda && !isLiquidTimer && !isPaperWeight && (
               <div>
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-3 gap-2">
-                  <h3 className="font-semibold text-sm text-[#3A2B24]">
-                    Upload Photos for <span className="text-[#D89A86] font-bold">{isPolaroid ? `${selectedPolaroidSize} Polaroid` : selectedSizeLabel}</span> ({uploadedCount}/{totalRequiredPhotos} Uploaded)
-                  </h3>
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-semibold text-sm text-[#3A2B24]">
+                      {isPhotoOptional
+                        ? "Upload Custom Photo (Optional)"
+                        : `Upload Photos for ${isPolaroid ? `${selectedPolaroidSize} Polaroid` : selectedSizeLabel} (${uploadedCount}/${totalRequiredPhotos} Uploaded)`}
+                    </h3>
+                    {isPhotoOptional && (
+                      <span className="text-[10px] bg-[#FFF8F2] text-[#D89A86] font-bold border border-[#D89A86]/30 px-2 py-0.5 rounded-full">
+                        Optional
+                      </span>
+                    )}
+                  </div>
                 </div>
 
-                {/* Upload Progress Bar */}
-                <div className="w-full bg-[#FFF8F2] border border-[#EFE6DD] rounded-full h-2.5 mb-4 overflow-hidden">
-                  <div 
-                    className="bg-[#D89A86] h-full transition-all duration-300 rounded-full" 
-                    style={{ width: `${(uploadedCount / totalRequiredPhotos) * 100}%` }} 
-                  />
-                </div>
+                {/* Upload Progress Bar (Only when photos are required) */}
+                {!isPhotoOptional && (
+                  <div className="w-full bg-[#FFF8F2] border border-[#EFE6DD] rounded-full h-2.5 mb-4 overflow-hidden">
+                    <div 
+                      className="bg-[#D89A86] h-full transition-all duration-300 rounded-full" 
+                      style={{ width: `${(uploadedCount / totalRequiredPhotos) * 100}%` }} 
+                    />
+                  </div>
+                )}
 
                 <input 
                   type="file" 
@@ -1540,7 +1553,7 @@ export default function ProductDetailsPage({ params }: { params: Promise<any> })
                 size="lg" 
                 className="flex-1 h-14 text-lg rounded-full btn-pixello-primary cursor-pointer"
                 onClick={() => {
-                  if (!isComplete) {
+                  if (!isComplete && !isPhotoOptional) {
                     alert(`Please upload all ${totalRequiredPhotos} photo(s) before adding to cart! (${uploadedCount}/${totalRequiredPhotos} uploaded)`);
                     return;
                   }
@@ -1564,7 +1577,7 @@ export default function ProductDetailsPage({ params }: { params: Promise<any> })
                     price: unitPrice,
                     quantity: quantity,
                     image: primaryImage,
-                    photos: (isPanda || isLiquidTimer || isPaperWeight) ? [] : (validPhotoDataUrls.length > 0 ? validPhotoDataUrls : [primaryImage])
+                    photos: validPhotoDataUrls.length > 0 ? validPhotoDataUrls : []
                   });
                   setAddedToast({ size: chosenSize, quantity: 1 });
                 }}
@@ -1577,7 +1590,7 @@ export default function ProductDetailsPage({ params }: { params: Promise<any> })
               variant="secondary" 
               className="flex-1 h-14 text-lg rounded-full bg-[#3A2B24] text-white hover:bg-[#544036] cursor-pointer"
               onClick={() => {
-                if (!isComplete) {
+                if (!isComplete && !isPhotoOptional) {
                   alert(`Please upload all ${totalRequiredPhotos} photo(s) before checkout! (${uploadedCount}/${totalRequiredPhotos} uploaded)`);
                   return;
                 }
@@ -1601,7 +1614,7 @@ export default function ProductDetailsPage({ params }: { params: Promise<any> })
                   price: unitPrice,
                   quantity: quantity,
                   image: primaryImage,
-                  photos: (isPanda || isLiquidTimer || isPaperWeight) ? [] : (validPhotoDataUrls.length > 0 ? validPhotoDataUrls : [primaryImage])
+                  photos: validPhotoDataUrls.length > 0 ? validPhotoDataUrls : []
                 });
                 router.push("/checkout");
               }}
