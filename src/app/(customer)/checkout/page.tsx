@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
-import { CheckCircle2, MapPin, CreditCard, Wallet, Building2, ChevronLeft, ShieldCheck, Loader2, ArrowRight, Sparkles, Tag, AlertCircle } from "lucide-react";
+import { CheckCircle2, MapPin, CreditCard, Wallet, Building2, ChevronLeft, ShieldCheck, Loader2, ArrowRight, Sparkles, Tag, AlertCircle, Copy, Check, QrCode, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -44,6 +44,9 @@ export default function CheckoutPage() {
     type: "percentage" | "flat";
     value: number;
   } | null>(null);
+  const [paymentMethod, setPaymentMethod] = useState<"upi" | "netbanking">("upi");
+  const [copiedUpi, setCopiedUpi] = useState(false);
+  const [utrNumber, setUtrNumber] = useState("");
   const [promoError, setPromoError] = useState("");
 
   const subtotal = cartItems.reduce((acc, item) => acc + item.price * item.quantity, 0);
@@ -920,33 +923,149 @@ export default function CheckoutPage() {
             </Card>
 
             {/* Payment Options */}
-            <Card className="border border-[#EFE6DD] bg-white rounded-3xl shadow-xs">
+            <Card className="border border-[#EFE6DD] bg-white rounded-3xl shadow-xs overflow-hidden">
               <CardContent className="p-6 md:p-8">
                 <div className="flex items-center gap-3 mb-6">
                   <div className="h-8 w-8 rounded-full bg-[#FFF8F2] text-[#D89A86] border border-[#D89A86]/30 flex items-center justify-center font-bold">2</div>
                   <h2 className="font-serif-brand text-xl font-bold text-[#3A2B24]">Payment Method</h2>
                 </div>
 
-                <div className="flex flex-col gap-3">
-                  <label className="flex items-center justify-between p-4 border border-[#D89A86] rounded-2xl cursor-pointer bg-[#FFF8F2] transition-all">
-                    <div className="flex items-center gap-3">
-                      <input type="radio" name="payment" className="text-[#D89A86] focus:ring-[#D89A86]" defaultChecked />
-                      <div className="font-medium text-[#3A2B24] flex items-center gap-2">
-                        <Wallet className="h-5 w-5 text-[#D89A86]" /> UPI (GPay, PhonePe)
+                <div className="flex flex-col gap-4">
+                  {/* UPI Option */}
+                  <div
+                    onClick={() => setPaymentMethod("upi")}
+                    className={cn(
+                      "p-4 md:p-5 border rounded-2xl cursor-pointer transition-all",
+                      paymentMethod === "upi"
+                        ? "border-[#D89A86] bg-[#FFF8F2]/60 shadow-sm"
+                        : "border-[#EFE6DD] hover:border-[#D89A86] bg-white"
+                    )}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <input
+                          type="radio"
+                          name="payment"
+                          checked={paymentMethod === "upi"}
+                          onChange={() => setPaymentMethod("upi")}
+                          className="text-[#D89A86] focus:ring-[#D89A86] h-4 w-4"
+                        />
+                        <div className="font-semibold text-[#3A2B24] flex items-center gap-2">
+                          <Wallet className="h-5 w-5 text-[#D89A86]" /> UPI (GPay, PhonePe, Paytm, BHIM)
+                        </div>
                       </div>
+                      <Badge className="bg-[#5AAE7F]/10 text-[#5AAE7F] border-[#5AAE7F]/20 text-[11px] font-medium">
+                        Instant • Zero Fee
+                      </Badge>
                     </div>
-                  </label>
-                  
 
+                    {/* Expandable UPI QR Payment Card */}
+                    {paymentMethod === "upi" && (
+                      <div className="mt-5 pt-5 border-t border-[#D89A86]/20 flex flex-col md:flex-row items-center gap-6 bg-white p-5 rounded-2xl border border-[#EFE6DD] shadow-xs">
+                        {/* QR Code Container */}
+                        <div className="flex flex-col items-center flex-shrink-0">
+                          <div className="p-3 bg-white rounded-2xl border-2 border-[#D89A86]/30 shadow-md flex items-center justify-center">
+                            <img
+                              src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(
+                                `upi://pay?pa=9618401231-2@ybl&pn=Pixello%20Store&am=${total}&cu=INR&tn=Pixello%20Store%20Order`
+                              )}`}
+                              alt="Scan UPI QR Code to Pay"
+                              className="h-44 w-44 object-contain rounded-lg"
+                            />
+                          </div>
+                          <div className="mt-2 flex items-center gap-1 text-[11px] font-bold text-[#6C5C54] tracking-wide">
+                            <QrCode className="h-3.5 w-3.5 text-[#D89A86]" /> Scan with Any UPI App
+                          </div>
+                        </div>
 
-                  <label className="flex items-center justify-between p-4 border border-[#EFE6DD] rounded-2xl cursor-pointer hover:border-[#D89A86] transition-all bg-white">
+                        {/* UPI Details & Actions */}
+                        <div className="flex-1 flex flex-col items-center md:items-start text-center md:text-left">
+                          <div className="text-xs font-bold text-[#D89A86] uppercase tracking-wider mb-1">
+                            Pay via UPI ID
+                          </div>
+                          <div className="flex items-center gap-2 p-2.5 px-3.5 bg-[#FFF8F2] border border-[#D89A86]/30 rounded-xl w-full max-w-sm justify-between">
+                            <span className="font-mono font-bold text-sm text-[#3A2B24] tracking-wide">
+                              9618401231-2@ybl
+                            </span>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                navigator.clipboard.writeText("9618401231-2@ybl");
+                                setCopiedUpi(true);
+                                setTimeout(() => setCopiedUpi(false), 2000);
+                              }}
+                              className="flex items-center gap-1 text-xs font-bold text-[#D89A86] hover:text-[#3A2B24] bg-white px-2.5 py-1 rounded-lg border border-[#D89A86]/30 shadow-2xs transition-all cursor-pointer"
+                            >
+                              {copiedUpi ? (
+                                <>
+                                  <Check className="h-3.5 w-3.5 text-[#5AAE7F]" /> Copied!
+                                </>
+                              ) : (
+                                <>
+                                  <Copy className="h-3.5 w-3.5" /> Copy
+                                </>
+                              )}
+                            </button>
+                          </div>
+
+                          <div className="mt-3 flex items-center gap-2 text-xs text-[#6C5C54]">
+                            <span>Merchant: <strong className="text-[#3A2B24]">Pixello Store</strong></span>
+                            <span>•</span>
+                            <span>Amount: <strong className="text-[#D89A86]">₹{total}</strong></span>
+                          </div>
+
+                          {/* Direct Mobile UPI Pay Button */}
+                          <div className="mt-4 w-full flex flex-col sm:flex-row items-center gap-2">
+                            <a
+                              href={`upi://pay?pa=9618401231-2@ybl&pn=Pixello%20Store&am=${total}&cu=INR&tn=Pixello%20Store%20Order`}
+                              onClick={(e) => e.stopPropagation()}
+                              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-[#3A2B24] hover:bg-[#2A1E18] text-[#FFF8F2] text-xs font-bold py-2.5 px-4 rounded-xl transition-all shadow-xs"
+                            >
+                              <ExternalLink className="h-3.5 w-3.5 text-[#F2C8B5]" /> Open UPI App (Mobile)
+                            </a>
+                          </div>
+
+                          {/* Optional UTR / Reference ID Field */}
+                          <div className="mt-3 w-full max-w-sm">
+                            <input
+                              type="text"
+                              value={utrNumber}
+                              onChange={(e) => setUtrNumber(e.target.value)}
+                              placeholder="UPI Reference / UTR Number (Optional)"
+                              className="w-full text-xs p-2.5 bg-white border border-[#EFE6DD] rounded-xl focus:outline-none focus:border-[#D89A86] text-[#3A2B24] placeholder:text-[#9C8C84]"
+                              onClick={(e) => e.stopPropagation()}
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Net Banking Option */}
+                  <div
+                    onClick={() => setPaymentMethod("netbanking")}
+                    className={cn(
+                      "p-4 border rounded-2xl cursor-pointer transition-all flex items-center justify-between",
+                      paymentMethod === "netbanking"
+                        ? "border-[#D89A86] bg-[#FFF8F2]/60 shadow-sm"
+                        : "border-[#EFE6DD] hover:border-[#D89A86] bg-white"
+                    )}
+                  >
                     <div className="flex items-center gap-3">
-                      <input type="radio" name="payment" className="text-[#D89A86] focus:ring-[#D89A86]" />
-                      <div className="font-medium text-[#3A2B24] flex items-center gap-2">
+                      <input
+                        type="radio"
+                        name="payment"
+                        checked={paymentMethod === "netbanking"}
+                        onChange={() => setPaymentMethod("netbanking")}
+                        className="text-[#D89A86] focus:ring-[#D89A86] h-4 w-4"
+                      />
+                      <div className="font-semibold text-[#3A2B24] flex items-center gap-2">
                         <Building2 className="h-5 w-5 text-[#5AAE7F]" /> Net Banking
                       </div>
                     </div>
-                  </label>
+                    <span className="text-xs text-[#6C5C54]">All Major Indian Banks</span>
+                  </div>
                 </div>
               </CardContent>
             </Card>
