@@ -231,11 +231,20 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
         if (adminToken) headers["Authorization"] = `Bearer ${adminToken}`;
       }
 
-      await fetch(`/api/admin/orders/${encodeURIComponent(orderId)}/status`, {
+      const res = await fetch(`/api/admin/orders/${encodeURIComponent(orderId)}/status`, {
         method: "PATCH",
         headers,
         body: JSON.stringify({ status, note }),
       });
+
+      if (!res.ok) {
+        // Fallback to customer/universal status update route
+        await fetch(`/api/orders/${encodeURIComponent(orderId)}/status`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ status, note }),
+        });
+      }
 
       await fetchOrdersFromBackend(false);
     } catch (err) {

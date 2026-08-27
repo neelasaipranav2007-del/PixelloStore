@@ -24,10 +24,10 @@ const normalizeStatus = (status?: string): string => {
   const s = status.trim().toUpperCase();
   if (s === "CANCELLED" || s === "CANCELED") return "Cancelled";
   if (s === "DELIVERED") return "Delivered";
-  if (s === "REPLACEMENT REQUESTED" || s === "REPLACEMENT") return "Replacement Requested";
-  if (s === "PACKED") return "Packed";
-  if (s === "OUT FOR DELIVERY" || s === "DELIVERY PICKED UP") return "Out for Delivery";
-  if (s === "PROCESSING" || s === "PLACED" || s === "PRINTING" || s === "OUT OF STOCK") return "Processing";
+  if (s === "REPLACEMENT REQUESTED" || s === "REPLACEMENT" || s === "REPLACEMENT_REQUESTED") return "Replacement Requested";
+  if (s === "PACKED" || s === "QUALITY_CHECK") return "Packed";
+  if (s === "OUT FOR DELIVERY" || s === "OUT_FOR_DELIVERY" || s === "DELIVERY PICKED UP" || s === "PICKED_UP") return "Out for Delivery";
+  if (s === "PROCESSING" || s === "PLACED" || s === "PRINTING" || s === "OUT OF STOCK" || s === "OUT_OF_STOCK") return "Processing";
 
   const match = Object.keys(STATUS_CONFIG).find((k) => k.toUpperCase() === s);
   return match || "Processing";
