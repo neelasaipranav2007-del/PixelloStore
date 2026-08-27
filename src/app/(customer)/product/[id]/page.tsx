@@ -1610,17 +1610,7 @@ export default function ProductDetailsPage({ params }: { params: Promise<any> })
             </Button>
           </div>
 
-          {/* Contact Banner */}
-          <div className="p-4 bg-[#3A2B24] text-[#EFE6DD] rounded-3xl flex flex-col sm:flex-row items-center justify-between gap-3 text-center sm:text-left">
-            <div>
-              <p className="text-xs text-[#F2C8B5] font-bold uppercase tracking-wider">Pixello Store • {isPaperWeight ? "Hold Your FOREVER US Keepsake!" : (isLiquidTimer ? "Mesmerizing Drops • Calming Vibes" : (isPanda ? "Light Up Your CUTE MOMENTS!" : (isPolaroid ? "Tiny Prints, Big Memories" : "Thoughtfully Yours")))}</p>
-              <p className="text-[11px] text-[#EFE6DD] mt-0.5">{isPaperWeight ? "A keepsake that lasts forever • Beautifully crafted" : (isLiquidTimer ? "Perfect for your desk or as a gift!" : (isPanda ? "Soft glow • Warm vibes • Endless cuteness" : (isPolaroid ? "Tiny prints • Timeless memories" : "Frames that speak your heart • Memories that last forever")))}</p>
-            </div>
-            <div className="flex items-center gap-3 text-xs font-semibold">
-              <span>📱 7989856610 / 8074589949</span>
-              <span>📸 pixellostore</span>
-            </div>
-          </div>
+
 
         </div>
       </div>
