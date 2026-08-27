@@ -937,14 +937,7 @@ export default function CheckoutPage() {
                     </div>
                   </label>
                   
-                  <label className="flex items-center justify-between p-4 border border-[#EFE6DD] rounded-2xl cursor-pointer hover:border-[#D89A86] transition-all bg-white">
-                    <div className="flex items-center gap-3">
-                      <input type="radio" name="payment" className="text-[#D89A86] focus:ring-[#D89A86]" />
-                      <div className="font-medium text-[#3A2B24] flex items-center gap-2">
-                        <CreditCard className="h-5 w-5 text-[#3A2B24]" /> Credit / Debit Card
-                      </div>
-                    </div>
-                  </label>
+
 
                   <label className="flex items-center justify-between p-4 border border-[#EFE6DD] rounded-2xl cursor-pointer hover:border-[#D89A86] transition-all bg-white">
                     <div className="flex items-center gap-3">
