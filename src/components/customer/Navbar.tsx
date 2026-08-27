@@ -83,27 +83,45 @@ export default function Navbar() {
   }, []);
 
   useEffect(() => {
-    const syncUserSession = () => {
+    const syncUserSession = async () => {
       if (typeof window !== "undefined") {
         const isLoggedOut = localStorage.getItem("pixello_logged_out") === "true";
-        if (isLoggedOut) {
+        const token = localStorage.getItem("pixello_auth_token");
+        if (isLoggedOut || !token) {
+          localStorage.removeItem("pixello_user");
           setCurrentUser(null);
           return;
         }
-        const savedUser = localStorage.getItem("pixello_user");
-        if (savedUser) {
-          try {
-            const parsed = JSON.parse(savedUser);
-            if (parsed && parsed.isLoggedIn !== false && parsed.name) {
-              setCurrentUser(parsed);
-            } else {
-              setCurrentUser(null);
-            }
-          } catch (e) {
+
+        try {
+          const res = await fetch("/api/auth/me", {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          const data = await res.json();
+          if (data.success && data.user) {
+            setCurrentUser(data.user);
+            localStorage.setItem("pixello_user", JSON.stringify(data.user));
+          } else {
+            localStorage.removeItem("pixello_user");
+            localStorage.removeItem("pixello_auth_token");
             setCurrentUser(null);
           }
-        } else {
-          setCurrentUser(null);
+        } catch (e) {
+          const savedUser = localStorage.getItem("pixello_user");
+          if (savedUser) {
+            try {
+              const parsed = JSON.parse(savedUser);
+              if (parsed && parsed.isLoggedIn !== false && parsed.name) {
+                setCurrentUser(parsed);
+              } else {
+                setCurrentUser(null);
+              }
+            } catch (err) {
+              setCurrentUser(null);
+            }
+          } else {
+            setCurrentUser(null);
+          }
         }
       }
     };
@@ -354,7 +372,7 @@ export default function Navbar() {
                   }
                   setCurrentUser(null);
                   setShowSignOutModal(false);
-                  startTransitionTo("/login", "signing-out", "EXITING PIXELLO...");
+                  window.location.href = "/login";
                 }}
               >
                 Yes, Sign Out
