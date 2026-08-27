@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useOrders, OrderStatus, Order } from "@/context/OrderContext";
 import { OrderStatusBadge } from "@/components/ui/status-badge";
-import { ChevronDown, Search, X, Eye, Download, FileText, Image as ImageIcon, MessageCircle, Upload, Package, Check, Paperclip, Truck, Bike, Gift, User, Phone, Store, Calendar, MapPin, RefreshCw } from "lucide-react";
+import { ChevronDown, Search, X, Eye, Download, FileText, Image as ImageIcon, MessageCircle, Upload, Package, Check, Paperclip, Truck, Bike, Gift, User, Phone, Store, Calendar, MapPin, RefreshCw, FileSpreadsheet } from "lucide-react";
 
 const STATUS_CONFIG: Record<string, { label: string; symbol: string; badgeClass: string; dotClass: string; itemBgClass: string }> = {
   "Processing": { label: "Processing", symbol: "⏳", badgeClass: "bg-amber-100 text-amber-900 border-amber-300", dotClass: "bg-amber-500", itemBgClass: "bg-amber-50/90 hover:bg-amber-100/90 border-amber-200 text-amber-950" },
@@ -266,6 +266,96 @@ export default function AdminOrdersPage() {
     return true;
   });
 
+  const handleExportToExcel = (exportFiltered: boolean = false) => {
+    const dataToExport = exportFiltered ? filteredOrders : orders;
+    if (!dataToExport || dataToExport.length === 0) {
+      alert("No orders available to export.");
+      return;
+    }
+
+    const headers = [
+      "Order ID",
+      "Order Date",
+      "Customer Name",
+      "Customer Phone",
+      "Customer Email",
+      "Ordered Items & Quantity",
+      "Total Units Quantity",
+      "Subtotal (INR)",
+      "Discount (INR)",
+      "Total Amount (INR)",
+      "Payment Method",
+      "Payment Status",
+      "Delivery Mode",
+      "Order Status",
+      "Assigned Studio / Dispatch",
+      "Shipping Address",
+      "Ambassador Code",
+      "Ambassador Partner",
+      "Courier / Tracking AWB",
+      "Invoice Attached",
+      "Shipping Label Attached"
+    ];
+
+    const rows = dataToExport.map((o) => {
+      const isRep = o.status === "Replacement Requested" || (o.history && o.history.some((h: any) => h.status === "Replacement Requested" || (h.note && h.note.includes("Replacement"))));
+      const statusLabel = isRep ? `Replacement: ${o.status}` : o.status;
+
+      const itemsSummary = (o.items || [])
+        .map((it: any) => `${it.name} [Size: ${it.size || "Standard"}] (Qty: ${it.quantity || 1} x Rs.${it.price || 0})`)
+        .join(" | ");
+
+      const totalQty = (o.items || []).reduce((acc: number, it: any) => acc + (Number(it.quantity) || 1), 0);
+
+      return [
+        o.id,
+        o.date || (o.createdAt ? new Date(o.createdAt).toISOString().split("T")[0] : ""),
+        o.customerName || "N/A",
+        o.customerPhone || "N/A",
+        o.customerEmail || "N/A",
+        itemsSummary,
+        totalQty,
+        (o.subtotal || o.totalAmount || 0).toFixed(2),
+        (o.discount || o.referralDiscount || 0).toFixed(2),
+        (o.totalAmount || 0).toFixed(2),
+        o.paymentMethod || "COD",
+        o.paymentStatus || "SUCCESS",
+        getDeliveryType(o),
+        statusLabel,
+        o.assignedStudio || "Studio Alpha (Central Powai Branch)",
+        (o.deliveryAddress || "").replace(/(\r\n|\n|\r)/gm, " "),
+        o.referralCode || "None",
+        o.ambassadorName || "None",
+        o.trackingAwb || "Not Assigned",
+        o.invoiceUrl ? "Yes" : "No",
+        o.shippingLabelUrl ? "Yes" : "No"
+      ];
+    });
+
+    const escapeCsv = (val: any) => {
+      if (val === null || val === undefined) return '""';
+      const str = String(val).replace(/"/g, '""');
+      return `"${str}"`;
+    };
+
+    const csvContent = "\uFEFF" + [
+      headers.map(escapeCsv).join(","),
+      ...rows.map(row => row.map(escapeCsv).join(","))
+    ].join("\r\n");
+
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    const todayStr = new Date().toISOString().split("T")[0];
+    const fileName = `Pixello_Orders_Export_${exportFiltered ? "Filtered_" : "All_"}${todayStr}.csv`;
+    link.setAttribute("href", url);
+    link.setAttribute("download", fileName);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
   const handleFileUpload = (orderId: string, field: "invoiceUrl" | "shippingLabelUrl", event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -299,9 +389,9 @@ export default function AdminOrdersPage() {
           <h2 className="font-serif-brand text-3xl font-bold text-[#3A2B24]">Orders Management</h2>
           <p className="text-xs text-[#6C5C54] mt-1">Real-time status tracking, shipping labels, invoices & customer notifications.</p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-2.5">
           {/* Search Bar */}
-          <div className="relative w-full sm:w-72">
+          <div className="relative w-full sm:w-64">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#6C5C54]" />
             <Input
               type="text"
@@ -324,6 +414,32 @@ export default function AdminOrdersPage() {
               </button>
             )}
           </div>
+
+          {/* Export to Excel Button (Official Excel Green) */}
+          <Button
+            type="button"
+            onClick={() => handleExportToExcel(false)}
+            className="bg-[#107C41] hover:bg-[#0E6C38] text-white font-bold text-xs h-9 px-4 rounded-full shadow-2xs flex items-center gap-1.5 cursor-pointer transition-all hover:scale-102"
+            title="Download complete orders spreadsheet as Excel / CSV"
+          >
+            <FileSpreadsheet className="h-4 w-4" />
+            <span>Export Excel ({orders.length})</span>
+          </Button>
+
+          {/* Filtered Export (Shown when a filter or search query is active) */}
+          {(searchQuery.trim() !== "" || activeStatusTab !== "ALL") && (
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => handleExportToExcel(true)}
+              className="border-[#107C41] text-[#107C41] hover:bg-emerald-50 font-bold text-xs h-9 px-3.5 rounded-full shadow-2xs flex items-center gap-1.5 cursor-pointer"
+              title="Download currently filtered orders as Excel / CSV"
+            >
+              <Download className="h-3.5 w-3.5" />
+              <span>Export View ({filteredOrders.length})</span>
+            </Button>
+          )}
+
           <Badge className="bg-[#FFF8F2] text-[#D89A86] border border-[#D89A86]/30 px-3.5 py-1.5 text-xs font-bold rounded-full whitespace-nowrap shadow-2xs">
             {orders.length} Total Orders
           </Badge>
