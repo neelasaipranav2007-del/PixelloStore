@@ -13,7 +13,7 @@ function mapUiStatusToDb(uiStatus: string): OrderStatus {
   if (s === "DELIVERY PICKED UP" || s === "PICKED_UP" || s === "PICKED UP") return "PICKED_UP";
   if (s === "PACKED" || s === "QUALITY_CHECK") return "QUALITY_CHECK";
   if (s === "PRINTING") return "PRINTING";
-  if (s === "REPLACEMENT" || s === "REPLACEMENT REQUESTED" || s === "REPLACEMENT_REQUESTED") return "PLACED";
+  if (s === "REPLACEMENT" || s === "REPLACEMENT REQUESTED" || s === "REPLACEMENT_REQUESTED") return "REPLACEMENT_REQUESTED";
   return "PLACED";
 }
 

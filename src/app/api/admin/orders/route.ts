@@ -11,7 +11,7 @@ function mapDbStatusToUi(dbStatus: string): string {
   if (s === "CANCELLED" || s === "CANCELED") return "Cancelled";
   if (s === "REPLACEMENT" || s === "REPLACEMENT_REQUESTED" || s === "REPLACEMENT REQUESTED") return "Replacement Requested";
   if (s === "OUT_FOR_DELIVERY" || s === "OUT FOR DELIVERY") return "Out for Delivery";
-  if (s === "PICKED_UP" || s === "DELIVERY PICKED UP" || s === "DELIVERY_PICKED_UP") return "Delivery Picked Up";
+  if (s === "PICKED_UP" || s === "DELIVERY PICKED UP" || s === "DELIVERY_PICKED_UP") return "Out for Delivery";
   if (s === "QUALITY_CHECK" || s === "PACKED") return "Packed";
   if (s === "PRINTING" || s === "FRAMING") return "Printing";
   if (s === "OUT_OF_STOCK") return "Out of Stock (Refill Pending)";
@@ -23,6 +23,7 @@ function mapUiStatusToDb(uiStatus: string): OrderStatus | undefined {
   if (s === "ALL") return undefined;
   if (s === "DELIVERED") return "DELIVERED";
   if (s === "CANCELLED" || s === "CANCELED") return "CANCELLED";
+  if (s === "REPLACEMENT" || s === "REPLACEMENT_REQUESTED" || s === "REPLACEMENT REQUESTED") return "REPLACEMENT_REQUESTED";
   if (s === "OUT FOR DELIVERY" || s === "OUT_FOR_DELIVERY") return "OUT_FOR_DELIVERY";
   if (s === "DELIVERY PICKED UP" || s === "PICKED_UP" || s === "PICKED UP") return "PICKED_UP";
   if (s === "PACKED" || s === "QUALITY_CHECK") return "QUALITY_CHECK";
