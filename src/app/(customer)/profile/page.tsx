@@ -2,7 +2,7 @@
 
 import { useState, useEffect, Suspense } from "react";
 import Link from "next/link";
-import { User, Package, MapPin, Heart, Settings, LogOut, ShieldCheck, Check, Plus, Edit2, Key, Bell, CreditCard, ExternalLink, Download, Eye, EyeOff, CheckCircle2, Truck, Sparkles, Clock, PhoneCall, MessageSquare, FileText, Image as ImageIcon, X, Ticket } from "lucide-react";
+import { User, Package, MapPin, Heart, Settings, LogOut, ShieldCheck, Check, Plus, Edit2, Key, Bell, CreditCard, ExternalLink, Download, Eye, EyeOff, CheckCircle2, Truck, Sparkles, Clock, PhoneCall, MessageSquare, FileText, Image as ImageIcon, X, Ticket, RefreshCw } from "lucide-react";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -96,6 +96,33 @@ function ProfileContent() {
   const [cancelOrderModal, setCancelOrderModal] = useState<any | null>(null);
   const [cancelReason, setCancelReason] = useState<string>("Changed my mind");
   const [cancelSuccessMsg, setCancelSuccessMsg] = useState<string>("");
+
+  // Replacement Request Modal State
+  const [replacementModalOrder, setReplacementModalOrder] = useState<any | null>(null);
+  const [replacementReason, setReplacementReason] = useState<string>("Damaged / broken in transit");
+  const [replacementNotes, setReplacementNotes] = useState<string>("");
+  const [replacementSuccessMsg, setReplacementSuccessMsg] = useState<string>("");
+  const [isSubmittingReplacement, setIsSubmittingReplacement] = useState<boolean>(false);
+
+  const handleRequestReplacementSubmit = async () => {
+    if (!replacementModalOrder) return;
+    setIsSubmittingReplacement(true);
+    try {
+      const fullNote = `Replacement Requested: ${replacementReason}${replacementNotes.trim() ? ` (${replacementNotes.trim()})` : ""}`;
+      await updateOrderStatus(replacementModalOrder.id, "Replacement Requested", fullNote);
+      setReplacementSuccessMsg("Replacement request registered successfully! Our master studio is processing your fresh replacement.");
+      setTimeout(() => {
+        setReplacementModalOrder(null);
+        setReplacementSuccessMsg("");
+      }, 1600);
+    } catch (e) {
+      console.error("Replacement request error:", e);
+      alert("Failed to register replacement request. Please try again or reach out on WhatsApp.");
+    } finally {
+      setIsSubmittingReplacement(false);
+    }
+  };
+
   const [showAddAddressModal, setShowAddAddressModal] = useState(false);
   const [editingAddressId, setEditingAddressId] = useState<number | null>(null);
   const [newAddressForm, setNewAddressForm] = useState({
@@ -916,6 +943,18 @@ function ProfileContent() {
                                   🎟️ Ambassador Code: {order.referralCode} {order.referralDiscount ? `(-₹${order.referralDiscount.toFixed(2)})` : ""}
                                 </span>
                               )}
+                              {(() => {
+                                const isReplacementOrder = order.status === "Replacement Requested" || (order.history && order.history.some((h: any) => h.status === "Replacement Requested" || (h.note && h.note.includes("Replacement"))));
+                                if (isReplacementOrder) {
+                                  return (
+                                    <span className="text-[11px] font-bold text-purple-900 bg-purple-100 border border-purple-300 px-3 py-1 rounded-full flex items-center gap-1.5 shadow-2xs">
+                                      <RefreshCw className="h-3 w-3 text-purple-700 animate-spin" style={{ animationDuration: "3s" }} />
+                                      <span>Replacement In Progress ({order.status})</span>
+                                    </span>
+                                  );
+                                }
+                                return null;
+                              })()}
                               {isCancelled ? (
                                 <span className="text-[11px] font-bold text-rose-800 bg-rose-50 border border-rose-200 px-3 py-1 rounded-full flex items-center gap-1.5 shadow-2xs">
                                   ❌ Order Cancelled (Refund Initiated / Completed)
@@ -927,7 +966,7 @@ function ProfileContent() {
                                       🖨️ Printing Started (Non-Cancellable)
                                     </span>
                                   )}
-                                  {!isPrintingStarted && hoursElapsed >= 24 && (
+                                  {!isPrintingStarted && hoursElapsed >= 24 && !isDelivered && (
                                     <span className="text-[11px] font-bold text-slate-700 bg-slate-100 border border-slate-200 px-3 py-1 rounded-full flex items-center gap-1.5 shadow-2xs">
                                       ⏰ 24h Cancel Window Expired
                                     </span>
@@ -946,6 +985,20 @@ function ProfileContent() {
                                         Cancel Order
                                       </Button>
                                     </div>
+                                  )}
+                                  {isDelivered && order.status !== "Replacement Requested" && (
+                                    <Button 
+                                      size="sm" 
+                                      variant="outline"
+                                      className="border-purple-300 text-purple-900 bg-purple-50 hover:bg-purple-100 hover:border-purple-400 font-bold text-xs rounded-full h-9 px-4 cursor-pointer shadow-2xs flex items-center gap-1.5"
+                                      onClick={() => {
+                                        setReplacementSuccessMsg("");
+                                        setReplacementModalOrder(order);
+                                      }}
+                                    >
+                                      <RefreshCw className="h-3.5 w-3.5 text-purple-700" />
+                                      <span>Request Replacement</span>
+                                    </Button>
                                   )}
                                   <Button 
                                     size="sm" 
@@ -1289,125 +1342,304 @@ function ProfileContent() {
         </div>
       </div>
 
-      {/* TRACK ORDER MODAL */}
+      {/* DYNAMIC 5-STAGE TRACK ORDER MODAL */}
       {trackingOrder && (
+        (() => {
+          const trackOrderObj = orders.find(o => o.id === trackingOrder);
+          const rawStatus = (trackOrderObj?.status || "").toUpperCase();
+          const isReplacementTrack = rawStatus.includes("REPLACEMENT") || (trackOrderObj?.history && trackOrderObj.history.some((h: any) => h.status === "Replacement Requested" || (h.note && h.note.includes("Replacement"))));
+
+          // Calculate current active stage index:
+          // 0: Placed / Replacement Requested
+          // 1: Processing / Re-Printing
+          // 2: Packed / QA Passed
+          // 3: Out for Delivery
+          // 4: Delivered
+          let currentStepIdx = 0;
+          if (rawStatus === "DELIVERED") {
+            currentStepIdx = 4;
+          } else if (rawStatus === "OUT_FOR_DELIVERY" || rawStatus === "OUT FOR DELIVERY") {
+            currentStepIdx = 3;
+          } else if (rawStatus === "QUALITY_CHECK" || rawStatus === "PACKED") {
+            currentStepIdx = 2;
+          } else if (rawStatus === "PRINTING" || rawStatus === "PROCESSING") {
+            currentStepIdx = 1;
+          } else if (rawStatus === "REPLACEMENT_REQUESTED" || rawStatus === "REPLACEMENT REQUESTED") {
+            currentStepIdx = 0;
+          } else {
+            currentStepIdx = 0;
+          }
+
+          const progressPercent = currentStepIdx === 0 ? 20 : (currentStepIdx === 1 ? 45 : (currentStepIdx === 2 ? 70 : (currentStepIdx === 3 ? 90 : 100)));
+
+          const steps = isReplacementTrack ? [
+            {
+              title: "🔄 Replacement Requested & Approved",
+              desc: "Replacement request registered and approved by Studio Alpha.",
+              time: "Stage 1",
+            },
+            {
+              title: "🖨️ Replacement Production & Framing",
+              desc: "Re-printing high-resolution photo & solid wood frame assembly.",
+              time: "Stage 2",
+            },
+            {
+              title: "📦 Quality Check & Express Re-Packaging",
+              desc: "Quality inspection & protective double-bubble wrap seal.",
+              time: "Stage 3",
+            },
+            {
+              title: "🚚 Replacement Out for Doorstep Handover",
+              desc: "Rider dispatched with fresh replacement unit for delivery.",
+              time: "Stage 4",
+            },
+            {
+              title: "✅ Replacement Delivered Successfully",
+              desc: "Fresh replacement delivered to your doorstep. Enjoy!",
+              time: "Completed",
+            }
+          ] : [
+            {
+              title: "Order Placed & Confirmed",
+              desc: trackOrderObj?.assignedStudio ? `Assigned to verified local studio: ${trackOrderObj.assignedStudio}` : "Order confirmed and verified.",
+              time: "Stage 1",
+            },
+            {
+              title: "Master Printing & Framing In Progress",
+              desc: "High-resolution photo printing on anti-glare paper & solid wood frame assembly.",
+              time: "Stage 2",
+            },
+            {
+              title: "Quality Inspection & Protective Packing",
+              desc: "Double-layer bubble wrap & tamper-proof express seal.",
+              time: "Stage 3",
+            },
+            {
+              title: "Out for Express Doorstep Delivery",
+              desc: `Rider: ${trackOrderObj?.deliveryPartner || "Ramesh K. (+91 99887 76655)"} • Direct local bike dispatch.`,
+              time: "Stage 4",
+            },
+            {
+              title: "Delivered Successfully",
+              desc: "Handed over to customer. Enjoy your Pixello memories!",
+              time: "Completed",
+            }
+          ];
+
+          return (
+            <div 
+              className="fixed inset-0 top-0 left-0 w-screen h-screen z-[9999] bg-black/80 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in"
+              onClick={() => setTrackingOrder(null)}
+            >
+              <div 
+                className="bg-white border border-[#EFE6DD] rounded-3xl p-6 md:p-8 max-w-lg w-full shadow-2xl relative animate-in zoom-in-95 my-auto overflow-hidden text-left"
+                onClick={e => e.stopPropagation()}
+              >
+                <button 
+                  onClick={() => setTrackingOrder(null)}
+                  className="absolute top-5 right-5 h-9 w-9 rounded-full bg-[#FFF8F2] hover:bg-[#F2C8B5]/30 text-[#3A2B24] flex items-center justify-center font-bold text-base transition-colors"
+                >
+                  ✕
+                </button>
+
+                <div className="flex items-center gap-2 mb-2 flex-wrap">
+                  <Badge className="bg-[#D89A86] text-white border-none font-bold text-[10px] uppercase tracking-wider px-2.5 py-0.5 rounded-full">
+                    {isReplacementTrack ? "🔄 Replacement Express Tracker" : "🚀 Hyper-Local Express Tracker"}
+                  </Badge>
+                  <Badge className="bg-emerald-100 text-emerald-800 border-none font-bold text-[10px] px-2.5 py-0.5 rounded-full flex items-center gap-1">
+                    <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" /> LIVE STATUS: {trackOrderObj?.status || "Processing"}
+                  </Badge>
+                </div>
+
+                <h3 className="font-serif-brand text-2xl font-bold text-[#3A2B24] mb-1">
+                  Tracking Order #{trackingOrder}
+                </h3>
+                <p className="text-xs text-[#6C5C54] mb-5 font-medium flex items-center gap-1.5">
+                  <Clock className="h-3.5 w-3.5 text-[#D89A86]" /> Status: <strong className="text-emerald-700 font-bold">{trackOrderObj?.status || "Processing"} ⚡</strong>
+                </p>
+
+                {/* Studio Progress Bar */}
+                <div className="bg-[#FFF8F2] border border-[#EFE6DD] rounded-2xl p-4 mb-6">
+                  <div className="flex justify-between items-center text-xs font-bold text-[#3A2B24] mb-2">
+                    <span>{isReplacementTrack ? "Replacement Progress" : "Fulfillment Progress"}</span>
+                    <span className="text-[#D89A86] font-extrabold">{progressPercent}% Completed</span>
+                  </div>
+                  <div className="w-full bg-[#EFE6DD] rounded-full h-2 overflow-hidden">
+                    <div className="bg-[#D89A86] h-full rounded-full transition-all duration-500" style={{ width: `${progressPercent}%` }} />
+                  </div>
+                </div>
+
+                {/* Multi-Step Timeline */}
+                <div className="relative pl-6 space-y-6 before:absolute before:left-3 before:top-2 before:bottom-2 before:w-0.5 before:bg-[#EFE6DD] mb-6">
+                  {steps.map((stObj, sIdx) => {
+                    const isDone = sIdx < currentStepIdx || (currentStepIdx === 4 && sIdx === 4);
+                    const isActive = sIdx === currentStepIdx && currentStepIdx < 4;
+                    const isPending = sIdx > currentStepIdx;
+
+                    return (
+                      <div key={sIdx} className={`relative transition-all ${isPending ? "opacity-45" : "opacity-100"}`}>
+                        <div className={`absolute -left-[30px] top-0 h-6 w-6 rounded-full flex items-center justify-center shadow-xs text-white ${
+                          isDone ? "bg-emerald-500" : (isActive ? "bg-[#D89A86] animate-pulse" : "bg-[#EFE6DD] text-[#6C5C54]")
+                        }`}>
+                          {isDone ? <Check className="h-3.5 w-3.5 stroke-[3]" /> : (isActive ? <Sparkles className="h-3.5 w-3.5" /> : <span className="text-[10px] font-bold">{sIdx + 1}</span>)}
+                        </div>
+                        <div className="flex justify-between items-start">
+                          <h4 className={`font-bold text-sm ${isActive ? "text-[#D89A86]" : (isDone ? "text-[#3A2B24]" : "text-[#6C5C54]")}`}>
+                            {stObj.title}
+                          </h4>
+                          {isActive && (
+                            <span className="text-[10px] text-white bg-[#D89A86] font-bold px-2 py-0.5 rounded-full shadow-2xs">ACTIVE NOW</span>
+                          )}
+                          {isDone && (
+                            <span className="text-[10px] text-emerald-800 bg-emerald-100 font-bold px-2 py-0.5 rounded-full">DONE</span>
+                          )}
+                        </div>
+                        <p className="text-xs text-[#6C5C54] mt-0.5 font-medium">{stObj.desc}</p>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Actions */}
+                <div className="flex flex-col sm:flex-row gap-3 pt-2">
+                  <a 
+                    href="https://wa.me/918074589949"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex-1 btn-pixello-primary text-xs font-bold h-11 rounded-full flex items-center justify-center gap-2 shadow-xs"
+                  >
+                    <MessageSquare className="h-4 w-4" /> Chat with Studio on WhatsApp
+                  </a>
+                  <Button 
+                    variant="outline" 
+                    className="rounded-full border-[#EFE6DD] text-[#3A2B24] font-semibold text-xs h-11 px-6 hover:bg-[#FFF8F2]"
+                    onClick={() => setTrackingOrder(null)}
+                  >
+                    Close
+                  </Button>
+                </div>
+              </div>
+            </div>
+          );
+        })()
+      )}
+
+      {/* REPLACEMENT REQUEST MODAL DIALOG */}
+      {replacementModalOrder && (
         <div 
-          className="fixed inset-0 top-0 left-0 w-screen h-screen z-[9999] bg-black/80 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in"
-          onClick={() => setTrackingOrder(null)}
+          className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in"
+          onClick={() => !isSubmittingReplacement && setReplacementModalOrder(null)}
         >
           <div 
-            className="bg-white border border-[#EFE6DD] rounded-3xl p-6 md:p-8 max-w-lg w-full shadow-2xl relative animate-in zoom-in-95 my-auto overflow-hidden text-left"
+            className="bg-white border border-[#EFE6DD] rounded-3xl p-6 sm:p-7 max-w-md w-full shadow-2xl relative animate-in zoom-in-95"
             onClick={e => e.stopPropagation()}
           >
             <button 
-              onClick={() => setTrackingOrder(null)}
-              className="absolute top-5 right-5 h-9 w-9 rounded-full bg-[#FFF8F2] hover:bg-[#F2C8B5]/30 text-[#3A2B24] flex items-center justify-center font-bold text-base transition-colors"
+              onClick={() => !isSubmittingReplacement && setReplacementModalOrder(null)}
+              className="absolute top-4 right-4 h-9 w-9 rounded-full bg-[#FFF8F2] hover:bg-[#F2C8B5]/30 text-[#3A2B24] flex items-center justify-center font-bold text-base transition-colors"
             >
               ✕
             </button>
 
-            <div className="flex items-center gap-2 mb-2">
-              <Badge className="bg-[#D89A86] text-white border-none font-bold text-[10px] uppercase tracking-wider px-2.5 py-0.5 rounded-full">
-                🚀 Hyper-Local Express Tracker
-              </Badge>
-              <Badge className="bg-emerald-100 text-emerald-800 border-none font-bold text-[10px] px-2.5 py-0.5 rounded-full flex items-center gap-1">
-                <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" /> LIVE IN PRODUCTION
-              </Badge>
-            </div>
+            <Badge className="bg-purple-100 text-purple-900 border border-purple-300 mb-2 px-3 py-0.5 rounded-full text-xs font-bold flex items-center gap-1 w-fit">
+              <RefreshCw className="h-3 w-3 text-purple-700" />
+              <span>Free 7-Day Replacement Guarantee</span>
+            </Badge>
 
             <h3 className="font-serif-brand text-2xl font-bold text-[#3A2B24] mb-1">
-              Tracking Order #{trackingOrder}
+              Request Order Replacement
             </h3>
-            <p className="text-xs text-[#6C5C54] mb-5 font-medium flex items-center gap-1.5">
-              <Clock className="h-3.5 w-3.5 text-[#D89A86]" /> Estimated Delivery: <strong className="text-emerald-700 font-bold">Today within 42 mins ⚡</strong>
+            <p className="text-xs text-[#6C5C54] mb-4 font-medium">
+              Order #{replacementModalOrder.id} • Please let us know the issue and our partner studio will dispatch a fresh replacement.
             </p>
 
-            {/* Studio Progress Bar */}
-            <div className="bg-[#FFF8F2] border border-[#EFE6DD] rounded-2xl p-4 mb-6">
-              <div className="flex justify-between items-center text-xs font-bold text-[#3A2B24] mb-2">
-                <span>Studio Progress</span>
-                <span className="text-[#D89A86]">65% Completed</span>
+            {replacementSuccessMsg ? (
+              <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-2xl text-emerald-800 text-xs font-bold flex items-center gap-2 animate-in fade-in">
+                <Check className="h-5 w-5 text-emerald-600 flex-shrink-0" />
+                <span>{replacementSuccessMsg}</span>
               </div>
-              <div className="w-full bg-[#EFE6DD] rounded-full h-2 overflow-hidden">
-                <div className="bg-[#D89A86] h-full rounded-full w-[65%]" />
-              </div>
-            </div>
+            ) : (
+              <div className="flex flex-col gap-4">
+                {/* Reason Selector */}
+                <div>
+                  <label className="text-xs font-bold text-[#3A2B24] mb-2 block">
+                    Reason for Replacement:
+                  </label>
+                  <div className="flex flex-col gap-2">
+                    {[
+                      "Damaged / broken in transit",
+                      "Print quality issue / color defect",
+                      "Wrong frame size or color received",
+                      "Defective / damaged gift item",
+                      "Other defect"
+                    ].map((r) => (
+                      <label 
+                        key={r} 
+                        className={`flex items-center gap-2.5 p-2.5 rounded-xl border text-xs font-semibold cursor-pointer transition-all ${
+                          replacementReason === r 
+                            ? "bg-purple-50/80 border-purple-400 text-purple-950 font-bold shadow-2xs" 
+                            : "bg-[#FFF8F2]/60 border-[#EFE6DD] text-[#6C5C54] hover:bg-[#FFF8F2]"
+                        }`}
+                      >
+                        <input 
+                          type="radio" 
+                          name="replacementReason" 
+                          checked={replacementReason === r} 
+                          onChange={() => setReplacementReason(r)}
+                          className="text-purple-600 focus:ring-purple-500" 
+                        />
+                        <span>{r}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
 
-            {/* Multi-Step Timeline */}
-            <div className="relative pl-6 space-y-6 before:absolute before:left-3 before:top-2 before:bottom-2 before:w-0.5 before:bg-[#EFE6DD] mb-6">
-              {/* Step 1: Confirmed */}
-              <div className="relative">
-                <div className="absolute -left-[30px] top-0 h-6 w-6 rounded-full bg-emerald-500 text-white flex items-center justify-center shadow-xs">
-                  <Check className="h-3.5 w-3.5 stroke-[3]" />
+                {/* Additional Note */}
+                <div>
+                  <label className="text-xs font-bold text-[#3A2B24] mb-1 block">
+                    Additional Details / Feedback:
+                  </label>
+                  <textarea 
+                    value={replacementNotes}
+                    onChange={e => setReplacementNotes(e.target.value)}
+                    placeholder="Describe what needs to be fixed for your replacement..."
+                    rows={2}
+                    className="w-full rounded-xl border border-[#EFE6DD] p-2.5 text-xs font-medium text-[#3A2B24] focus:ring-[#D89A86] focus:border-[#D89A86] outline-none"
+                  />
                 </div>
-                <div className="flex justify-between items-start">
-                  <h4 className="font-bold text-sm text-[#3A2B24]">Order Placed & Confirmed</h4>
-                  <span className="text-[10px] text-[#6C5C54] font-semibold bg-[#FFF8F2] px-2 py-0.5 rounded-full border border-[#EFE6DD]">07:30 PM</span>
-                </div>
-                <p className="text-xs text-[#6C5C54] mt-0.5">
-                  {(() => {
-                    const trackOrderObj = orders.find(o => o.id === trackingOrder);
-                    const isGift = trackOrderObj && (trackOrderObj.items?.some((it: any) => {
-                      const n = (it.name || "").toLowerCase();
-                      const s = (it.size || "").toLowerCase();
-                      return n.includes("liquid") || n.includes("timer") || n.includes("panda") || n.includes("paper weight") || n.includes("paperweight") || n.includes("forever us") || n.includes("mug") || n.includes("spotify") || s.includes("liquid") || s.includes("timer") || s.includes("panda") || s.includes("paper weight");
-                    }) || (trackOrderObj.assignedStudio && (trackOrderObj.assignedStudio.includes("Direct") || trackOrderObj.assignedStudio.includes("No Studio"))));
-                    return isGift
-                      ? <span>Fulfillment: <strong>Pixello Central Warehouse (Direct Dispatch - No Studio Required)</strong></span>
-                      : <span>Assigned to verified local partner: <strong>{trackOrderObj?.assignedStudio || "Studio Alpha (Central Powai Branch)"}</strong></span>;
-                  })()}
-                </p>
-              </div>
 
-              {/* Step 2: Production (Active) */}
-              <div className="relative">
-                <div className="absolute -left-[30px] top-0 h-6 w-6 rounded-full bg-[#D89A86] text-white flex items-center justify-center shadow-md animate-pulse">
-                  <Sparkles className="h-3.5 w-3.5" />
+                {/* Submit Buttons */}
+                <div className="flex items-center gap-2 pt-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="flex-1 rounded-full border-[#EFE6DD] text-xs font-bold h-11"
+                    onClick={() => setReplacementModalOrder(null)}
+                    disabled={isSubmittingReplacement}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    type="button"
+                    onClick={handleRequestReplacementSubmit}
+                    disabled={isSubmittingReplacement}
+                    className="flex-1 btn-pixello-primary rounded-full text-xs font-bold h-11 flex items-center justify-center gap-2"
+                  >
+                    {isSubmittingReplacement ? (
+                      <>
+                        <RefreshCw className="h-4 w-4 animate-spin" />
+                        <span>Submitting...</span>
+                      </>
+                    ) : (
+                      <>
+                        <RefreshCw className="h-4 w-4" />
+                        <span>Confirm Replacement</span>
+                      </>
+                    )}
+                  </Button>
                 </div>
-                <div className="flex justify-between items-start">
-                  <h4 className="font-bold text-sm text-[#D89A86]">Master Printing & Framing In Progress</h4>
-                  <span className="text-[10px] text-white bg-[#D89A86] font-bold px-2 py-0.5 rounded-full">ACTIVE NOW</span>
-                </div>
-                <p className="text-xs text-[#3A2B24] font-medium mt-0.5">High-resolution photo printing on anti-glare paper & solid wood frame assembly.</p>
               </div>
-
-              {/* Step 3: Quality Inspection */}
-              <div className="relative opacity-65">
-                <div className="absolute -left-[30px] top-0 h-6 w-6 rounded-full bg-[#EFE6DD] text-[#6C5C54] flex items-center justify-center">
-                  <ShieldCheck className="h-3.5 w-3.5" />
-                </div>
-                <h4 className="font-bold text-sm text-[#3A2B24]">Quality Inspection & Protective Packing</h4>
-                <p className="text-xs text-[#6C5C54] mt-0.5">Double-layer bubble wrap & tamper-proof express seal.</p>
-              </div>
-
-              {/* Step 4: Out for Delivery */}
-              <div className="relative opacity-65">
-                <div className="absolute -left-[30px] top-0 h-6 w-6 rounded-full bg-[#EFE6DD] text-[#6C5C54] flex items-center justify-center">
-                  <Truck className="h-3.5 w-3.5" />
-                </div>
-                <h4 className="font-bold text-sm text-[#3A2B24]">Out for Express Doorstep Delivery</h4>
-                <p className="text-xs text-[#6C5C54] mt-0.5">Rider: <strong>Ramesh K. (+91 99887 76655)</strong> • Direct local bike dispatch.</p>
-              </div>
-            </div>
-
-            {/* Actions */}
-            <div className="flex flex-col sm:flex-row gap-3 pt-2">
-              <a 
-                href="https://wa.me/918074589949"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex-1 btn-pixello-primary text-xs font-bold h-11 rounded-full flex items-center justify-center gap-2 shadow-xs"
-              >
-                <MessageSquare className="h-4 w-4" /> Chat with Studio on WhatsApp
-              </a>
-              <Button 
-                variant="outline" 
-                className="rounded-full border-[#EFE6DD] text-[#3A2B24] font-semibold text-xs h-11 px-6 hover:bg-[#FFF8F2]"
-                onClick={() => setTrackingOrder(null)}
-              >
-                Close
-              </Button>
-            </div>
+            )}
           </div>
         </div>
       )}
