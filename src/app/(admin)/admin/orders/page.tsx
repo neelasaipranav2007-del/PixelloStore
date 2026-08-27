@@ -38,6 +38,62 @@ const getStatusConfig = (status: string) => {
   return STATUS_CONFIG[norm] || STATUS_CONFIG["Processing"];
 };
 
+const getReplacementStatusConfig = (status: string) => {
+  const norm = normalizeStatus(status);
+  if (norm === "Delivered") {
+    return {
+      label: "Replacement: Delivered",
+      symbol: "✅",
+      badgeClass: "bg-emerald-100 text-emerald-950 border-emerald-300 hover:bg-emerald-200",
+      dotClass: "bg-emerald-600",
+      itemBgClass: "bg-emerald-50/90 hover:bg-emerald-100/90 border-emerald-200 text-emerald-950"
+    };
+  }
+  if (norm === "Out for Delivery") {
+    return {
+      label: "Replacement: Out for Delivery",
+      symbol: "🚚",
+      badgeClass: "bg-blue-100 text-blue-950 border-blue-300 hover:bg-blue-200",
+      dotClass: "bg-blue-600",
+      itemBgClass: "bg-blue-50/90 hover:bg-blue-100/90 border-blue-200 text-blue-950"
+    };
+  }
+  if (norm === "Packed") {
+    return {
+      label: "Replacement: Packed (QA Passed)",
+      symbol: "📦",
+      badgeClass: "bg-sky-100 text-sky-950 border-sky-300 hover:bg-sky-200",
+      dotClass: "bg-sky-600",
+      itemBgClass: "bg-sky-50/90 hover:bg-sky-100/90 border-sky-200 text-sky-950"
+    };
+  }
+  if (norm === "Processing") {
+    return {
+      label: "Replacement: In Processing",
+      symbol: "⏳",
+      badgeClass: "bg-amber-100 text-amber-950 border-amber-300 hover:bg-amber-200",
+      dotClass: "bg-amber-500",
+      itemBgClass: "bg-amber-50/90 hover:bg-amber-100/90 border-amber-200 text-amber-950"
+    };
+  }
+  if (norm === "Cancelled") {
+    return {
+      label: "Cancelled",
+      symbol: "❌",
+      badgeClass: "bg-slate-100 text-slate-900 border-slate-300 hover:bg-slate-200",
+      dotClass: "bg-slate-500",
+      itemBgClass: "bg-slate-100/80 hover:bg-slate-200/80 border-slate-300 text-slate-950"
+    };
+  }
+  return {
+    label: "Replacement Requested",
+    symbol: "🔄",
+    badgeClass: "bg-purple-100 text-purple-950 border-purple-300 hover:bg-purple-200",
+    dotClass: "bg-purple-600",
+    itemBgClass: "bg-purple-50/90 hover:bg-purple-100/90 border-purple-200 text-purple-950"
+  };
+};
+
 const STATUS_TABS: { id: string; label: string; symbol: string; activeClass: string }[] = [
   { id: "ALL", label: "All Orders", symbol: "📊", activeClass: "bg-[#3A2B24] text-white" },
   { id: "Processing", label: "Processing", symbol: "⏳", activeClass: "bg-amber-600 text-white" },
@@ -499,61 +555,60 @@ export default function AdminOrdersPage() {
 
                         {/* Custom Order Status Select Dropdown with Direct Buttons & Popover */}
                         <div className="relative">
-                          <button
-                            type="button"
-                            onClick={() => setOpenStatusDropdownId(openStatusDropdownId === order.id ? null : order.id)}
-                            className={`h-9 px-3 text-xs font-extrabold rounded-xl border flex items-center gap-2 shadow-2xs transition-all hover:scale-102 cursor-pointer ${
-                              isReplacementOrder ? "bg-purple-100 text-purple-950 border-purple-300" : getStatusConfig(order.status).badgeClass
-                            }`}
-                          >
-                            <span className="text-sm">{isReplacementOrder ? "🔄" : getStatusConfig(order.status).symbol}</span>
-                            <span>{isReplacementOrder ? `Replacement: ${order.status}` : getStatusConfig(order.status).label}</span>
-                            <ChevronDown className="h-3.5 w-3.5 opacity-60 ml-0.5" />
-                          </button>
+                          {(() => {
+                            const currentStatusConfig = isReplacementOrder ? getReplacementStatusConfig(order.status) : getStatusConfig(order.status);
+                            return (
+                              <>
+                                <button
+                                  type="button"
+                                  onClick={() => setOpenStatusDropdownId(openStatusDropdownId === order.id ? null : order.id)}
+                                  className={`h-9 px-3 text-xs font-extrabold rounded-xl border flex items-center gap-2 shadow-2xs transition-all hover:scale-102 cursor-pointer ${currentStatusConfig.badgeClass}`}
+                                >
+                                  <span className="text-sm">{currentStatusConfig.symbol}</span>
+                                  <span>{currentStatusConfig.label}</span>
+                                  <ChevronDown className="h-3.5 w-3.5 opacity-60 ml-0.5" />
+                                </button>
 
-                          {openStatusDropdownId === order.id && (
-                            <>
-                              <div
-                                className="fixed inset-0 z-40"
-                                onClick={() => setOpenStatusDropdownId(null)}
-                              />
-                              <div className="absolute right-0 top-11 w-68 p-1.5 rounded-2xl border-[#EFE6DD] shadow-2xl bg-white space-y-1 z-50 animate-in fade-in duration-150">
-                                <div className="px-3 py-1.5 text-[10px] font-bold text-[#6C5C54] uppercase tracking-wider border-b border-[#EFE6DD]">
-                                  {isReplacementOrder ? "🔄 Update Replacement Stage" : "Select Order Status"}
-                                </div>
-                                {Object.entries(STATUS_CONFIG).map(([stKey, cfg]) => {
-                                  const isSelected = normalizeStatus(order.status) === stKey;
-                                  let stageDisplayLabel = cfg.label;
-                                  if (isReplacementOrder) {
-                                    if (stKey === "Processing") stageDisplayLabel = "Replacement: In Processing";
-                                    else if (stKey === "Packed") stageDisplayLabel = "Replacement: Packed (QA Passed)";
-                                    else if (stKey === "Out for Delivery") stageDisplayLabel = "Replacement: Out for Delivery";
-                                    else if (stKey === "Delivered") stageDisplayLabel = "Replacement: Delivered";
-                                  }
-
-                                  return (
-                                    <button
-                                      key={stKey}
-                                      type="button"
-                                      onClick={() => {
-                                        handleStatusChange(order.id, stKey as OrderStatus);
-                                        setOpenStatusDropdownId(null);
-                                      }}
-                                      className={`w-full flex items-center justify-between p-2.5 my-1 rounded-xl cursor-pointer border transition-all text-left ${cfg.itemBgClass} ${
-                                        isSelected ? "ring-2 ring-offset-1 ring-[#D89A86] font-extrabold shadow-2xs" : "font-semibold opacity-95 hover:opacity-100"
-                                      }`}
-                                    >
-                                      <div className="flex items-center gap-2.5">
-                                        <span className="text-base">{cfg.symbol}</span>
-                                        <span className="text-xs font-bold">{stageDisplayLabel}</span>
+                                {openStatusDropdownId === order.id && (
+                                  <>
+                                    <div
+                                      className="fixed inset-0 z-40"
+                                      onClick={() => setOpenStatusDropdownId(null)}
+                                    />
+                                    <div className="absolute right-0 top-11 w-72 p-1.5 rounded-2xl border-[#EFE6DD] shadow-2xl bg-white space-y-1 z-50 animate-in fade-in duration-150">
+                                      <div className="px-3 py-1.5 text-[10px] font-bold text-[#6C5C54] uppercase tracking-wider border-b border-[#EFE6DD]">
+                                        {isReplacementOrder ? "🔄 Select Replacement Stage" : "Select Order Status"}
                                       </div>
-                                      <span className={`h-3 w-3 rounded-full ${cfg.dotClass} shadow-2xs border border-white/60`} />
-                                    </button>
-                                  );
-                                })}
-                              </div>
-                            </>
-                          )}
+                                      {Object.keys(STATUS_CONFIG).map((stKey) => {
+                                        const isSelected = normalizeStatus(order.status) === stKey;
+                                        const cfg = isReplacementOrder ? getReplacementStatusConfig(stKey) : STATUS_CONFIG[stKey];
+
+                                        return (
+                                          <button
+                                            key={stKey}
+                                            type="button"
+                                            onClick={() => {
+                                              handleStatusChange(order.id, stKey as OrderStatus);
+                                              setOpenStatusDropdownId(null);
+                                            }}
+                                            className={`w-full flex items-center justify-between p-2.5 my-1 rounded-xl cursor-pointer border transition-all text-left ${cfg.itemBgClass} ${
+                                              isSelected ? "ring-2 ring-offset-1 ring-[#D89A86] font-extrabold shadow-2xs" : "font-semibold opacity-95 hover:opacity-100"
+                                            }`}
+                                          >
+                                            <div className="flex items-center gap-2.5">
+                                              <span className="text-base">{cfg.symbol}</span>
+                                              <span className="text-xs font-bold">{cfg.label}</span>
+                                            </div>
+                                            <span className={`h-3 w-3 rounded-full ${cfg.dotClass} shadow-2xs border border-white/60`} />
+                                          </button>
+                                        );
+                                      })}
+                                    </div>
+                                  </>
+                                )}
+                              </>
+                            );
+                          })()}
                         </div>
                       </div>
                     </div>
