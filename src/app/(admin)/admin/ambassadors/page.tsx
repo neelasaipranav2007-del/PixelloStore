@@ -821,7 +821,16 @@ export default function AdminAmbassadorsPage() {
           <h2 className="font-serif-brand text-3xl font-bold tracking-tight text-[#3A2B24]">Campus Ambassadors</h2>
           <p className="text-xs text-[#6C5C54] mt-1">Live Google Sheet response sync, Pixello WhatsApp business intimations (8074589949), promo codes, and directory.</p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
+          <Link href="/admin/ambassadors/leaderboard">
+            <Button
+              className="bg-[#3A2B24] hover:bg-[#2A1B14] text-white text-xs font-bold rounded-full h-11 px-5 flex items-center gap-2 cursor-pointer shadow-md hover:scale-102 transition-transform"
+            >
+              <Trophy className="h-4 w-4 text-[#D89A86]" />
+              <span>Leaderboard of Ambassadors</span>
+            </Button>
+          </Link>
+
           <Button 
             onClick={handleSyncGoogleSheet}
             className="btn-pixello-primary text-xs font-bold rounded-full h-11 px-6 flex items-center gap-2 cursor-pointer shadow-md hover:scale-102 transition-transform"

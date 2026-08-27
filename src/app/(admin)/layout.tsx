@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { LayoutDashboard, Users, Store, Package, Settings, LogOut, FileText, Bell, Sparkles, Heart, ChevronDown, ShoppingBag, ExternalLink, Ticket, Truck, CheckCheck, Check, RefreshCw, AlertTriangle, Trash2, X } from "lucide-react";
+import { LayoutDashboard, Users, Store, Package, Settings, LogOut, FileText, Bell, Sparkles, Heart, ChevronDown, ShoppingBag, ExternalLink, Ticket, Truck, CheckCheck, Check, RefreshCw, AlertTriangle, Trash2, X, Trophy } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
@@ -224,6 +224,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     { label: "Customers", href: "/admin/customers", icon: Users },
     { label: "Studios", href: "/admin/studios", icon: Store },
     { label: "Ambassadors", href: "/admin/ambassadors", icon: Users },
+    { label: "Leaderboard of Ambassadors", href: "/admin/ambassadors/leaderboard", icon: Trophy },
     { label: "Promo Codes", href: "/admin/promos", icon: Ticket },
     { label: "Delivery Charges", href: "/admin/delivery", icon: Truck },
     { label: "Settings", href: "/admin/settings", icon: Settings },

@@ -19,17 +19,24 @@ export async function GET(req: Request) {
       },
     });
 
-    // Count real orders for each ambassador
+    // Count real orders and calculate sales for each ambassador
     const leaderboardData = await Promise.all(
       allAmbassadors.map(async (amb) => {
-        const orderCount = await prisma.order.count({
+        const ambassadorOrders = await prisma.order.findMany({
           where: {
             OR: [
               { ambassadorProfileId: amb.id },
               { referralCode: amb.referralCode },
             ],
           },
+          select: {
+            totalAmount: true,
+            status: true,
+          },
         });
+
+        const orderCount = ambassadorOrders.length;
+        const totalSales = ambassadorOrders.reduce((sum, o) => sum + (o.totalAmount || 0), 0);
 
         // Determine tier
         let tierName = "Bronze Tier";
@@ -40,17 +47,26 @@ export async function GET(req: Request) {
         return {
           id: amb.id,
           name: amb.user.name || "Campus Ambassador",
+          phone: amb.user.phone || "N/A",
+          email: amb.user.email || "N/A",
           college: amb.college || "Campus Partner",
+          promoCode: amb.referralCode,
           tier: tierName,
           rankBadge: amb.rank,
           referrals: orderCount,
+          totalSales: totalSales,
+          balance: amb.balance || 0,
+          totalEarned: amb.totalEarned || 0,
           isCurrentUser: amb.id === currentAmbassadorId,
         };
       })
     );
 
-    // Sort descending by referrals
-    leaderboardData.sort((a, b) => b.referrals - a.referrals);
+    // Sort descending by referrals, then by totalSales
+    leaderboardData.sort((a, b) => {
+      if (b.referrals !== a.referrals) return b.referrals - a.referrals;
+      return b.totalSales - a.totalSales;
+    });
 
     // Assign rank numbers
     const rankedLeaderboard = leaderboardData.map((item, index) => ({
