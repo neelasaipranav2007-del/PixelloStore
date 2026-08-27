@@ -994,17 +994,6 @@ export default function CheckoutPage() {
 
                           {/* Direct Action Buttons */}
                           <div className="w-full flex flex-col sm:flex-row items-center gap-2.5">
-                            <Button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handlePayment();
-                              }}
-                              className="w-full sm:w-auto bg-[#D89A86] hover:bg-[#C27E6A] text-white font-bold text-xs py-3 px-5 rounded-xl transition-all shadow-sm flex items-center justify-center gap-2 cursor-pointer"
-                            >
-                              <CheckCircle2 className="h-4 w-4" /> I Have Paid — Place Order
-                            </Button>
-
                             <a
                               href={`upi://pay?pa=9618401231-2@ybl&pn=Pixello%20Store&am=${total}&cu=INR&tn=Pixello%20Store%20Order`}
                               onClick={(e) => e.stopPropagation()}
