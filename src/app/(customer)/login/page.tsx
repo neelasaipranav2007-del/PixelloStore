@@ -298,13 +298,8 @@ function LoginContent() {
 
       // Trigger Immediate Navigation to Target
       const destination = redirectParam || "/";
-      startTransitionTo(destination, "to-home", "WELCOME TO PIXELLO");
-      setTimeout(() => {
-        if (typeof window !== "undefined") {
-          router.push(destination);
-        }
-      }, 350);
-    }, 500);
+      router.push(destination);
+    }, 400);
   };
 
   return (

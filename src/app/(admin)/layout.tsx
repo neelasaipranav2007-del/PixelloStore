@@ -274,21 +274,23 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     const checkAdminAuth = () => {
       if (typeof window !== "undefined") {
         const isAuth = localStorage.getItem("pixello_admin_authenticated");
-        if (isAuth === "true") {
+        const adminUser = localStorage.getItem("pixello_admin_user");
+        const adminToken = localStorage.getItem("pixello_admin_token");
+        if (isAuth === "true" || adminUser || adminToken) {
           setIsAuthenticated(true);
         } else {
           setIsAuthenticated(false);
-          router.push("/admin/login");
+          if (pathname !== "/admin/login") {
+            router.replace("/admin/login");
+          }
         }
       }
     };
 
     checkAdminAuth();
     window.addEventListener("pixello_admin_auth_changed", checkAdminAuth);
-    window.addEventListener("storage", checkAdminAuth);
     return () => {
       window.removeEventListener("pixello_admin_auth_changed", checkAdminAuth);
-      window.removeEventListener("storage", checkAdminAuth);
     };
   }, [pathname, router]);
 

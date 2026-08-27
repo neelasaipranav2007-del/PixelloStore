@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from "react";
 
 export interface OrderItem {
   id?: string;
@@ -112,10 +112,18 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
   const [orders, setOrders] = useState<Order[]>([]);
   const [metrics, setMetrics] = useState<OrderMetrics | undefined>(undefined);
   const [loading, setLoading] = useState<boolean>(true);
+  const isFetchingRef = useRef(false);
+  const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
 
-  const fetchOrdersFromBackend = useCallback(async () => {
-    try {
+  const fetchOrdersFromBackend = useCallback(async (isInitial = false) => {
+    if (isFetchingRef.current) return;
+    isFetchingRef.current = true;
+
+    if (isInitial) {
       setLoading(true);
+    }
+
+    try {
       const headers: Record<string, string> = {};
       let isAdmin = false;
 
@@ -132,7 +140,6 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
         }
       }
 
-      // If in admin mode, query /api/admin/orders
       const endpoint = isAdmin ? "/api/admin/orders?limit=100" : "/api/orders";
       const res = await fetch(endpoint, { headers });
       const data = await res.json();
@@ -147,39 +154,47 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
       console.warn("Error fetching orders from database API:", err);
     } finally {
       setLoading(false);
+      isFetchingRef.current = false;
     }
   }, []);
 
-  useEffect(() => {
-    fetchOrdersFromBackend();
+  const triggerDebouncedFetch = useCallback(() => {
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+    }
+    debounceTimerRef.current = setTimeout(() => {
+      fetchOrdersFromBackend(false);
+    }, 400);
+  }, [fetchOrdersFromBackend]);
 
-    // Server-Sent Events listener for live synchronized updates across all tabs & portals
+  useEffect(() => {
+    fetchOrdersFromBackend(true);
+
     let eventSource: EventSource | null = null;
     try {
       eventSource = new EventSource("/api/events");
       eventSource.addEventListener("order_update", () => {
-        fetchOrdersFromBackend();
+        triggerDebouncedFetch();
       });
       eventSource.addEventListener("order_change", () => {
-        fetchOrdersFromBackend();
+        triggerDebouncedFetch();
       });
     } catch (e) {}
 
     const handleStorageUpdate = () => {
-      fetchOrdersFromBackend();
+      triggerDebouncedFetch();
     };
 
     window.addEventListener("pixello_orders_updated", handleStorageUpdate);
     window.addEventListener("auth_change", handleStorageUpdate);
-    window.addEventListener("storage", handleStorageUpdate);
 
     return () => {
       if (eventSource) eventSource.close();
+      if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
       window.removeEventListener("pixello_orders_updated", handleStorageUpdate);
       window.removeEventListener("auth_change", handleStorageUpdate);
-      window.removeEventListener("storage", handleStorageUpdate);
     };
-  }, [fetchOrdersFromBackend]);
+  }, [fetchOrdersFromBackend, triggerDebouncedFetch]);
 
   const addOrder = async (orderData: Omit<Order, "id" | "date" | "status"> & { referralCode?: string }): Promise<Order> => {
     const headers: Record<string, string> = { "Content-Type": "application/json" };
@@ -196,10 +211,7 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
       });
       const result = await res.json();
       if (result.success && result.order) {
-        await fetchOrdersFromBackend();
-        if (typeof window !== "undefined") {
-          window.dispatchEvent(new Event("pixello_orders_updated"));
-        }
+        await fetchOrdersFromBackend(false);
         return result.order;
       } else {
         throw new Error(result.error || "Failed to create order");
@@ -211,10 +223,8 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
   };
 
   const updateOrderStatus = async (orderId: string, status: OrderStatus, note?: string) => {
-    // 1. Update in-memory state optimistically
     setOrders((prev) => prev.map((o) => (o.id === orderId ? { ...o, status } : o)));
 
-    // 2. Send update to central database API
     try {
       const headers: Record<string, string> = { "Content-Type": "application/json" };
       if (typeof window !== "undefined") {
@@ -228,10 +238,7 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
         body: JSON.stringify({ status, note }),
       });
 
-      await fetchOrdersFromBackend();
-      if (typeof window !== "undefined") {
-        window.dispatchEvent(new Event("pixello_orders_updated"));
-      }
+      await fetchOrdersFromBackend(false);
     } catch (err) {
       console.error("Error updating order status on backend:", err);
     }
@@ -239,9 +246,6 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
 
   const updateOrderDetails = async (orderId: string, details: Partial<Order>) => {
     setOrders((prev) => prev.map((o) => (o.id === orderId ? { ...o, ...details } : o)));
-    if (typeof window !== "undefined") {
-      window.dispatchEvent(new Event("pixello_orders_updated"));
-    }
   };
 
   return (
@@ -253,7 +257,7 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
         addOrder,
         updateOrderStatus,
         updateOrderDetails,
-        refreshOrders: fetchOrdersFromBackend,
+        refreshOrders: () => fetchOrdersFromBackend(false),
       }}
     >
       {children}

@@ -295,16 +295,12 @@ export default function Navbar() {
                 </button>
               </div>
             ) : (
-              <motion.button
-                type="button"
-                disabled={isTransitioning}
-                whileTap={{ scale: 0.94 }}
-                whileHover={{ scale: 1.03 }}
-                onClick={() => startTransitionTo("/login")}
-                className="btn-pixello-primary text-xs px-3 sm:px-5 h-9 rounded-full font-bold flex items-center gap-1.5 shadow-xs cursor-pointer disabled:opacity-50 transition-transform"
+              <Link
+                href="/login"
+                className="btn-pixello-primary text-xs px-3 sm:px-5 h-9 rounded-full font-bold flex items-center gap-1.5 shadow-xs cursor-pointer hover:opacity-95 transition-opacity"
               >
                 <LogIn className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Sign In</span>
-              </motion.button>
+              </Link>
             )}
           </div>
         </div>

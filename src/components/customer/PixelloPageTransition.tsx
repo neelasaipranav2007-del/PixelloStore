@@ -38,6 +38,10 @@ export function PixelloTransitionProvider({ children }: { children: React.ReactN
   }, [pathname]);
 
   const startTransitionTo = (destination: string, type?: TransitionType, label?: string) => {
+    if (typeof window !== "undefined" && window.location.pathname === destination) {
+      return;
+    }
+
     const determinedType: TransitionType = type || (destination.startsWith("/login") ? "to-login" : "to-home");
     setTransitionType(determinedType);
 
@@ -55,23 +59,17 @@ export function PixelloTransitionProvider({ children }: { children: React.ReactN
 
     setIsTransitioning(true);
 
-    // Navigate smoothly
-    setTimeout(() => {
-      if (typeof window !== "undefined") {
-        if (window.location.pathname === destination) {
-          setIsTransitioning(false);
-        } else {
-          router.push(destination);
-        }
-      }
-    }, 300);
+    // Navigate immediately
+    router.push(destination);
 
     // Guaranteed Auto-Dismiss safety timeout (never gets stuck)
-    setTimeout(() => {
+    const timer = setTimeout(() => {
       setIsTransitioning(false);
       setTransitionType(null);
       setTransitionLabel("");
-    }, 600);
+    }, 300);
+
+    return () => clearTimeout(timer);
   };
 
   return (
@@ -86,7 +84,8 @@ export function PixelloTransitionProvider({ children }: { children: React.ReactN
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+            transition={{ duration: 0.15, ease: "easeOut" }}
+            onClick={() => setIsTransitioning(false)}
             className="fixed inset-0 z-[9999] pointer-events-none select-none flex flex-col items-center justify-center bg-[#F8F3EE]/95 backdrop-blur-xs"
           >
             {/* Ambient Background Radial Glow */}
@@ -115,7 +114,7 @@ export function PixelloTransitionProvider({ children }: { children: React.ReactN
                     scale: [0.6, 1.2, 0.8],
                     y: [0, -15, 0]
                   }}
-                  transition={{ duration: 0.7, delay: p.delay }}
+                  transition={{ duration: 0.5, delay: p.delay }}
                 >
                   <Sparkle style={{ width: p.size, height: p.size, color: p.color }} />
                 </motion.div>
@@ -124,14 +123,10 @@ export function PixelloTransitionProvider({ children }: { children: React.ReactN
 
             {/* Central Official Pixello Logo Bridge */}
             <motion.div
-              initial={{ scale: 0.85, opacity: 0, y: transitionType === "to-home" ? 15 : -15 }}
-              animate={{ 
-                scale: 1.05, 
-                opacity: 1, 
-                y: transitionType === "to-home" ? -25 : 0 
-              }}
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.95, opacity: 0 }}
-              transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
+              transition={{ duration: 0.2, ease: "easeOut" }}
               className="relative flex flex-col items-center gap-3 z-10"
             >
               <div className="h-20 w-20 sm:h-24 sm:w-24 rounded-full overflow-hidden border-2 border-[#D89A86] shadow-xl bg-white p-1 flex items-center justify-center">
