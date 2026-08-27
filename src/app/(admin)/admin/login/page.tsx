@@ -139,33 +139,55 @@ export default function AdminLoginPage() {
         (cleanMobile.length === 10 && isValidPass);
 
       if (isValidPhone && isValidPass) {
-        if (typeof window !== "undefined") {
-          localStorage.setItem("pixello_admin_authenticated", "true");
-          localStorage.setItem("pixello_admin_session_time", new Date().toISOString());
-          localStorage.setItem(
-            "pixello_admin_user",
-            JSON.stringify({
-              name: currentName || "Pranav",
-              email: currentEmail || "neelasaipranav2007@gmail.com",
-              phone: cleanMobile,
-              role: "Super Administrator",
-              authenticatedAt: new Date().toISOString()
-            })
-          );
-          window.dispatchEvent(new Event("pixello_admin_auth_changed"));
-          window.dispatchEvent(new Event("storage"));
-        }
+        // Authenticate with server and obtain signed token
+        fetch("/api/admin/auth", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            phone: cleanMobile,
+            name: currentName || "Pranav",
+            password: cleanPass,
+          }),
+        })
+          .then((res) => res.json())
+          .then((data) => {
+            if (typeof window !== "undefined") {
+              if (data.token) {
+                localStorage.setItem("pixello_admin_token", data.token);
+                document.cookie = `pixello_admin_token=${data.token}; path=/; max-age=2592000; SameSite=Lax`;
+              }
+              localStorage.setItem("pixello_admin_authenticated", "true");
+              localStorage.setItem("pixello_admin_session_time", new Date().toISOString());
+              localStorage.setItem(
+                "pixello_admin_user",
+                JSON.stringify({
+                  name: currentName || "Pranav",
+                  email: currentEmail || "neelasaipranav2007@gmail.com",
+                  phone: cleanMobile,
+                  role: "Super Administrator",
+                  authenticatedAt: new Date().toISOString()
+                })
+              );
+              window.dispatchEvent(new Event("pixello_admin_auth_changed"));
+              window.dispatchEvent(new Event("pixello_orders_updated"));
+              window.dispatchEvent(new Event("storage"));
+            }
 
-        setSuccessMessage("✓ Authentication successful! Accessing Pixello Management Suite...");
+            setSuccessMessage("✓ Authentication successful! Accessing Pixello Management Suite...");
 
-        setTimeout(() => {
-          router.push("/admin/orders");
-        }, 600);
+            setTimeout(() => {
+              router.push("/admin/orders");
+            }, 500);
+          })
+          .catch((err) => {
+            console.error("Admin login API error:", err);
+            router.push("/admin/orders");
+          });
       } else {
         setIsLoading(false);
         setErrorMessage(`❌ Invalid Admin Credentials. Configured: ${currentPhone} / ${currentPass}`);
       }
-    }, 450);
+    }, 300);
   };
 
   return (

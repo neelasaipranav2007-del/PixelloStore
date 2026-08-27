@@ -186,7 +186,10 @@ export async function getAuthenticatedAdmin(req?: Request) {
   if (req) {
     const authHeader = req.headers.get("authorization");
     if (authHeader && authHeader.startsWith("Bearer ")) {
-      token = authHeader.slice(7).trim();
+      const extracted = authHeader.slice(7).trim();
+      if (extracted && extracted !== "null" && extracted !== "undefined") {
+        token = extracted;
+      }
     }
 
     if (!token) {
@@ -194,56 +197,55 @@ export async function getAuthenticatedAdmin(req?: Request) {
       const match =
         cookieHeader.match(/pixello_admin_token=([^;]+)/) ||
         cookieHeader.match(/pixello_auth_token=([^;]+)/);
-      if (match) {
+      if (match && match[1] && match[1] !== "null" && match[1] !== "undefined") {
         token = match[1];
+      }
+    }
+
+    // Also check if admin bypass header is passed for local automation/tests
+    if (!token) {
+      const adminKey = req.headers.get("x-admin-key");
+      if (adminKey && adminKey === (process.env.ADMIN_SECRET_KEY || "pixello_admin_master_secret_2026")) {
+        return {
+          user: { id: "admin_master", name: "Pixello Master Admin", role: "ADMIN" as const },
+          role: "ADMIN" as const,
+        };
       }
     }
   }
 
-  // Also check if admin bypass header is passed for local automation/tests
-  if (!token && req) {
-    const adminKey = req.headers.get("x-admin-key");
-    if (adminKey && adminKey === (process.env.ADMIN_SECRET_KEY || "pixello_admin_master_secret_2026")) {
+  if (token) {
+    const payload = verifyCustomerToken(token);
+    if (!payload || !payload.userId) return null;
+
+    if (payload.role === "ADMIN" || payload.role === "SUPER_ADMIN") {
       return {
-        user: { id: "admin_master", name: "Pixello Master Admin", role: "ADMIN" as const },
-        role: "ADMIN" as const,
+        user: {
+          id: payload.userId,
+          name: payload.name || "Admin",
+          email: payload.email,
+          phone: payload.phone,
+          role: payload.role as any,
+        },
+        role: payload.role as any,
       };
     }
-  }
 
-  if (!token) return null;
+    try {
+      const user = await prisma.user.findUnique({
+        where: { id: payload.userId },
+      });
 
-  const payload = verifyCustomerToken(token);
-  if (!payload || !payload.userId) return null;
-
-  // Check role in payload or database
-  if (payload.role === "ADMIN" || payload.role === "SUPER_ADMIN") {
-    return {
-      user: {
-        id: payload.userId,
-        name: payload.name || "Admin",
-        email: payload.email,
-        phone: payload.phone,
-        role: payload.role as any,
-      },
-      role: payload.role as any,
-    };
-  }
-
-  try {
-    const user = await prisma.user.findUnique({
-      where: { id: payload.userId },
-    });
-
-    if (!user) return null;
-
-    if (user.role === "ADMIN" || user.role === "SUPER_ADMIN") {
-      return { user, role: user.role };
+      if (user && (user.role === "ADMIN" || user.role === "SUPER_ADMIN")) {
+        return { user, role: user.role };
+      }
+    } catch (err) {
+      console.error("Error verifying admin user:", err);
     }
 
-    return null;
-  } catch (err) {
-    console.error("Error verifying admin user:", err);
+    // Token was provided but is NOT an admin
     return null;
   }
+
+  return null;
 }
