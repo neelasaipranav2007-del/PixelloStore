@@ -649,17 +649,17 @@ export default function CheckoutPage() {
         throw new Error(orderData.error || "Failed to initialize payment gateway order.");
       }
 
-      const { razorpayOrderId, amount, currency, keyId, summary, validatedItems } = orderData;
+      const { razorpayOrderId, isOfficial, amount, currency, keyId, summary, validatedItems } = orderData;
 
       // 2. Function to verify payment and atomically commit order to database
-      const verifyAndConfirm = async (paymentId: string, signature: string) => {
+      const verifyAndConfirm = async (paymentId: string, signature?: string, orderId?: string) => {
         const verifyRes = await fetch("/api/payment/verify", {
           method: "POST",
           headers,
           body: JSON.stringify({
-            razorpayOrderId,
+            razorpayOrderId: orderId || razorpayOrderId,
             razorpayPaymentId: paymentId,
-            razorpaySignature: signature,
+            razorpaySignature: signature || "sandbox_verified",
             items: validatedItems,
             deliveryAddress: formattedAddressStr,
             totalAmount: summary.totalAmount,
@@ -701,14 +701,13 @@ export default function CheckoutPage() {
       const isLoaded = await loadRazorpayScript();
 
       if (isLoaded && (window as any).Razorpay) {
-        const rzpOptions = {
+        const rzpOptions: any = {
           key: keyId,
           amount: amount,
           currency: currency || "INR",
           name: "Pixello Store",
           description: "Frames • Memories • Gifts",
           image: "/images/pixello_logo.png",
-          order_id: razorpayOrderId,
           prefill: {
             name: `${firstName} ${lastName}`.trim(),
             contact: phone.replace(/\D/g, ""),
@@ -721,7 +720,8 @@ export default function CheckoutPage() {
             try {
               await verifyAndConfirm(
                 response.razorpay_payment_id,
-                response.razorpay_signature || "sandbox_verified"
+                response.razorpay_signature || "sandbox_verified",
+                response.razorpay_order_id || razorpayOrderId
               );
             } catch (err: any) {
               alert(err.message || "Payment verification error. Please contact support.");
@@ -735,6 +735,10 @@ export default function CheckoutPage() {
             },
           },
         };
+
+        if (isOfficial && razorpayOrderId) {
+          rzpOptions.order_id = razorpayOrderId;
+        }
 
         const rzp = new (window as any).Razorpay(rzpOptions);
         rzp.on("payment.failed", (response: any) => {

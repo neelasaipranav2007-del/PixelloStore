@@ -125,6 +125,7 @@ export async function POST(req: Request) {
     return NextResponse.json({
       success: true,
       razorpayOrderId: razorpayOrder.id,
+      isOfficial: razorpayOrder.isOfficial,
       amount: razorpayOrder.amount, // in paise
       amountInRupees: finalTotalAmount,
       currency: razorpayOrder.currency,

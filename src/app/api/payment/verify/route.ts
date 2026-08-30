@@ -31,16 +31,18 @@ export async function POST(req: Request) {
       customerPhone,
     } = body;
 
-    if (!razorpayOrderId || !razorpayPaymentId) {
+    if (!razorpayPaymentId) {
       return NextResponse.json(
-        { success: false, error: "Missing Razorpay order or payment identifier." },
+        { success: false, error: "Missing Razorpay payment identifier." },
         { status: 400 }
       );
     }
 
+    const effectiveOrderId = razorpayOrderId || `order_${razorpayPaymentId}`;
+
     // 1. Verify Payment Signature
     const isValidSignature = verifyRazorpaySignature({
-      razorpayOrderId,
+      razorpayOrderId: effectiveOrderId,
       razorpayPaymentId,
       razorpaySignature: razorpaySignature || "sandbox_verified",
     });
@@ -57,7 +59,7 @@ export async function POST(req: Request) {
       where: {
         OR: [
           { razorpayPaymentId },
-          { razorpayOrderId },
+          effectiveOrderId ? { razorpayOrderId: effectiveOrderId } : {},
         ],
       },
       include: {

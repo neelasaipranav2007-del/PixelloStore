@@ -32,7 +32,7 @@ export async function createRazorpayOrder({
   currency?: string;
   receipt: string;
   notes?: Record<string, string>;
-}): Promise<{ id: string; amount: number; currency: string; receipt: string }> {
+}): Promise<{ id: string; isOfficial: boolean; amount: number; currency: string; receipt: string }> {
   try {
     const client = getRazorpayClient();
     const order = await client.orders.create({
@@ -43,16 +43,16 @@ export async function createRazorpayOrder({
     });
     return {
       id: order.id,
+      isOfficial: true,
       amount: Number(order.amount),
       currency: order.currency,
       receipt: order.receipt || receipt,
     };
   } catch (err: any) {
-    console.warn("Razorpay SDK online order creation error (using sandbox simulated order):", err?.message || err);
-    // Deterministic sandbox order generation for test environments
-    const mockOrderId = `order_${crypto.randomBytes(8).toString("hex")}`;
+    console.warn("Razorpay API order creation:", err?.message || err);
     return {
-      id: mockOrderId,
+      id: "",
+      isOfficial: false,
       amount: Math.round(amountInPaisa),
       currency,
       receipt,
