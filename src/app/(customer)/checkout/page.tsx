@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
-import { CheckCircle2, MapPin, CreditCard, Wallet, Building2, ChevronLeft, ShieldCheck, Loader2, ArrowRight, Sparkles, Tag, AlertCircle, Copy, Check, QrCode, ExternalLink, Smartphone, RefreshCw, X } from "lucide-react";
+import { CheckCircle2, MapPin, CreditCard, Wallet, Building2, ChevronLeft, ShieldCheck, Loader2, ArrowRight, Sparkles, Tag, AlertCircle, Copy, Check, QrCode, ExternalLink, Smartphone, RefreshCw, X, Ban, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -17,7 +17,7 @@ import { calculateDeliveryFee } from "@/lib/deliveryFee";
 
 export default function CheckoutPage() {
   const router = useRouter();
-  const { cartItems, clearCart } = useCart();
+  const { cartItems, clearCart, removeFromCart } = useCart();
   const { addOrder } = useOrders();
   const { deductInventory } = useProducts();
 
@@ -523,6 +523,29 @@ export default function CheckoutPage() {
   } | null>(null);
 
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
+  const [showCancelModal, setShowCancelModal] = useState(false);
+  const [cancelReason, setCancelReason] = useState("Changed my mind");
+  const [isCancelling, setIsCancelling] = useState(false);
+
+  const handleCancelOrder = async () => {
+    setIsCancelling(true);
+    try {
+      await clearCart();
+      if (typeof window !== "undefined") {
+        localStorage.removeItem("pixello_referral_code");
+        sessionStorage.removeItem("pixello_referral_code");
+        localStorage.removeItem("pixello_applied_promo");
+        sessionStorage.removeItem("pixello_applied_promo");
+      }
+      setShowCancelModal(false);
+      router.push("/products");
+    } catch (e) {
+      console.error("Cancel order error:", e);
+      router.push("/products");
+    } finally {
+      setIsCancelling(false);
+    }
+  };
 
   const loadRazorpayScript = (): Promise<boolean> => {
     return new Promise((resolve) => {
@@ -1132,7 +1155,7 @@ export default function CheckoutPage() {
                 
                 <div className="flex flex-col gap-4 mb-6">
                   {cartItems.map((item) => (
-                    <div key={item.id} className="flex items-center gap-3">
+                    <div key={item.id} className="flex items-center gap-3 group">
                       <div className="h-12 w-12 rounded-xl overflow-hidden bg-[#FFF8F2] border border-[#EFE6DD] flex-shrink-0">
                         <img src={item.image} alt={item.name} className="object-cover h-full w-full" />
                       </div>
@@ -1140,7 +1163,16 @@ export default function CheckoutPage() {
                         <div className="font-medium text-[#3A2B24]">{item.name}</div>
                         <div className="text-xs text-[#6C5C54]">Size: {item.size} • Qty: {item.quantity}</div>
                       </div>
-                      <div className="font-bold text-sm text-[#D89A86]">₹{item.price * item.quantity}</div>
+                      <div className="text-right">
+                        <div className="font-bold text-sm text-[#D89A86]">₹{item.price * item.quantity}</div>
+                        <button
+                          type="button"
+                          onClick={() => removeFromCart(item.id)}
+                          className="text-[10px] font-bold text-rose-500 hover:text-rose-700 hover:underline cursor-pointer transition-colors"
+                        >
+                          Remove
+                        </button>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -1265,6 +1297,17 @@ export default function CheckoutPage() {
                     </>
                   )}
                 </Button>
+
+                {/* CANCEL ORDER BUTTON */}
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setShowCancelModal(true)}
+                  className="w-full h-12 mt-3 rounded-full border-rose-200 hover:border-rose-300 text-rose-700 hover:text-rose-800 bg-rose-50/60 hover:bg-rose-100/70 font-bold text-xs flex items-center justify-center gap-2 cursor-pointer transition-all shadow-2xs"
+                >
+                  <Ban className="h-4 w-4 text-rose-600" />
+                  <span>Cancel Order</span>
+                </Button>
                 
                 <p className="text-xs text-center text-[#6C5C54] mt-4 flex items-center justify-center gap-1">
                    <ShieldCheck className="h-3.5 w-3.5 text-[#5AAE7F]" /> 256-bit Encrypted Checkout
@@ -1273,6 +1316,99 @@ export default function CheckoutPage() {
             </Card>
           </div>
       </div>
+
+      {/* CANCEL ORDER CONFIRMATION MODAL */}
+      {showCancelModal && (
+        <div className="fixed inset-0 top-0 left-0 w-screen h-screen z-[9999] bg-black/80 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in">
+          <div className="bg-white border border-[#EFE6DD] rounded-3xl p-6 md:p-8 max-w-md w-full shadow-2xl relative text-left animate-in zoom-in-95 my-auto">
+            <button
+              onClick={() => setShowCancelModal(false)}
+              className="absolute top-5 right-5 h-8 w-8 rounded-full bg-[#FFF8F2] hover:bg-[#F2C8B5]/30 text-[#3A2B24] flex items-center justify-center font-bold text-sm transition-colors cursor-pointer"
+            >
+              ✕
+            </button>
+
+            <div className="h-14 w-14 rounded-2xl bg-rose-50 border border-rose-200 flex items-center justify-center mb-4 text-rose-600 shadow-2xs">
+              <Ban className="h-7 w-7" />
+            </div>
+
+            <Badge className="bg-rose-100 text-rose-800 border-none font-bold text-[10px] px-2.5 py-0.5 mb-2 rounded-full">
+              Order Cancellation
+            </Badge>
+
+            <h3 className="font-serif-brand text-2xl font-bold text-[#3A2B24] mb-1">
+              Cancel this Order?
+            </h3>
+            <p className="text-xs text-[#6C5C54] mb-5 font-medium leading-relaxed">
+              Are you sure you want to cancel your checkout? Your selected frame items and promo code will be cleared.
+            </p>
+
+            <div className="mb-6 space-y-2">
+              <label className="text-xs font-bold text-[#3A2B24] block">
+                Reason for cancellation:
+              </label>
+              <div className="space-y-2">
+                {[
+                  "Changed my mind",
+                  "Want to change frame size or photo",
+                  "Entered wrong delivery address",
+                  "Decided to order later"
+                ].map((r) => (
+                  <label
+                    key={r}
+                    className={cn(
+                      "flex items-center gap-2.5 p-2.5 rounded-xl border text-xs font-semibold cursor-pointer transition-all",
+                      cancelReason === r
+                        ? "bg-rose-50/80 border-rose-300 text-rose-950 font-bold shadow-2xs"
+                        : "bg-[#FFF8F2]/60 border-[#EFE6DD] text-[#6C5C54] hover:bg-[#FFF8F2]"
+                    )}
+                  >
+                    <input
+                      type="radio"
+                      name="cancelReason"
+                      checked={cancelReason === r}
+                      onChange={() => setCancelReason(r)}
+                      className="text-rose-600 focus:ring-rose-500"
+                    />
+                    <span>{r}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setShowCancelModal(false)}
+                disabled={isCancelling}
+                className="flex-1 rounded-full border-[#EFE6DD] text-xs font-bold h-11 cursor-pointer"
+              >
+                No, Keep Order
+              </Button>
+
+              <Button
+                type="button"
+                onClick={handleCancelOrder}
+                disabled={isCancelling}
+                className="flex-1 bg-rose-600 hover:bg-rose-700 text-white rounded-full text-xs font-bold h-11 flex items-center justify-center gap-2 cursor-pointer shadow-md"
+              >
+                {isCancelling ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin text-white" />
+                    <span>Cancelling...</span>
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="h-4 w-4" />
+                    <span>Yes, Cancel Order</span>
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* CUSTOM ORDER CONFIRMATION SUCCESS MODAL */}
       {orderSuccessModal && (
