@@ -91,9 +91,49 @@ const DEFAULT_PRODUCTS: Product[] = [
       { label: "LARGE", name: "Large Polaroid", priceEach: 25, minOrderQty: 4, description: "Jumbo aesthetic print • Min order 4 prints" },
     ]
   },
-  { id: "PRD-03", name: "Custom Magic Photo Mug", category: "Gifts", price: 349, originalPrice: 499, description: "Enjoy hot drinks with your favorite memories! High-grade ceramic mug printed with rich vibrant colors that reveal upon filling hot beverages.", badgeTag: "ONLY AT ₹349 • NEW", rating: 4.6, reviews: 89, image: "/images/custom_mug.png", badge: "New", stock: 0, status: "Out of Stock" },
+  { 
+    id: "PRD-03", 
+    name: "Custom Magic Photo Mug", 
+    category: "Gifts", 
+    price: 349, 
+    originalPrice: 499, 
+    description: "Enjoy hot drinks with your favorite memories! High-grade ceramic mug printed with rich vibrant colors that reveal upon filling hot beverages.", 
+    badgeTag: "ONLY AT ₹349 • NEW", 
+    rating: 4.8, 
+    reviews: 142, 
+    image: "/images/custom_mug.png", 
+    badge: "Trending", 
+    stock: 120, 
+    status: "Active",
+    variants: [
+      {
+        id: "mug-v1",
+        name: "Magic Black (Heat-Activated Color Reveal)",
+        price: 349,
+        originalPrice: 499,
+        description: "Appears black when cold • Reveals full HD photo when hot beverage is added",
+        discountTag: "30% OFF"
+      },
+      {
+        id: "mug-v2",
+        name: "Glossy Classic White Ceramic Mug",
+        price: 299,
+        originalPrice: 399,
+        description: "Crisp white 330ml ceramic with permanently printed vibrant photo wrap",
+        discountTag: "25% OFF"
+      },
+      {
+        id: "mug-v3",
+        name: "Heart-Handle Romantic Magic Mug",
+        price: 399,
+        originalPrice: 599,
+        description: "Special heart-shaped ergonomic handle + heat reveal effect for loved ones",
+        discountTag: "33% OFF"
+      }
+    ]
+  },
   { id: "PRD-04", name: "LED Acrylic Photo Lamp", category: "LED", price: 1299, originalPrice: 1999, description: "Illuminate your special moments with custom laser-engraved LED acrylic lamps. Features 7 warm light modes with solid wood base.", badgeTag: "ONLY AT ₹1299 • TOP RATED", rating: 4.9, reviews: 215, image: "/images/led_acrylic_lamp.png", badge: "Popular", stock: 45, status: "Active" },
-  { id: "PRD-05", name: "Spotify Acrylic Music Plaque", category: "Gifts", price: 799, originalPrice: 1199, description: "Scan & Play! Custom acrylic plaque printed with your favorite song waveform, album cover, and scannable Spotify code.", badgeTag: "ONLY AT ₹799 • LIMITED", rating: 4.5, reviews: 156, image: "/images/wooden_frame_angle.png", stock: 12, status: "Low Stock" },
+  { id: "PRD-05", name: "Spotify Acrylic Music Plaque", category: "Gifts", price: 799, originalPrice: 1199, description: "Scan & Play! Custom acrylic plaque printed with your favorite song waveform, album cover, and scannable Spotify code.", badgeTag: "ONLY AT ₹799 • LIMITED", rating: 4.5, reviews: 156, image: "/images/wooden_frame_angle.png", stock: 80, status: "Active" },
   { id: "PRD-06", name: "Lighting Panda", category: "Gifts", price: 89, originalPrice: 199, description: "Light up your CUTE MOMENTS! Moss Panda Lamp featuring soft warm glow, energy-efficient LED, and adorable room decor design.", badgeTag: "ONLY AT ₹89 • SPECIAL DEAL", rating: 4.9, reviews: 28, image: "/images/led_acrylic_lamp.png", stock: 20, status: "Active", badge: "New" },
   { id: "PRD-07", name: "Collage Wall Photo Frame Set", category: "Frames", price: 1499, originalPrice: 2499, description: "Transform your empty walls into a gallery of memories with our multi-frame wall collage set.", badgeTag: "ONLY AT ₹1499 • BEST VALUE", rating: 4.9, reviews: 402, image: "/images/wooden_frame_wall.png", stock: 80, status: "Active" },
   { 
@@ -141,7 +181,7 @@ interface ProductContextType {
 
 const ProductContext = createContext<ProductContextType | undefined>(undefined);
 
-const STORAGE_KEY = "pixello_products_sync_v4";
+const STORAGE_KEY = "pixello_products_sync_v6";
 
 export function ProductProvider({ children }: { children: React.ReactNode }) {
   const [products, setProducts] = useState<Product[]>(DEFAULT_PRODUCTS);

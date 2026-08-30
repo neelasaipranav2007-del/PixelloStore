@@ -315,6 +315,7 @@ export default function ProductDetailsPage({ params }: { params: Promise<any> })
   } : PRODUCTS_CATALOG["1"]);
 
   const isPolaroid = baseProduct.category.toLowerCase().includes("polaroid") || baseProduct.name.toLowerCase().includes("polaroid");
+  const isMug = baseProduct.name.toLowerCase().includes("mug") || baseProduct.category.toLowerCase().includes("mug");
   const isPanda = baseProduct.name.toLowerCase().includes("panda") || baseProduct.category.toLowerCase().includes("panda") || baseProduct.name.toLowerCase().includes("glowing panda");
   const isLiquidTimer = baseProduct.name.toLowerCase().includes("liquid") || baseProduct.name.toLowerCase().includes("timer") || baseProduct.category.toLowerCase().includes("timer");
   const isPaperWeight = baseProduct.name.toLowerCase().includes("paper weight") || baseProduct.name.toLowerCase().includes("paperweight") || baseProduct.name.toLowerCase().includes("forever us");
@@ -557,7 +558,50 @@ export default function ProductDetailsPage({ params }: { params: Promise<any> })
       </div>
 
       {/* Feature Highlights Grid */}
-      {isPaperWeight ? (
+      {isMug ? (
+        /* CUSTOM MAGIC PHOTO MUG FEATURES GRID */
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5 p-4 bg-[#FFF8F2] border border-[#EFE6DD] rounded-3xl mb-8 shadow-xs">
+          <div className="flex items-center gap-3 p-2 bg-white rounded-2xl border border-[#EFE6DD]">
+            <div className="h-10 w-10 rounded-xl bg-purple-50 border border-purple-200 flex items-center justify-center text-purple-600 flex-shrink-0">
+              <Sparkles className="h-5 w-5" />
+            </div>
+            <div>
+              <span className="font-bold text-xs text-[#3A2B24] uppercase tracking-wider block">Heat Magic Reveal</span>
+              <span className="text-[10px] text-[#6C5C54] block font-medium">Reveals on hot drink</span>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3 p-2 bg-white rounded-2xl border border-[#EFE6DD]">
+            <div className="h-10 w-10 rounded-xl bg-amber-50 border border-amber-200 flex items-center justify-center text-amber-600 flex-shrink-0">
+              <Award className="h-5 w-5" />
+            </div>
+            <div>
+              <span className="font-bold text-xs text-[#3A2B24] uppercase tracking-wider block">Premium 330ml</span>
+              <span className="text-[10px] text-[#6C5C54] block font-medium">Glossy ceramic finish</span>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3 p-2 bg-white rounded-2xl border border-[#EFE6DD]">
+            <div className="h-10 w-10 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-600 flex-shrink-0">
+              <ShieldCheck className="h-5 w-5" />
+            </div>
+            <div>
+              <span className="font-bold text-xs text-[#3A2B24] uppercase tracking-wider block">Microwave Safe</span>
+              <span className="text-[10px] text-[#6C5C54] block font-medium">Fade-proof HD print</span>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3 p-2 bg-white rounded-2xl border border-[#EFE6DD]">
+            <div className="h-10 w-10 rounded-xl bg-pink-50 border border-pink-200 flex items-center justify-center text-pink-600 flex-shrink-0">
+              <Gift className="h-5 w-5" />
+            </div>
+            <div>
+              <span className="font-bold text-xs text-[#3A2B24] uppercase tracking-wider block">Custom Photo Wrap</span>
+              <span className="text-[10px] text-[#6C5C54] block font-medium">Front & back prints</span>
+            </div>
+          </div>
+        </div>
+      ) : isPaperWeight ? (
         /* FOREVER US PAPER WEIGHT FEATURES GRID (From Image 1) */
         <div className="grid grid-cols-2 sm:grid-cols-5 gap-3.5 p-4 bg-[#FFF8F2] border border-[#EFE6DD] rounded-3xl mb-8 shadow-xs">
           <div className="flex items-center gap-3 p-2 bg-white rounded-2xl border border-[#EFE6DD]">
