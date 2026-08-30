@@ -1350,32 +1350,33 @@ function ProfileContent() {
           const isReplacementTrack = rawStatus.includes("REPLACEMENT") || (trackOrderObj?.history && trackOrderObj.history.some((h: any) => h.status === "Replacement Requested" || (h.note && h.note.includes("Replacement"))));
 
           // Calculate current active stage index:
-          // 0: Placed / Replacement Requested
-          // 1: Processing / Re-Printing
-          // 2: Packed / QA Passed
-          // 3: Out for Delivery
-          // 4: Delivered
+          // 0: Placed
+          // 1: Studio Accepted / Designing
+          // 2: Printing / Framing
+          // 3: Quality Check / Packed / Ready for Delivery
+          // 4: Out for Delivery
+          // 5: Delivered
           let currentStepIdx = 0;
           if (rawStatus === "DELIVERED") {
+            currentStepIdx = 5;
+          } else if (rawStatus === "OUT_FOR_DELIVERY" || rawStatus === "OUT FOR DELIVERY" || rawStatus === "PICKED_UP" || rawStatus === "DELIVERY PICKED UP") {
             currentStepIdx = 4;
-          } else if (rawStatus === "OUT_FOR_DELIVERY" || rawStatus === "OUT FOR DELIVERY") {
+          } else if (rawStatus === "QUALITY_CHECK" || rawStatus === "PACKED" || rawStatus === "READY_FOR_PICKUP" || rawStatus === "READY FOR DELIVERY") {
             currentStepIdx = 3;
-          } else if (rawStatus === "QUALITY_CHECK" || rawStatus === "PACKED") {
+          } else if (rawStatus === "PRINTING" || rawStatus === "FRAMING") {
             currentStepIdx = 2;
-          } else if (rawStatus === "PRINTING" || rawStatus === "PROCESSING") {
+          } else if (rawStatus === "ACCEPTED_BY_STUDIO" || rawStatus === "STUDIO ACCEPTED" || rawStatus === "DESIGNING") {
             currentStepIdx = 1;
-          } else if (rawStatus === "REPLACEMENT_REQUESTED" || rawStatus === "REPLACEMENT REQUESTED") {
-            currentStepIdx = 0;
           } else {
             currentStepIdx = 0;
           }
 
-          const progressPercent = currentStepIdx === 0 ? 20 : (currentStepIdx === 1 ? 45 : (currentStepIdx === 2 ? 70 : (currentStepIdx === 3 ? 90 : 100)));
+          const progressPercent = currentStepIdx === 0 ? 15 : (currentStepIdx === 1 ? 35 : (currentStepIdx === 2 ? 55 : (currentStepIdx === 3 ? 75 : (currentStepIdx === 4 ? 90 : 100))));
 
           const steps = isReplacementTrack ? [
             {
               title: "🔄 Replacement Requested & Approved",
-              desc: "Replacement request registered and approved by Studio Alpha.",
+              desc: "Replacement request registered and approved by Studio.",
               time: "Stage 1",
             },
             {
@@ -1390,7 +1391,7 @@ function ProfileContent() {
             },
             {
               title: "🚚 Replacement Out for Doorstep Handover",
-              desc: "Rider dispatched with fresh replacement unit for delivery.",
+              desc: `Rider: ${trackOrderObj?.deliveryPartner || "Ramesh K. (+91 99887 76655)"} • Direct local bike dispatch.`,
               time: "Stage 4",
             },
             {
@@ -1400,24 +1401,29 @@ function ProfileContent() {
             }
           ] : [
             {
-              title: "Order Placed & Confirmed",
-              desc: trackOrderObj?.assignedStudio ? `Assigned to verified local studio: ${trackOrderObj.assignedStudio}` : "Order confirmed and verified.",
+              title: "Order Placed & Payment Verified",
+              desc: trackOrderObj?.assignedStudio ? `Assigned to verified studio: ${trackOrderObj.assignedStudio}` : "Order confirmed & payment verified.",
               time: "Stage 1",
             },
             {
-              title: "Master Printing & Framing In Progress",
-              desc: "High-resolution photo printing on anti-glare paper & solid wood frame assembly.",
+              title: "Studio Accepted & Layout Design",
+              desc: "Studio verified photo resolution & aspect ratio cropping.",
               time: "Stage 2",
             },
             {
-              title: "Quality Inspection & Protective Packing",
-              desc: "Double-layer bubble wrap & tamper-proof express seal.",
+              title: "Master Lab Printing & Frame Assembly",
+              desc: "High-definition archival photo printing on anti-glare paper & solid wood frame assembly.",
               time: "Stage 3",
+            },
+            {
+              title: "Quality Check Passed & Gift Wrapped",
+              desc: "Quality inspected, double bubble-wrapped & sealed for delivery.",
+              time: "Stage 4",
             },
             {
               title: "Out for Express Doorstep Delivery",
               desc: `Rider: ${trackOrderObj?.deliveryPartner || "Ramesh K. (+91 99887 76655)"} • Direct local bike dispatch.`,
-              time: "Stage 4",
+              time: "Stage 5",
             },
             {
               title: "Delivered Successfully",
@@ -1472,8 +1478,8 @@ function ProfileContent() {
                 {/* Multi-Step Timeline */}
                 <div className="relative pl-6 space-y-6 before:absolute before:left-3 before:top-2 before:bottom-2 before:w-0.5 before:bg-[#EFE6DD] mb-6">
                   {steps.map((stObj, sIdx) => {
-                    const isDone = sIdx < currentStepIdx || (currentStepIdx === 4 && sIdx === 4);
-                    const isActive = sIdx === currentStepIdx && currentStepIdx < 4;
+                    const isDone = sIdx < currentStepIdx || (currentStepIdx === steps.length - 1 && sIdx === steps.length - 1);
+                    const isActive = sIdx === currentStepIdx && currentStepIdx < steps.length - 1;
                     const isPending = sIdx > currentStepIdx;
 
                     return (

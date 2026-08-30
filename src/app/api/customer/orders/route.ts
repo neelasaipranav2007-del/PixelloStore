@@ -1,21 +1,9 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getAuthenticatedUser } from "@/lib/session";
+import { mapDbStatusToUi } from "@/lib/orderStatus";
 
 export const dynamic = "force-dynamic";
-
-function mapDbStatusToUi(dbStatus: string): string {
-  const s = (dbStatus || "").trim().toUpperCase();
-  if (s === "DELIVERED") return "Delivered";
-  if (s === "CANCELLED" || s === "CANCELED") return "Cancelled";
-  if (s === "REPLACEMENT" || s === "REPLACEMENT_REQUESTED" || s === "REPLACEMENT REQUESTED") return "Replacement Requested";
-  if (s === "OUT_FOR_DELIVERY" || s === "OUT FOR DELIVERY") return "Out for Delivery";
-  if (s === "PICKED_UP" || s === "DELIVERY PICKED UP" || s === "DELIVERY_PICKED_UP") return "Delivery Picked Up";
-  if (s === "QUALITY_CHECK" || s === "PACKED") return "Packed";
-  if (s === "PRINTING" || s === "FRAMING") return "Printing";
-  if (s === "OUT_OF_STOCK") return "Out of Stock (Refill Pending)";
-  return "Processing";
-}
 
 export async function GET(req: Request) {
   try {

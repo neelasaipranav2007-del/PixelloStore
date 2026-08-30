@@ -2,21 +2,9 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { portalEvents } from "@/lib/events";
 import { getAuthenticatedAdmin } from "@/lib/session";
-import { OrderStatus } from "@prisma/client";
+import { mapUiStatusToDb } from "@/lib/orderStatus";
 
 export const dynamic = "force-dynamic";
-
-function mapUiStatusToDb(uiStatus: string): OrderStatus {
-  const s = (uiStatus || "").trim().toUpperCase();
-  if (s === "DELIVERED") return "DELIVERED";
-  if (s === "CANCELLED" || s === "CANCELED") return "CANCELLED";
-  if (s === "OUT FOR DELIVERY" || s === "OUT_FOR_DELIVERY") return "OUT_FOR_DELIVERY";
-  if (s === "DELIVERY PICKED UP" || s === "PICKED_UP" || s === "PICKED UP") return "PICKED_UP";
-  if (s === "PACKED" || s === "QUALITY_CHECK") return "QUALITY_CHECK";
-  if (s === "PRINTING") return "PRINTING";
-  if (s === "REPLACEMENT" || s === "REPLACEMENT REQUESTED" || s === "REPLACEMENT_REQUESTED") return "REPLACEMENT_REQUESTED";
-  return "PLACED";
-}
 
 export async function PATCH(
   req: Request,

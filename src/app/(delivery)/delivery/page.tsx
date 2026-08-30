@@ -167,33 +167,11 @@ export default function DeliveryDashboard() {
       setUserCoords({ lat: resolved.lat, lng: resolved.lng });
       setGpsStatus(`📍 Customer Location Fixed: ${resolved.locationName}`);
     } else {
-      // Generate a fresh unique order when all existing orders have been processed
-      const MOCK_CUSTOMERS = [
-        { name: "Harsha Vardhan", phone: "+91 8074589949", address: "Near Nepal Reddy Motors, Alwal, Hyderabad - 500010" },
-        { name: "Ananya Sharma", phone: "+91 9876543210", address: "Flat 402, Sunshine Heights, Powai, Mumbai - 400076" },
-        { name: "Vikram Malhotra", phone: "+91 9811223344", address: "Plot 18, Central Avenue, Hiranandani Powai - 400076" },
-        { name: "Sneha Reddy", phone: "+91 7989856610", address: "Block B, Tech Park Residency, Chandivali, Mumbai - 400072" },
-        { name: "Karan Patel", phone: "+91 9765432109", address: "Villa 9, Green Meadows, Kanjurmarg West, Mumbai - 400078" }
-      ];
-      const randomCust = MOCK_CUSTOMERS[Math.floor(Math.random() * MOCK_CUSTOMERS.length)];
-      const mockActive = {
-        id: `ORD-${Math.floor(10000000 + Math.random() * 90000000)}`,
-        customerName: randomCust.name,
-        customerPhone: randomCust.phone,
-        pickup: "Studio Alpha (Central Powai Branch)",
-        dropoff: randomCust.address,
-        earnings: `₹${Math.floor(Math.random() * 40 + 65)}`,
-        rawEarningsNum: Math.floor(Math.random() * 40 + 65),
-        status: "ASSIGNED",
-        totalAmount: Math.floor(Math.random() * 1500 + 499),
-        itemsCount: Math.floor(Math.random() * 3 + 1)
-      };
-      setActiveOrder(mockActive);
-      localStorage.setItem("pixello_rider_active_order", JSON.stringify(mockActive));
-
-      const resolved = resolveAddressCoords(randomCust.address);
-      setUserCoords({ lat: resolved.lat, lng: resolved.lng });
-      setGpsStatus(`📍 Customer Location Fixed: ${resolved.locationName}`);
+      setActiveOrder(null);
+      if (typeof window !== "undefined") {
+        localStorage.removeItem("pixello_rider_active_order");
+      }
+      setDeliverySuccessMsg("✓ All assigned deliveries have been completed! Waiting for next orders to be ready for pickup.");
     }
   };
 

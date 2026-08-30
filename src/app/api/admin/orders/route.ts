@@ -1,36 +1,9 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getAuthenticatedAdmin } from "@/lib/session";
-import { OrderStatus } from "@prisma/client";
+import { mapDbStatusToUi, mapUiStatusToDb } from "@/lib/orderStatus";
 
 export const dynamic = "force-dynamic";
-
-function mapDbStatusToUi(dbStatus: string): string {
-  const s = (dbStatus || "").trim().toUpperCase();
-  if (s === "DELIVERED") return "Delivered";
-  if (s === "CANCELLED" || s === "CANCELED") return "Cancelled";
-  if (s === "REPLACEMENT" || s === "REPLACEMENT_REQUESTED" || s === "REPLACEMENT REQUESTED") return "Replacement Requested";
-  if (s === "OUT_FOR_DELIVERY" || s === "OUT FOR DELIVERY") return "Out for Delivery";
-  if (s === "PICKED_UP" || s === "DELIVERY PICKED UP" || s === "DELIVERY_PICKED_UP") return "Out for Delivery";
-  if (s === "QUALITY_CHECK" || s === "PACKED") return "Packed";
-  if (s === "PRINTING" || s === "FRAMING") return "Printing";
-  if (s === "OUT_OF_STOCK") return "Out of Stock (Refill Pending)";
-  return "Processing";
-}
-
-function mapUiStatusToDb(uiStatus: string): OrderStatus | undefined {
-  const s = (uiStatus || "").trim().toUpperCase();
-  if (s === "ALL") return undefined;
-  if (s === "DELIVERED") return "DELIVERED";
-  if (s === "CANCELLED" || s === "CANCELED") return "CANCELLED";
-  if (s === "REPLACEMENT" || s === "REPLACEMENT_REQUESTED" || s === "REPLACEMENT REQUESTED") return "REPLACEMENT_REQUESTED";
-  if (s === "OUT FOR DELIVERY" || s === "OUT_FOR_DELIVERY") return "OUT_FOR_DELIVERY";
-  if (s === "DELIVERY PICKED UP" || s === "PICKED_UP" || s === "PICKED UP") return "PICKED_UP";
-  if (s === "PACKED" || s === "QUALITY_CHECK") return "QUALITY_CHECK";
-  if (s === "PRINTING") return "PRINTING";
-  if (s === "PROCESSING" || s === "PLACED") return "PLACED";
-  return undefined;
-}
 
 export async function GET(req: Request) {
   try {

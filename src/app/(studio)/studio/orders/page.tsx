@@ -11,10 +11,14 @@ import { ChevronDown, Printer, FileText, Download, CheckCircle2, Truck, Eye, X, 
 
 const STATUS_OPTIONS = [
   { label: "Processing", desc: "Order received & queued", dotColor: "bg-amber-500" },
-  { label: "Printing", desc: "In studio framing & printing", dotColor: "bg-[#D89A86]" },
-  { label: "Packed", desc: "Print packed in gift wrap", dotColor: "bg-sky-500" },
+  { label: "Studio Accepted", desc: "Studio accepted print job", dotColor: "bg-teal-500" },
+  { label: "Designing", desc: "Designing & image cropping", dotColor: "bg-indigo-500" },
+  { label: "Printing", desc: "High-def lab photo printing", dotColor: "bg-[#D89A86]" },
+  { label: "Framing", desc: "Framing & acrylic mounting", dotColor: "bg-purple-500" },
+  { label: "Packed", desc: "QA passed & packed in gift wrap", dotColor: "bg-sky-500" },
+  { label: "Ready for Delivery", desc: "Ready for courier pickup", dotColor: "bg-emerald-500" },
   { label: "Delivery Picked Up", desc: "Rider dispatched to doorstep", dotColor: "bg-orange-500" },
-  { label: "Delivered", desc: "Handed to customer", dotColor: "bg-emerald-500" },
+  { label: "Delivered", desc: "Handed to customer", dotColor: "bg-emerald-600" },
 ];
 
 const getItemPhotosList = (item: { image?: string; photos?: string[]; quantity?: number }) => {
