@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getAuthenticatedUser } from "@/lib/session";
-import { createRazorpayOrder, RAZORPAY_KEY_ID } from "@/lib/razorpay";
+import { createRazorpayOrder, getRazorpayKeys } from "@/lib/razorpay";
 
 export const dynamic = "force-dynamic";
 
@@ -108,6 +108,7 @@ export async function POST(req: Request) {
 
     // 6. Create Razorpay Order
     const amountInPaisa = Math.round(finalTotalAmount * 100);
+    const { keyId } = getRazorpayKeys();
     const razorpayOrder = await createRazorpayOrder({
       amountInPaisa,
       currency: "INR",
@@ -127,7 +128,7 @@ export async function POST(req: Request) {
       amount: razorpayOrder.amount, // in paise
       amountInRupees: finalTotalAmount,
       currency: razorpayOrder.currency,
-      keyId: RAZORPAY_KEY_ID,
+      keyId: keyId,
       customer: {
         id: user.id,
         name: user.name || "Customer",

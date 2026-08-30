@@ -1,20 +1,20 @@
 import Razorpay from "razorpay";
 import crypto from "crypto";
 
-export const RAZORPAY_KEY_ID = process.env.RAZORPAY_KEY_ID || "rzp_test_pixello_sandbox";
-export const RAZORPAY_KEY_SECRET = process.env.RAZORPAY_KEY_SECRET || "pixello_secret_key_sandbox_2026";
-export const RAZORPAY_WEBHOOK_SECRET = process.env.RAZORPAY_WEBHOOK_SECRET || "pixello_webhook_secret_2026";
-
-let razorpayInstance: Razorpay | null = null;
+export function getRazorpayKeys() {
+  return {
+    keyId: process.env.RAZORPAY_KEY_ID || "rzp_test_TVuohjd1Lm1aty",
+    keySecret: process.env.RAZORPAY_KEY_SECRET || "aU7UqF4Y9S8dJ6k2XBr58j2K",
+    webhookSecret: process.env.RAZORPAY_WEBHOOK_SECRET || "pixello_webhook_secret_2026",
+  };
+}
 
 export function getRazorpayClient(): Razorpay {
-  if (!razorpayInstance) {
-    razorpayInstance = new Razorpay({
-      key_id: RAZORPAY_KEY_ID,
-      key_secret: RAZORPAY_KEY_SECRET,
-    });
-  }
-  return razorpayInstance;
+  const { keyId, keySecret } = getRazorpayKeys();
+  return new Razorpay({
+    key_id: keyId,
+    key_secret: keySecret,
+  });
 }
 
 /**
@@ -83,9 +83,10 @@ export function verifyRazorpaySignature({
   }
 
   try {
+    const { keySecret } = getRazorpayKeys();
     const body = `${razorpayOrderId}|${razorpayPaymentId}`;
     const expectedSignature = crypto
-      .createHmac("sha256", RAZORPAY_KEY_SECRET)
+      .createHmac("sha256", keySecret)
       .update(body)
       .digest("hex");
 
@@ -108,8 +109,9 @@ export function verifyWebhookSignature({
 }): boolean {
   if (!bodyString || !signature) return false;
   try {
+    const { webhookSecret } = getRazorpayKeys();
     const expectedSignature = crypto
-      .createHmac("sha256", RAZORPAY_WEBHOOK_SECRET)
+      .createHmac("sha256", webhookSecret)
       .update(bodyString)
       .digest("hex");
     return expectedSignature === signature;
