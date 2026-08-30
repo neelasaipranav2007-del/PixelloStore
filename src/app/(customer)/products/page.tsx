@@ -86,6 +86,120 @@ function isFuzzyMatch(productStr: string, queryInput: string): boolean {
   return false;
 }
 
+function getProductTypeMeta(product: {
+  category: string;
+  name: string;
+  badge?: string;
+  price: number;
+  originalPrice?: number;
+}) {
+  const cat = (product.category || "").toLowerCase();
+  const name = (product.name || "").toLowerCase();
+
+  if (cat.includes("frame") || name.includes("frame")) {
+    return {
+      typeCategory: "Custom Framing",
+      typeLabel: "Solid Wood Frame Model",
+      accentBorder: "hover:border-[#5A3A28]/50 hover:shadow-amber-900/10",
+      accentBg: "bg-gradient-to-b from-[#FFFDFB] to-[#FBF7F2]",
+      badgeBg: "bg-[#3A2B24] text-white",
+      specs: ["Table & Wall Mount", "3 Frame Colors", "Matte / Glossy Finish"],
+      buttonText: "Customize Frame",
+      unit: "",
+      highlightPill: "🖼️ Handcrafted Pine Wood",
+      priceLabel: "Price"
+    };
+  }
+
+  if (cat.includes("polaroid") || name.includes("polaroid")) {
+    return {
+      typeCategory: "Aesthetic Prints",
+      typeLabel: "Retro 300 GSM Fuji Pack",
+      accentBorder: "hover:border-amber-600/50 hover:shadow-orange-950/10",
+      accentBg: "bg-gradient-to-b from-[#FFFFFF] to-[#FFF9F2]",
+      badgeBg: "bg-gradient-to-r from-amber-700 to-orange-700 text-white",
+      specs: ["300 GSM Fuji Paper", "Packs of 10-50", "Smudge-Proof UV"],
+      buttonText: "Design Polaroid Pack",
+      unit: "/ print",
+      highlightPill: "📸 Retro Aesthetic Prints",
+      priceLabel: "Starting at"
+    };
+  }
+
+  if (cat.includes("mug") || name.includes("mug")) {
+    return {
+      typeCategory: "Magic Drinkware",
+      typeLabel: "Heat-Activated Ceramic",
+      accentBorder: "hover:border-purple-600/50 hover:shadow-purple-950/10",
+      accentBg: "bg-gradient-to-b from-[#FFFFFF] to-[#FAF5FF]",
+      badgeBg: "bg-gradient-to-r from-purple-800 to-indigo-900 text-white",
+      specs: ["330ml Ceramic", "Heat Color Reveal", "Microwave Safe"],
+      buttonText: "Personalize Mug",
+      unit: "",
+      highlightPill: "✨ Magic Heat Reveal",
+      priceLabel: "Price"
+    };
+  }
+
+  if (cat.includes("led") || name.includes("lamp") || name.includes("panda")) {
+    return {
+      typeCategory: "Ambient Lighting",
+      typeLabel: "Laser Acrylic LED Light",
+      accentBorder: "hover:border-yellow-600/50 hover:shadow-yellow-950/10",
+      accentBg: "bg-gradient-to-b from-[#FFFFFF] to-[#FFFDF0]",
+      badgeBg: "bg-gradient-to-r from-amber-600 to-yellow-600 text-white",
+      specs: ["Warm & RGB Modes", "Solid Teak Base", "USB Powered"],
+      buttonText: "Customize Lamp",
+      unit: "",
+      highlightPill: "💡 Warm LED Glow",
+      priceLabel: "Price"
+    };
+  }
+
+  if (name.includes("spotify") || name.includes("plaque")) {
+    return {
+      typeCategory: "Music Keepsake",
+      typeLabel: "Scannable Music Plaque",
+      accentBorder: "hover:border-emerald-600/50 hover:shadow-emerald-950/10",
+      accentBg: "bg-gradient-to-b from-[#FFFFFF] to-[#F0FDF4]",
+      badgeBg: "bg-gradient-to-r from-emerald-800 to-teal-900 text-white",
+      specs: ["Scannable Spotify Code", "HD Acrylic Panel", "Wooden Base"],
+      buttonText: "Create Plaque",
+      unit: "",
+      highlightPill: "🎵 Scannable Code",
+      priceLabel: "Price"
+    };
+  }
+
+  if (name.includes("paper weight") || name.includes("crystal")) {
+    return {
+      typeCategory: "Luxury Keepsake",
+      typeLabel: "Crystal Resin Keepsake",
+      accentBorder: "hover:border-sky-600/50 hover:shadow-sky-950/10",
+      accentBg: "bg-gradient-to-b from-[#FFFFFF] to-[#F0F9FF]",
+      badgeBg: "bg-gradient-to-r from-sky-800 to-blue-900 text-white",
+      specs: ["Crystal Clear Resin", "Ambient Warm Glow", "Gift Box Wrap"],
+      buttonText: "Customize Keepsake",
+      unit: "",
+      highlightPill: "💎 Crystal Figurine",
+      priceLabel: "Price"
+    };
+  }
+
+  return {
+    typeCategory: product.category || "Custom Gift",
+    typeLabel: "Personalized Studio Gift",
+    accentBorder: "hover:border-[#D89A86]/50 hover:shadow-stone-900/10",
+    accentBg: "bg-white",
+    badgeBg: "bg-[#3A2B24] text-white",
+    specs: ["Premium Craftsmanship", "Studio Quality", "Custom Photo Print"],
+    buttonText: "Customize",
+    unit: "",
+    highlightPill: "✨ Studio Crafted",
+    priceLabel: "Price"
+  };
+}
+
 function ProductsContent() {
   const searchParams = useSearchParams();
   const { toggleWishlist, isInWishlist } = useWishlist();
@@ -396,83 +510,139 @@ function ProductsContent() {
               </div>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                {filteredProducts.map((product) => (
-                  <Card key={product.id} className="group border border-[#EFE6DD] bg-white rounded-3xl shadow-xs hover:shadow-md transition-all overflow-hidden flex flex-col justify-between">
-                    <div>
-                      {/* Product Image & Badges */}
-                      <Link href={`/product/${product.id}`} className="block relative aspect-square overflow-hidden bg-[#FFF8F2] w-full">
-                        <img 
-                          src={product.image} 
-                          alt={product.name}
-                          className={cn(
-                            "object-cover w-full h-full group-hover:scale-105 transition-transform duration-300",
-                            (product.status === "Out of Stock" || (product.stock !== undefined && product.stock <= 0)) && "grayscale opacity-80"
-                          )}
-                        />
-                        {product.badge && (
-                          <Badge className="absolute top-3.5 left-3.5 bg-[#3A2B24] text-white text-[10px] font-bold px-2.5 py-0.5 rounded-full border-none shadow-sm z-10">
-                            {product.badge}
-                          </Badge>
-                        )}
-                        {(product.status === "Out of Stock" || (product.stock !== undefined && product.stock <= 0)) && (
-                          <Badge className="absolute bottom-3.5 left-3.5 bg-rose-600 text-white text-[10px] font-extrabold px-3 py-1 rounded-full border-none shadow-md z-10 flex items-center gap-1">
-                            ❌ Out of Stock
-                          </Badge>
-                        )}
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            toggleWishlist(product.id);
-                          }}
-                          className={cn(
-                            "absolute top-3.5 right-3.5 h-8 w-8 rounded-full flex items-center justify-center transition-all shadow-sm cursor-pointer z-10",
-                            isInWishlist(product.id)
-                              ? "bg-rose-50 text-rose-500 border border-rose-200"
-                              : "bg-white/85 text-[#6C5C54] hover:bg-white hover:text-rose-500 backdrop-blur-xs"
-                          )}
-                        >
-                          <Heart className={cn("h-4 w-4", isInWishlist(product.id) && "fill-rose-500")} />
-                        </button>
-                      </Link>
+                {filteredProducts.map((product) => {
+                  const meta = getProductTypeMeta(product);
+                  const isOutOfStock = product.status === "Out of Stock" || (product.stock !== undefined && product.stock <= 0);
 
-                      {/* Card Content */}
-                      <CardContent className="p-5">
-                        <div className="flex items-center justify-between text-xs text-[#6C5C54] mb-1">
-                          <span className="font-semibold text-[#D89A86]">{product.category}</span>
-                          <span className="flex items-center gap-1 font-bold text-[#3A2B24]">
-                            <Star className="h-3.5 w-3.5 text-amber-400 fill-amber-400" /> {product.rating} ({product.reviews})
-                          </span>
-                        </div>
-                        <Link href={`/product/${product.id}`}>
-                          <h4 className="font-bold text-base text-[#3A2B24] group-hover:text-[#D89A86] transition-colors line-clamp-1">
-                            {product.name}
-                          </h4>
-                        </Link>
-                      </CardContent>
-                    </div>
-
-                    {/* Footer / Buy Action */}
-                    <div className="p-5 pt-0 flex items-center justify-between border-t border-[#FFF8F2] mt-2">
+                  return (
+                    <Card 
+                      key={product.id} 
+                      className={cn(
+                        "group border border-[#EFE6DD] rounded-3xl shadow-2xs hover:shadow-md transition-all duration-300 overflow-hidden flex flex-col justify-between relative",
+                        meta.accentBg,
+                        meta.accentBorder
+                      )}
+                    >
                       <div>
-                        <span className="text-[10px] text-[#6C5C54] uppercase tracking-wider block font-bold">Price</span>
-                        <span className="text-lg font-extrabold text-[#3A2B24]">₹{product.price}</span>
+                        {/* Product Image & Badges */}
+                        <Link href={`/product/${product.id}`} className="block relative aspect-square overflow-hidden bg-[#FFF8F2] w-full">
+                          <img 
+                            src={product.image} 
+                            alt={product.name}
+                            className={cn(
+                              "object-cover w-full h-full group-hover:scale-105 transition-transform duration-500",
+                              isOutOfStock && "grayscale opacity-80"
+                            )}
+                          />
+                          
+                          {/* Top Badges */}
+                          <div className="absolute top-3.5 left-3.5 flex flex-col gap-1.5 z-10">
+                            {product.badge && (
+                              <Badge className={cn("text-[10px] font-extrabold px-2.5 py-0.5 rounded-full border-none shadow-xs", meta.badgeBg)}>
+                                {product.badge}
+                              </Badge>
+                            )}
+                          </div>
+
+                          {/* Bottom Highlight Pill on Image */}
+                          <div className="absolute bottom-3 left-3 z-10">
+                            <span className="backdrop-blur-md bg-black/60 text-white text-[10px] font-semibold px-2.5 py-1 rounded-full shadow-xs flex items-center gap-1">
+                              {meta.highlightPill}
+                            </span>
+                          </div>
+
+                          {isOutOfStock && (
+                            <Badge className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-rose-600/95 text-white text-xs font-extrabold px-4 py-1.5 rounded-full border-none shadow-lg z-10 flex items-center gap-1 backdrop-blur-xs">
+                              ❌ Out of Stock
+                            </Badge>
+                          )}
+
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              toggleWishlist(product.id);
+                            }}
+                            className={cn(
+                              "absolute top-3.5 right-3.5 h-8 w-8 rounded-full flex items-center justify-center transition-all shadow-sm cursor-pointer z-10",
+                              isInWishlist(product.id)
+                                ? "bg-rose-50 text-rose-500 border border-rose-200"
+                                : "bg-white/85 text-[#6C5C54] hover:bg-white hover:text-rose-500 backdrop-blur-xs"
+                            )}
+                          >
+                            <Heart className={cn("h-4 w-4", isInWishlist(product.id) && "fill-rose-500")} />
+                          </button>
+                        </Link>
+
+                        {/* Card Content */}
+                        <CardContent className="p-5">
+                          {/* Category & Rating */}
+                          <div className="flex items-center justify-between text-xs text-[#6C5C54] mb-1.5">
+                            <span className="font-bold text-[#D89A86] tracking-wide uppercase text-[10px]">
+                              {meta.typeCategory}
+                            </span>
+                            <span className="flex items-center gap-1 font-bold text-[#3A2B24] text-xs">
+                              <Star className="h-3.5 w-3.5 text-amber-400 fill-amber-400" /> {product.rating} ({product.reviews})
+                            </span>
+                          </div>
+
+                          {/* Model / Type Label */}
+                          <div className="text-[11px] font-bold text-[#6C5C54] flex items-center gap-1 mb-1">
+                            <span className="text-[#3A2B24] font-semibold">{meta.typeLabel}</span>
+                          </div>
+
+                          {/* Product Title */}
+                          <Link href={`/product/${product.id}`}>
+                            <h4 className="font-bold text-base text-[#3A2B24] group-hover:text-[#D89A86] transition-colors line-clamp-1">
+                              {product.name}
+                            </h4>
+                          </Link>
+
+                          {/* Key Specs Pills */}
+                          <div className="flex flex-wrap gap-1.5 mt-3">
+                            {meta.specs.map((spec) => (
+                              <span 
+                                key={spec} 
+                                className="bg-white/80 text-[#6C5C54] text-[10px] font-semibold px-2 py-0.5 rounded-lg border border-[#EFE6DD]"
+                              >
+                                {spec}
+                              </span>
+                            ))}
+                          </div>
+                        </CardContent>
                       </div>
-                      <Link href={`/product/${product.id}`}>
-                        {(product.status === "Out of Stock" || (product.stock !== undefined && product.stock <= 0)) ? (
-                          <Button className="bg-rose-100 text-rose-800 hover:bg-rose-200 border border-rose-200 text-xs font-extrabold rounded-full px-3.5 h-9 shadow-2xs flex items-center gap-1">
-                            ❌ Out of Stock
-                          </Button>
-                        ) : (
-                          <Button className="btn-pixello-primary text-xs font-bold rounded-full px-4 h-9 shadow-xs flex items-center gap-1.5">
-                            Customize <ShoppingCart className="h-3.5 w-3.5" />
-                          </Button>
-                        )}
-                      </Link>
-                    </div>
-                  </Card>
-                ))}
+
+                      {/* Footer / Buy Action */}
+                      <div className="p-5 pt-0 flex items-center justify-between border-t border-[#EFE6DD]/50 mt-1">
+                        <div>
+                          <span className="text-[9px] text-[#6C5C54] uppercase tracking-wider block font-bold">
+                            {meta.priceLabel}
+                          </span>
+                          <div className="flex items-baseline gap-1">
+                            <span className="text-lg font-extrabold text-[#3A2B24]">₹{product.price}</span>
+                            {meta.unit && <span className="text-[10px] text-[#6C5C54] font-medium">{meta.unit}</span>}
+                            {product.originalPrice && product.originalPrice > product.price && (
+                              <span className="text-xs text-[#8C7A70] line-through ml-1">₹{product.originalPrice}</span>
+                            )}
+                          </div>
+                        </div>
+
+                        <Link href={`/product/${product.id}`}>
+                          {isOutOfStock ? (
+                            <Button className="bg-rose-100 text-rose-800 hover:bg-rose-200 border border-rose-200 text-xs font-extrabold rounded-full px-3.5 h-9 shadow-2xs flex items-center gap-1 cursor-pointer">
+                              ❌ Out of Stock
+                            </Button>
+                          ) : (
+                            <Button className="btn-pixello-primary text-xs font-bold rounded-full px-4 h-9 shadow-xs flex items-center gap-1.5 cursor-pointer">
+                              <span>{meta.buttonText}</span> <ShoppingCart className="h-3.5 w-3.5" />
+                            </Button>
+                          )}
+                        </Link>
+                      </div>
+                    </Card>
+                  );
+                })}
               </div>
             )}
 

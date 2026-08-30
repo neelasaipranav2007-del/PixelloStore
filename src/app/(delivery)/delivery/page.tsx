@@ -6,7 +6,6 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useOrders } from "@/context/OrderContext";
-import { cn } from "@/lib/utils";
 
 const CITY_COORDINATES: Record<string, { lat: number; lng: number; city: string }> = {
   "500010": { lat: 17.5023, lng: 78.4975, city: "Alwal, Hyderabad" },
@@ -174,32 +173,6 @@ export default function DeliveryDashboard() {
       }
       setDeliverySuccessMsg("✓ All assigned deliveries have been completed! Waiting for next orders to be ready for pickup.");
     }
-  };
-
-  const handleSelectOrderForDelivery = (order: any) => {
-    const rawAddr = order.deliveryAddress || order.shippingAddress || "";
-    const dropAddress = (rawAddr.trim() !== "" && rawAddr.trim() !== "-")
-      ? rawAddr
-      : "Flat 402, Sai Ram Towers, Sarada Nagar, Hyderabad - 500070";
-
-    const newActive = {
-      id: order.id,
-      customerName: order.customerName || "Customer",
-      customerPhone: order.customerPhone || "+91 7989856610",
-      pickup: order.assignedStudio || "Pixello Studio (Hastinapuram Branch)",
-      dropoff: dropAddress,
-      earnings: `₹${Math.floor(Math.random() * 40 + 60)}`,
-      rawEarningsNum: Math.floor(Math.random() * 40 + 60),
-      status: (order.status === "Out for Delivery" || order.status === "OUT_FOR_DELIVERY") ? "OUT_FOR_DELIVERY" : "ASSIGNED",
-      totalAmount: order.totalAmount || 149,
-      itemsCount: order.items?.length || 1
-    };
-    setActiveOrder(newActive);
-    localStorage.setItem("pixello_rider_active_order", JSON.stringify(newActive));
-
-    const resolved = resolveAddressCoords(dropAddress);
-    setUserCoords({ lat: resolved.lat, lng: resolved.lng });
-    setGpsStatus(`📍 Active Navigation: ${resolved.locationName}`);
   };
 
   const handleAcceptOrder = () => {
@@ -648,103 +621,6 @@ export default function DeliveryDashboard() {
         </div>
 
       </div>
-
-      {/* LIVE ASSIGNED DELIVERY QUEUE & DB TASKS */}
-      <Card className="border border-[#EFE6DD] bg-white rounded-3xl p-6 shadow-xs">
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 mb-4 pb-3 border-b border-[#EFE6DD]">
-          <div>
-            <h3 className="font-serif-brand font-bold text-lg text-[#3A2B24] flex items-center gap-2">
-              <Package className="h-5 w-5 text-[#D89A86]" />
-              <span>Live Delivery Queue & Dispatches</span>
-            </h3>
-            <p className="text-xs text-[#6C5C54] mt-0.5">
-              Live orders from database ready for pickup or actively out for delivery
-            </p>
-          </div>
-          <Badge className="bg-[#FFF8F2] text-[#3A2B24] border border-[#EFE6DD] font-bold text-xs px-3 py-1 rounded-full">
-            {orders.length} Total Orders in System
-          </Badge>
-        </div>
-
-        {orders.length === 0 ? (
-          <p className="text-xs text-center text-[#6C5C54] py-8">No orders currently found in database.</p>
-        ) : (
-          <div className="space-y-3">
-            {orders.map((o) => {
-              const isCurrentActive = activeOrder?.id === o.id;
-              const isOrder127093 = o.id === "127093c0243c6e9c9d456bcf28b72a9fd014b64e";
-
-              return (
-                <div 
-                  key={o.id}
-                  className={cn(
-                    "p-4 rounded-2xl border transition-all flex flex-col md:flex-row items-start md:items-center justify-between gap-4",
-                    isCurrentActive
-                      ? "border-emerald-500 bg-emerald-50/40 shadow-xs ring-1 ring-emerald-400"
-                      : isOrder127093
-                      ? "border-[#D89A86] bg-[#FFF8F2] shadow-xs"
-                      : "border-[#EFE6DD] bg-white hover:bg-[#FFF8F2]/50"
-                  )}
-                >
-                  <div className="flex-1 space-y-1.5 min-w-0">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="font-mono font-extrabold text-sm text-[#3A2B24]">{o.id}</span>
-                      {isOrder127093 && (
-                        <Badge className="bg-purple-100 text-purple-900 border border-purple-300 text-[10px] font-bold px-2 py-0 rounded-full">
-                          ⚡ Priority Live Task
-                        </Badge>
-                      )}
-                      <Badge className={cn(
-                        "text-[10px] font-bold px-2.5 py-0.5 rounded-full",
-                        o.status === "Delivered" ? "bg-emerald-100 text-emerald-800" :
-                        o.status === "Out for Delivery" ? "bg-blue-100 text-blue-800" :
-                        "bg-amber-100 text-amber-800"
-                      )}>
-                        {o.status}
-                      </Badge>
-                    </div>
-
-                    <div className="text-xs text-[#6C5C54] flex flex-wrap gap-x-4 gap-y-1">
-                      <span className="font-semibold text-[#3A2B24]">👤 {o.customerName} ({o.customerPhone})</span>
-                      <span>📍 {o.deliveryAddress || "Sarada Nagar, Hyderabad"}</span>
-                      <span className="font-bold text-[#D89A86]">₹{o.totalAmount}</span>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-2 w-full md:w-auto">
-                    {isCurrentActive ? (
-                      <Badge className="bg-emerald-600 text-white font-bold text-xs px-3 py-1.5 rounded-xl shadow-xs">
-                        ✓ In Active Navigation
-                      </Badge>
-                    ) : (
-                      <Button
-                        size="sm"
-                        onClick={() => handleSelectOrderForDelivery(o)}
-                        className="bg-[#3A2B24] hover:bg-[#2E201A] text-white font-bold text-xs rounded-xl px-4 h-9 shadow-xs cursor-pointer flex items-center gap-1.5"
-                      >
-                        <Truck className="h-3.5 w-3.5 text-[#D89A86]" />
-                        <span>Dispatch / Load Active</span>
-                      </Button>
-                    )}
-
-                    {o.status !== "Delivered" && o.status !== "Cancelled" && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => updateOrderStatus(o.id, "Delivered")}
-                        className="border-emerald-300 text-emerald-700 hover:bg-emerald-50 font-bold text-xs rounded-xl px-3 h-9 cursor-pointer"
-                      >
-                        <CheckCircle2 className="h-3.5 w-3.5" />
-                        <span>Mark Delivered</span>
-                      </Button>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </Card>
     </div>
   );
 }
