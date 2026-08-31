@@ -105,7 +105,11 @@ export default function Navbar() {
 
   const unreadCount = customerNotifications.filter((n) => !n.read).length;
 
-  const handleMarkAllNotifsAsRead = () => {
+  const handleMarkAllNotifsAsRead = (e?: React.MouseEvent) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
     const updated = customerNotifications.map((n) => ({ ...n, read: true }));
     setCustomerNotifications(updated);
     if (typeof window !== "undefined") {
@@ -113,7 +117,11 @@ export default function Navbar() {
     }
   };
 
-  const handleMarkNotifAsRead = (id: string) => {
+  const handleMarkNotifAsRead = (id: string, e?: React.MouseEvent) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
     const updated = customerNotifications.map((n) => (n.id === id ? { ...n, read: true } : n));
     setCustomerNotifications(updated);
     if (typeof window !== "undefined") {
@@ -121,11 +129,21 @@ export default function Navbar() {
     }
   };
 
-  const handleClearNotifs = () => {
-    setCustomerNotifications([]);
-    if (typeof window !== "undefined") {
-      localStorage.setItem("pixello_customer_notifications_v1", JSON.stringify([]));
+  const handleClearNotifs = (e?: React.MouseEvent) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
     }
+    if (typeof window !== "undefined") {
+      try {
+        const currentIds = customerNotifications.map((n) => n.id);
+        const existingCleared = JSON.parse(localStorage.getItem("pixello_cleared_notif_ids") || "[]");
+        const updatedCleared = Array.from(new Set([...existingCleared, ...currentIds]));
+        localStorage.setItem("pixello_cleared_notif_ids", JSON.stringify(updatedCleared));
+        localStorage.setItem("pixello_customer_notifications_v1", JSON.stringify([]));
+      } catch (err) {}
+    }
+    setCustomerNotifications([]);
   };
 
   // Sync official studio responses from /api/reviews
@@ -138,13 +156,19 @@ export default function Navbar() {
           const repliedReviews = data.reviews.filter((r: any) => r.adminReply && r.adminReply.trim().length > 0);
           
           if (repliedReviews.length > 0) {
+            const clearedIds = new Set(
+              typeof window !== "undefined"
+                ? JSON.parse(localStorage.getItem("pixello_cleared_notif_ids") || "[]")
+                : []
+            );
+
             setCustomerNotifications((prev) => {
               const existingIds = new Set(prev.map((n) => n.id));
               const newNotifs: CustomerNotification[] = [];
 
               repliedReviews.forEach((r: any) => {
                 const notifId = `reply-rev-${r.id}`;
-                if (!existingIds.has(notifId)) {
+                if (!existingIds.has(notifId) && !clearedIds.has(notifId)) {
                   const itemNotif: CustomerNotification = {
                     id: notifId,
                     title: `Official Store Response from Pixello`,
@@ -464,7 +488,13 @@ export default function Navbar() {
                     customerNotifications.map((notif) => (
                       <div 
                         key={notif.id}
-                        onClick={() => handleMarkNotifAsRead(notif.id)}
+                        onPointerDown={(e) => e.stopPropagation()}
+                        onClick={(e) => {
+                          handleMarkNotifAsRead(notif.id, e);
+                          if (notif.type === "reply" || notif.orderId) {
+                            window.location.href = "/profile?tab=orders";
+                          }
+                        }}
                         className={`p-4 sm:p-4.5 rounded-3xl border transition-all cursor-pointer shadow-xs hover:shadow-md ${
                           !notif.read 
                             ? 'bg-white border-[#D89A86]/60 ring-2 ring-[#D89A86]/15' 
@@ -532,22 +562,30 @@ export default function Navbar() {
                   )}
                 </div>
 
-                {/* Footer with generous padding */}
+                {/* Footer with working action buttons */}
                 {customerNotifications.length > 0 && (
                   <div className="p-4 bg-white border-t border-[#EFE6DD] flex items-center justify-between text-xs">
                     <button 
+                      type="button"
+                      onPointerDown={(e) => e.stopPropagation()}
                       onClick={handleClearNotifs} 
-                      className="text-xs text-[#6C5C54] hover:text-red-600 font-bold flex items-center gap-1.5 cursor-pointer transition-colors px-3 py-1.5 rounded-xl hover:bg-red-50"
+                      className="text-xs text-[#6C5C54] hover:text-red-600 font-bold flex items-center gap-1.5 cursor-pointer transition-colors px-3 py-1.5 rounded-xl hover:bg-red-50 active:scale-95"
                     >
                       <Trash2 className="h-3.5 w-3.5" /> Clear all
                     </button>
-                    <Link 
-                      href="/profile?tab=orders" 
-                      className="text-xs font-bold text-[#3A2B24] hover:text-[#D89A86] flex items-center gap-1.5 transition-colors px-3 py-1.5 rounded-xl hover:bg-[#FFF8F2] border border-[#EFE6DD]"
+                    <button 
+                      type="button"
+                      onPointerDown={(e) => e.stopPropagation()}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        window.location.href = "/profile?tab=orders";
+                      }}
+                      className="text-xs font-bold text-[#3A2B24] hover:text-[#D89A86] flex items-center gap-1.5 transition-colors px-3.5 py-1.5 rounded-xl hover:bg-[#FFF8F2] border border-[#EFE6DD] cursor-pointer active:scale-95 shadow-2xs"
                     >
                       <span>View Orders</span>
                       <ArrowRight className="h-3.5 w-3.5 text-[#D89A86]" />
-                    </Link>
+                    </button>
                   </div>
                 )}
               </DropdownMenuContent>
