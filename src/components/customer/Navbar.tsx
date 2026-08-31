@@ -420,30 +420,30 @@ export default function Navbar() {
                 >
                   <Bell className="h-4 w-4 sm:h-5 sm:w-5 text-[#3A2B24]" />
                   {mounted && unreadCount > 0 && (
-                    <span className="absolute top-1 right-1 flex h-4 w-4 items-center justify-center rounded-full bg-purple-600 text-[10px] font-extrabold text-white shadow-xs animate-pulse">
+                    <span className="absolute top-1 right-1 flex h-4 w-4 items-center justify-center rounded-full bg-[#D89A86] text-[10px] font-extrabold text-white shadow-xs animate-pulse">
                       {unreadCount}
                     </span>
                   )}
                 </Button>
               </DropdownMenuTrigger>
 
-              <DropdownMenuContent align="end" className="w-80 sm:w-96 rounded-3xl border border-[#EFE6DD] p-0 shadow-2xl bg-white overflow-hidden z-50">
-                <div className="p-3.5 bg-[#3A2B24] text-white flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <div className="h-7 w-7 rounded-lg bg-white/10 flex items-center justify-center text-amber-300">
-                      <Bell className="h-3.5 w-3.5" />
+              <DropdownMenuContent align="end" className="w-80 sm:w-96 rounded-3xl border border-[#EFE6DD] p-0 shadow-2xl bg-[#FFFDFB] overflow-hidden z-50">
+                <div className="p-4 bg-[#3A2B24] text-white flex items-center justify-between border-b border-[#4E3D35]">
+                  <div className="flex items-center gap-2.5">
+                    <div className="h-8 w-8 rounded-xl bg-white/10 flex items-center justify-center text-amber-300 border border-white/10">
+                      <Bell className="h-4 w-4" />
                     </div>
                     <div>
-                      <h4 className="font-bold text-xs">Customer Notifications</h4>
+                      <h4 className="font-bold text-xs font-serif-brand">Studio Notifications</h4>
                       <p className="text-[10px] text-[#EFE6DD]/80">Official responses & order updates</p>
                     </div>
                   </div>
                   {unreadCount > 0 && (
                     <button 
                       onClick={handleMarkAllNotifsAsRead} 
-                      className="text-[10px] bg-white/15 hover:bg-white/25 px-2 py-0.5 rounded-full font-bold transition-colors cursor-pointer"
+                      className="text-[10px] bg-white/15 hover:bg-white/25 px-2.5 py-0.5 rounded-full font-bold transition-colors cursor-pointer text-[#FFF8F2]"
                     >
-                      Mark read
+                      Mark all read
                     </button>
                   )}
                 </div>
@@ -459,10 +459,10 @@ export default function Navbar() {
                       <div 
                         key={notif.id}
                         onClick={() => handleMarkNotifAsRead(notif.id)}
-                        className={`p-3.5 hover:bg-[#FFF8F2]/60 transition-colors cursor-pointer flex items-start gap-3 ${!notif.read ? 'bg-purple-50/40' : ''}`}
+                        className={`p-4 hover:bg-[#FFF8F2] transition-colors cursor-pointer flex items-start gap-3 ${!notif.read ? 'bg-[#FFF8F2]/70' : ''}`}
                       >
-                        <div className="h-8 w-8 rounded-full bg-purple-100 border border-purple-300 text-purple-700 flex items-center justify-center flex-shrink-0 mt-0.5 shadow-2xs">
-                          {notif.type === "reply" ? <MessageSquareQuote className="h-4 w-4" /> : <Sparkles className="h-4 w-4 text-amber-600" />}
+                        <div className="h-8 w-8 rounded-full bg-[#FFF8F2] border border-[#EFE6DD] text-[#D89A86] flex items-center justify-center flex-shrink-0 mt-0.5 shadow-2xs">
+                          {notif.type === "reply" ? <MessageSquareQuote className="h-4 w-4 text-[#D89A86]" /> : <Sparkles className="h-4 w-4 text-amber-600" />}
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center justify-between gap-1 mb-0.5">
@@ -470,14 +470,17 @@ export default function Navbar() {
                             <span className="text-[10px] text-[#6C5C54] whitespace-nowrap">{notif.time}</span>
                           </div>
                           {notif.adminReply ? (
-                            <p className="text-xs text-purple-900 font-medium italic mt-1 line-clamp-3 bg-purple-50/80 p-2 rounded-xl border border-purple-200/70">
-                              "{notif.adminReply}"
-                            </p>
+                            <div className="mt-1.5 p-2.5 bg-white rounded-xl border border-[#EFE6DD] shadow-2xs">
+                              <p className="text-xs text-[#3A2B24] font-medium italic line-clamp-3 leading-relaxed">
+                                “{notif.adminReply}”
+                              </p>
+                              <span className="text-[10px] text-[#D89A86] font-bold block text-right mt-1">— Pixello Craftsman</span>
+                            </div>
                           ) : (
                             <p className="text-xs text-[#6C5C54] mt-0.5 line-clamp-2">{notif.desc}</p>
                           )}
                           {notif.productName && (
-                            <span className="text-[10px] text-[#D89A86] font-semibold block mt-1">Product: {notif.productName}</span>
+                            <span className="text-[10px] text-[#6C5C54] font-semibold block mt-1.5">Item: <strong className="text-[#3A2B24]">{notif.productName}</strong></span>
                           )}
                         </div>
                       </div>
@@ -486,7 +489,7 @@ export default function Navbar() {
                 </div>
 
                 {customerNotifications.length > 0 && (
-                  <div className="p-2.5 bg-[#FFF8F2] border-t border-[#EFE6DD] flex items-center justify-between text-xs">
+                  <div className="p-3 bg-[#FFF8F2] border-t border-[#EFE6DD] flex items-center justify-between text-xs">
                     <button 
                       onClick={handleClearNotifs} 
                       className="text-[11px] text-[#6C5C54] hover:text-red-600 font-medium flex items-center gap-1 cursor-pointer transition-colors"
@@ -595,47 +598,62 @@ export default function Navbar() {
         </div>
       )}
 
-      {/* LIVE CUSTOMER REVIEW REPLY POPOVER TOAST (PORTAL TO BODY) */}
+      {/* LIVE CUSTOMER REVIEW REPLY POPOVER TOAST (PORTAL TO BODY - LUXURY ARTISANAL MODEL) */}
       {mounted && liveReplyPopOver && typeof document !== "undefined" && createPortal(
-        <div className="fixed top-24 right-4 sm:right-6 z-[999999] max-w-sm sm:max-w-md w-full bg-white border-2 border-purple-500 rounded-3xl shadow-[0_25px_60px_rgba(0,0,0,0.25)] p-5 animate-in slide-in-from-top-6 duration-300 pointer-events-auto">
-          <div className="flex items-start justify-between gap-3">
-            <div className="flex items-center gap-2.5">
-              <div className="h-10 w-10 rounded-2xl bg-purple-100 border border-purple-300 flex items-center justify-center text-purple-700 flex-shrink-0 shadow-2xs">
-                <MessageSquareQuote className="h-5 w-5" />
+        <div className="fixed top-24 right-4 sm:right-6 z-[999999] max-w-sm sm:max-w-md w-full bg-[#FFFDFB] border border-[#D89A86]/40 rounded-3xl shadow-[0_25px_60px_rgba(58,43,36,0.22)] p-5 sm:p-6 animate-in slide-in-from-top-6 duration-300 pointer-events-auto backdrop-blur-xl">
+          {/* Top Bar with Brand Medallion */}
+          <div className="flex items-start justify-between gap-3 pb-3 border-b border-[#EFE6DD]">
+            <div className="flex items-center gap-3">
+              <div className="h-11 w-11 rounded-2xl bg-[#3A2B24] text-white flex items-center justify-center flex-shrink-0 shadow-md border border-[#4E3D35]">
+                <img src="/images/pixello_logo.png" alt="Pixello" className="h-7 w-7 rounded-full object-cover" />
               </div>
               <div>
-                <Badge className="bg-purple-100 text-purple-950 border-purple-300 font-extrabold text-[10px] px-2.5 py-0.5 rounded-full flex items-center gap-1 w-fit">
-                  <Sparkles className="h-3 w-3 text-purple-700" />
-                  <span>Verified Studio Reply</span>
-                </Badge>
-                <h4 className="font-bold text-sm text-[#3A2B24] mt-0.5">Pixello Studio Replied!</h4>
+                <div className="flex items-center gap-2">
+                  <Badge className="bg-[#FFF8F2] text-[#D89A86] border border-[#D89A86]/40 font-extrabold text-[10px] px-2.5 py-0.5 rounded-full flex items-center gap-1 shadow-2xs">
+                    <Sparkles className="h-3 w-3 text-[#D89A86]" />
+                    <span>Official Studio Message</span>
+                  </Badge>
+                </div>
+                <h4 className="font-bold text-sm text-[#3A2B24] mt-0.5 font-serif-brand">Pixello Team Replied</h4>
               </div>
             </div>
             <button 
               onClick={() => setLiveReplyPopOver(null)}
-              className="h-7 w-7 rounded-full bg-[#FFF8F2] hover:bg-[#F2C8B5]/30 text-[#3A2B24] flex items-center justify-center text-xs font-bold cursor-pointer transition-colors"
+              className="h-7 w-7 rounded-full bg-[#FFF8F2] hover:bg-[#F2C8B5]/30 text-[#6C5C54] hover:text-[#3A2B24] flex items-center justify-center text-xs font-bold cursor-pointer transition-colors"
             >
               ✕
             </button>
           </div>
 
-          <div className="mt-3 p-3.5 bg-gradient-to-r from-purple-50 via-[#FFF8F2] to-purple-50/70 border border-purple-200/90 rounded-2xl">
-            {liveReplyPopOver.productName && (
-              <span className="text-[10px] font-bold text-[#D89A86] block mb-1">
-                Product: {liveReplyPopOver.productName} {liveReplyPopOver.orderId ? `(Order #${liveReplyPopOver.orderId})` : ""}
+          {/* Product & Order Context Tag */}
+          <div className="mt-3.5 mb-2.5 flex items-center justify-between text-xs">
+            <span className="text-[11px] font-bold text-[#6C5C54] truncate max-w-[240px]">
+              {liveReplyPopOver.productName}
+            </span>
+            {liveReplyPopOver.orderId && (
+              <span className="text-[10px] font-extrabold bg-[#FFF8F2] text-[#D89A86] px-2 py-0.5 rounded-full border border-[#EFE6DD]">
+                #{liveReplyPopOver.orderId}
               </span>
             )}
-            <p className="text-xs text-purple-950 font-medium italic leading-relaxed">
-              "{liveReplyPopOver.adminReply || liveReplyPopOver.desc}"
-            </p>
           </div>
 
-          <div className="flex items-center gap-2.5 mt-3.5">
+          {/* Speech Quote Bubble */}
+          <div className="p-3.5 bg-[#FFF8F2]/90 border-l-4 border-[#D89A86] rounded-2xl rounded-tl-sm shadow-2xs">
+            <p className="text-xs text-[#3A2B24] font-medium leading-relaxed italic">
+              “{liveReplyPopOver.adminReply || liveReplyPopOver.desc}”
+            </p>
+            <div className="flex items-center justify-end gap-1 mt-2 text-[10px] text-[#6C5C54] font-bold">
+              <span>— Pixello Studio Craftsman</span>
+            </div>
+          </div>
+
+          {/* Action Buttons */}
+          <div className="flex items-center gap-2.5 mt-4">
             <Button
               size="sm"
               variant="outline"
               onClick={() => setLiveReplyPopOver(null)}
-              className="flex-1 rounded-full text-xs font-bold border-[#EFE6DD] h-9 cursor-pointer hover:bg-[#FFF8F2]"
+              className="flex-1 rounded-full text-xs font-bold border-[#EFE6DD] bg-white text-[#6C5C54] hover:text-[#3A2B24] hover:bg-[#FFF8F2] h-9.5 cursor-pointer shadow-2xs"
             >
               Dismiss
             </Button>
@@ -645,9 +663,9 @@ export default function Navbar() {
                 handleMarkAllNotifsAsRead();
                 setLiveReplyPopOver(null);
               }}
-              className="flex-1 bg-purple-700 hover:bg-purple-800 text-white rounded-full text-xs font-bold h-9 shadow-xs flex items-center justify-center gap-1.5 cursor-pointer"
+              className="flex-1 bg-[#3A2B24] hover:bg-[#2A1E18] text-white rounded-full text-xs font-bold h-9.5 shadow-md flex items-center justify-center gap-1.5 cursor-pointer"
             >
-              <Check className="h-4 w-4" />
+              <Check className="h-4 w-4 text-[#D89A86]" />
               <span>Mark as Read</span>
             </Button>
           </div>
