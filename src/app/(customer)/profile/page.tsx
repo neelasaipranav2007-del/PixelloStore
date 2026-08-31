@@ -975,6 +975,7 @@ function ProfileContent() {
                     const isDelivered = cleanStatus === "DELIVERED";
                     const isPrintingStarted = cleanStatus === "PRINTING" || cleanStatus === "PACKED" || cleanStatus === "DELIVERY PICKED UP" || cleanStatus === "OUT FOR DELIVERY" || cleanStatus === "DELIVERED" || cleanStatus === "QUALITY_CHECK" || cleanStatus === "PICKED_UP";
                     const isCancelEligible = !isCancelled && !isDelivered && !isPrintingStarted && hoursElapsed < 24;
+                    const isReplacementEligible = isDelivered && order.status !== "Replacement Requested" && hoursElapsed < 24;
                     const hoursRemaining = Math.max(0, Math.floor(24 - hoursElapsed));
                     const minsRemaining = Math.max(0, Math.floor((24 - hoursElapsed) * 60 % 60));
 
@@ -1079,7 +1080,7 @@ function ProfileContent() {
                                       </Button>
                                     </div>
                                   )}
-                                  {isDelivered && order.status !== "Replacement Requested" && (
+                                  {isReplacementEligible && (
                                     <Button 
                                       size="sm" 
                                       variant="outline"
@@ -1090,7 +1091,7 @@ function ProfileContent() {
                                       }}
                                     >
                                       <RefreshCw className="h-3.5 w-3.5 text-purple-700" />
-                                      <span>Request Replacement</span>
+                                      <span>Request Replacement ({hoursRemaining}h left)</span>
                                     </Button>
                                   )}
                                   <Button 
@@ -2772,9 +2773,9 @@ function ProfileContent() {
 
                   <div className="p-4 bg-[#FFF8F2]/60 border border-[#EFE6DD] rounded-2xl">
                     <h4 className="font-bold text-xs uppercase tracking-wider text-[#3A2B24] mb-2 flex items-center gap-1.5">
-                      <MapPin className="h-4 w-4 text-[#D89A86]" /> Studio & Fulfillment
+                      <MapPin className="h-4 w-4 text-[#D89A86]" /> Fulfillment & Support
                     </h4>
-                    <p className="font-bold text-[#D89A86]">{orderDetailsModal.assignedStudio}</p>
+                    <p className="font-bold text-[#D89A86]">Pixello Express Quality Dispatch</p>
                     <p className="text-[#6C5C54] mt-0.5">Order Status: <strong className="text-[#3A2B24]">{orderDetailsModal.status}</strong></p>
                     <p className="text-[#6C5C54] mt-1 font-medium">Helpline: +91 7989856610 / 8074589949</p>
                   </div>
@@ -2866,7 +2867,7 @@ function ProfileContent() {
               </div>
 
               {/* Footer */}
-              <div className="p-4 bg-[#FFF8F2] border-t border-[#EFE6DD] flex items-center justify-between">
+              <div className="p-4 bg-[#FFF8F2] border-t border-[#EFE6DD] flex flex-wrap items-center justify-between gap-2">
                 <Button 
                   variant="outline"
                   onClick={() => handleDownloadInvoice(orderDetailsModal)}
@@ -2875,12 +2876,31 @@ function ProfileContent() {
                   <Download className="h-4 w-4 mr-1.5 text-[#D89A86]" /> Download Invoice PDF
                 </Button>
 
-                <Button 
-                  onClick={() => setOrderDetailsModal(null)}
-                  className="btn-pixello-primary rounded-full text-xs font-bold px-6"
-                >
-                  Close
-                </Button>
+                <div className="flex items-center gap-2">
+                  {isDelivered && hoursElapsed < 24 && orderDetailsModal.status !== "Replacement Requested" && (
+                    <Button 
+                      size="sm" 
+                      variant="outline"
+                      className="border-purple-300 text-purple-900 bg-purple-50 hover:bg-purple-100 hover:border-purple-400 font-bold text-xs rounded-full h-9 px-4 cursor-pointer shadow-2xs flex items-center gap-1.5"
+                      onClick={() => {
+                        const ord = orderDetailsModal;
+                        setOrderDetailsModal(null);
+                        setReplacementSuccessMsg("");
+                        setReplacementModalOrder(ord);
+                      }}
+                    >
+                      <RefreshCw className="h-3.5 w-3.5 text-purple-700" />
+                      <span>Request Replacement ({hoursRemaining}h left)</span>
+                    </Button>
+                  )}
+
+                  <Button 
+                    onClick={() => setOrderDetailsModal(null)}
+                    className="btn-pixello-primary rounded-full text-xs font-bold px-6"
+                  >
+                    Close
+                  </Button>
+                </div>
               </div>
             </div>
           </div>
