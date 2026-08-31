@@ -74,13 +74,10 @@ function ProfileContent() {
   const handleReviewSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!reviewModalItem) return;
-    if (!reviewTitle.trim() && !reviewComment.trim()) {
-      alert("Please write a short review title or experience!");
-      return;
-    }
 
     setIsSubmittingReview(true);
     try {
+      const defaultTitle = reviewRating === 5 ? "Loved the Quality!" : (reviewRating === 4 ? "Very Good Quality" : (reviewRating === 3 ? "Good Quality" : (reviewRating === 2 ? "Fair Experience" : "Product Review")));
       const reviewKey = `${reviewModalItem.orderId}_${reviewModalItem.item.name}`;
       const newReview = {
         id: `rev-${Date.now()}`,
@@ -89,7 +86,7 @@ function ProfileContent() {
         productSize: reviewModalItem.item.size,
         productImage: reviewModalItem.item.image || "/images/wooden_frame_main.png",
         rating: reviewRating,
-        title: reviewTitle.trim() || (reviewRating >= 4 ? "Loved the Quality!" : "Product Review"),
+        title: reviewTitle.trim() || defaultTitle,
         comment: reviewComment.trim(),
         tags: reviewSelectedTags,
         photoUrl: reviewPhotoUrl,
@@ -1800,10 +1797,10 @@ function ProfileContent() {
                   </div>
                 </div>
 
-                {/* 3. Review Headline */}
+                {/* 3. Review Headline (Optional) */}
                 <div>
                   <label className="text-xs font-bold text-[#3A2B24] mb-1 block">
-                    3. Headline / Summary:
+                    3. Headline / Summary (Optional):
                   </label>
                   <Input
                     type="text"
@@ -1811,14 +1808,13 @@ function ProfileContent() {
                     onChange={(e) => setReviewTitle(e.target.value)}
                     placeholder="e.g., Exceeded expectations, incredible frame craftsmanship!"
                     className="rounded-xl border-[#EFE6DD] text-xs font-medium bg-[#FFF8F2]/30"
-                    required
                   />
                 </div>
 
-                {/* 4. Detailed Experience */}
+                {/* 4. Detailed Experience (Optional) */}
                 <div>
                   <label className="text-xs font-bold text-[#3A2B24] mb-1 block">
-                    4. Share Your Experience:
+                    4. Share Your Experience (Optional):
                   </label>
                   <textarea
                     value={reviewComment}
@@ -1826,11 +1822,10 @@ function ProfileContent() {
                     placeholder="Tell us what you liked about the print clarity, colors, wooden frame finish, or doorstep packaging..."
                     rows={3}
                     className="w-full rounded-xl border border-[#EFE6DD] p-2.5 text-xs font-medium text-[#3A2B24] focus:ring-[#D89A86] focus:border-[#D89A86] outline-none bg-[#FFF8F2]/30"
-                    required
                   />
                 </div>
 
-                {/* 5. Optional Customer Photo Attachment */}
+                {/* 5. Optional Customer Photo Attachment (Optional) */}
                 <div>
                   <label className="text-xs font-bold text-[#3A2B24] mb-1 block">
                     5. Attach Photo of Product (Optional):
