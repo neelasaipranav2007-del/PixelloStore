@@ -422,11 +422,10 @@ export default function ProductDetailsPage({ params }: { params: Promise<any> })
   const totalPrice = unitPrice * quantity;
   const totalOriginalPrice = unitOriginalPrice * quantity;
 
-  // Photos Upload State
-  const isNoPhotoProduct = isPanda || isLiquidTimer || isPaperWeight;
-  const isSinglePhotoProduct = isKeyChain || isMug || isLamp || baseProduct.category === "Gifts";
-  const isPhotoOptional = isNoPhotoProduct;
-  const totalRequiredPhotos = isNoPhotoProduct ? 0 : (isSinglePhotoProduct ? 1 : quantity);
+  // Photos Upload State (STRICTLY ONLY for Photo Frames & Polaroids)
+  const isPhotoUploadProduct = isFrame || isPolaroid;
+  const isPhotoOptional = !isPhotoUploadProduct;
+  const totalRequiredPhotos = isPhotoUploadProduct ? quantity : 0;
   const [uploadedPhotos, setUploadedPhotos] = useState<(File | null)[]>(() => Array(totalRequiredPhotos).fill(null));
   const [uploadedPhotoDataUrls, setUploadedPhotoDataUrls] = useState<(string | null)[]>(() => Array(totalRequiredPhotos).fill(null));
   const [previewPhotoModal, setPreviewPhotoModal] = useState<{ index: number; file: File; url: string } | null>(null);
@@ -439,7 +438,7 @@ export default function ProductDetailsPage({ params }: { params: Promise<any> })
 
   // Sync photo slot length with quantity
   useEffect(() => {
-    if (isNoPhotoProduct) return;
+    if (!isPhotoUploadProduct) return;
     setUploadedPhotos((prev) => {
       const updated = [...prev];
       while (updated.length < totalRequiredPhotos) {
@@ -454,7 +453,7 @@ export default function ProductDetailsPage({ params }: { params: Promise<any> })
       }
       return updated.slice(0, totalRequiredPhotos);
     });
-  }, [quantity, totalRequiredPhotos, isNoPhotoProduct]);
+  }, [quantity, totalRequiredPhotos, isPhotoUploadProduct]);
 
   const handleSingleFileUpload = (file: File, slotIdx: number) => {
     setUploadedPhotos((prev) => {
@@ -547,7 +546,7 @@ export default function ProductDetailsPage({ params }: { params: Promise<any> })
   };
 
   const uploadedCount = uploadedPhotos.filter(Boolean).length;
-  const isComplete = isPhotoOptional ? true : (isPanda || isLiquidTimer || isPaperWeight) ? true : (uploadedCount === totalRequiredPhotos);
+  const isComplete = !isPhotoUploadProduct || (uploadedCount === totalRequiredPhotos);
 
   const product = { 
     id, 
@@ -1647,8 +1646,8 @@ export default function ProductDetailsPage({ params }: { params: Promise<any> })
               </>
             )}
 
-            {/* Photo Upload Section (NOT required for Panda Lamp, Liquid Timer, or Paper Weight) */}
-            {!isPanda && !isLiquidTimer && !isPaperWeight && (
+            {/* Photo Upload Section (STRICTLY ONLY for Frames & Polaroids) */}
+            {isPhotoUploadProduct && (
               <div>
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-3 gap-2">
                   <div className="flex items-center gap-2">
