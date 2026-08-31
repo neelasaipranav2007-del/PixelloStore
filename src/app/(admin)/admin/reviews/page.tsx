@@ -156,7 +156,30 @@ export default function AdminReviewsPage() {
       });
       const data = await res.json();
       if (data.success) {
-        setReviews(prev => prev.map(r => r.id === replyModalReview.id ? { ...r, adminReply: replyText.trim() } : r));
+        const updatedAdminReply = replyText.trim();
+        setReviews(prev => prev.map(r => r.id === replyModalReview.id ? { ...r, adminReply: updatedAdminReply } : r));
+
+        // Synchronize directly with customer profile storage & fire event
+        if (typeof window !== "undefined") {
+          try {
+            const currentSaved = JSON.parse(localStorage.getItem("pixello_customer_reviews_v1") || "{}");
+            const key = `${replyModalReview.orderId}_${replyModalReview.productName}`;
+            if (currentSaved[key]) {
+              currentSaved[key].adminReply = updatedAdminReply;
+            } else {
+              currentSaved[key] = {
+                ...replyModalReview,
+                adminReply: updatedAdminReply,
+              };
+            }
+            localStorage.setItem("pixello_customer_reviews_v1", JSON.stringify(currentSaved));
+            window.dispatchEvent(new CustomEvent("pixello_admin_reviews_updated"));
+            window.dispatchEvent(new Event("storage"));
+          } catch (e) {
+            console.error("Failed to sync customer reviews storage:", e);
+          }
+        }
+
         setReplyModalReview(null);
         setReplyText("");
       }

@@ -45,16 +45,45 @@ function ProfileContent() {
   const [reviewSuccessMsg, setReviewSuccessMsg] = useState<string>("");
 
   useEffect(() => {
-    if (typeof window !== "undefined") {
-      try {
-        const savedReviews = localStorage.getItem("pixello_customer_reviews_v1");
-        if (savedReviews) {
-          setUserReviews(JSON.parse(savedReviews));
-        }
-      } catch (e) {
-        console.error("Error loading saved reviews:", e);
+    const fetchCustomerReviews = async () => {
+      if (typeof window !== "undefined") {
+        try {
+          const savedReviews = localStorage.getItem("pixello_customer_reviews_v1");
+          if (savedReviews) {
+            setUserReviews(JSON.parse(savedReviews));
+          }
+        } catch (e) {}
       }
-    }
+
+      try {
+        const res = await fetch("/api/reviews");
+        const data = await res.json();
+        if (data.success && Array.isArray(data.reviews)) {
+          const reviewMap: Record<string, any> = {};
+          data.reviews.forEach((r: any) => {
+            const key = `${r.orderId}_${r.productName}`;
+            reviewMap[key] = r;
+          });
+          setUserReviews((prev) => ({ ...prev, ...reviewMap }));
+          if (typeof window !== "undefined") {
+            const localSaved = JSON.parse(localStorage.getItem("pixello_customer_reviews_v1") || "{}");
+            localStorage.setItem("pixello_customer_reviews_v1", JSON.stringify({ ...localSaved, ...reviewMap }));
+          }
+        }
+      } catch (err) {
+        console.error("Error fetching reviews:", err);
+      }
+    };
+
+    fetchCustomerReviews();
+    window.addEventListener("pixello_admin_reviews_updated", fetchCustomerReviews);
+    window.addEventListener("storage", fetchCustomerReviews);
+    const interval = setInterval(fetchCustomerReviews, 10000);
+    return () => {
+      window.removeEventListener("pixello_admin_reviews_updated", fetchCustomerReviews);
+      window.removeEventListener("storage", fetchCustomerReviews);
+      clearInterval(interval);
+    };
   }, []);
 
   const openReviewModal = (orderId: string, item: any) => {
@@ -1199,6 +1228,26 @@ function ProfileContent() {
                                       })}
                                     </div>
                                   </div>
+
+                                  {/* Official Store Response from Pixello Team (when admin has replied to review) */}
+                                  {existingReview?.adminReply && (
+                                    <div className="p-3.5 bg-gradient-to-r from-purple-50/95 via-[#FFF8F2] to-purple-50/80 border border-purple-200/90 rounded-2xl flex items-start gap-3 shadow-2xs animate-in fade-in">
+                                      <div className="h-8 w-8 rounded-full bg-purple-100 border border-purple-300 flex items-center justify-center text-purple-700 flex-shrink-0 mt-0.5 shadow-2xs">
+                                        <MessageSquareQuote className="h-4 w-4" />
+                                      </div>
+                                      <div className="min-w-0 flex-1">
+                                        <div className="flex items-center gap-2 mb-1 flex-wrap">
+                                          <span className="text-xs font-bold text-purple-950">Official Response from Pixello:</span>
+                                          <Badge className="bg-purple-200/90 text-purple-950 border-purple-300 text-[10px] font-extrabold px-2 py-0.2 rounded-full">
+                                            Verified Studio Reply
+                                          </Badge>
+                                        </div>
+                                        <p className="text-xs text-purple-900 font-medium italic leading-relaxed">
+                                          "{existingReview.adminReply}"
+                                        </p>
+                                      </div>
+                                    </div>
+                                  )}
 
                                   {!existingReview && (isDelivered || cleanStatus === "DELIVERED" || isPrintingStarted) && (
                                     <div className="p-3 bg-white border border-amber-200/80 rounded-2xl flex items-center justify-between gap-3 shadow-2xs">
@@ -2754,27 +2803,45 @@ function ProfileContent() {
                     Ordered Products ({orderDetailsModal.items?.length || 0})
                   </h4>
                   <div className="space-y-3">
-                    {orderDetailsModal.items?.map((item: any, idx: number) => (
-                      <div key={idx} className="p-3.5 bg-white border border-[#EFE6DD] rounded-2xl flex items-center justify-between gap-3">
-                        <div className="flex items-center gap-3">
-                          <div className="h-14 w-14 rounded-xl bg-[#FFF8F2] border border-[#EFE6DD] overflow-hidden flex-shrink-0">
-                            <img src={item.image} alt={item.name} className="h-full w-full object-cover" />
+                    {orderDetailsModal.items?.map((item: any, idx: number) => {
+                      const itemRevKey = `${orderDetailsModal.id}_${item.name}`;
+                      const existingRev = userReviews[itemRevKey];
+
+                      return (
+                        <div key={idx} className="p-3.5 bg-white border border-[#EFE6DD] rounded-2xl flex flex-col gap-2.5">
+                          <div className="flex items-center justify-between gap-3">
+                            <div className="flex items-center gap-3">
+                              <div className="h-14 w-14 rounded-xl bg-[#FFF8F2] border border-[#EFE6DD] overflow-hidden flex-shrink-0">
+                                <img src={item.image} alt={item.name} className="h-full w-full object-cover" />
+                              </div>
+                              <div>
+                                <h5 className="font-bold text-sm text-[#3A2B24]">{item.name}</h5>
+                                <p className="text-[#6C5C54] text-xs">Size: <span className="font-semibold text-[#D89A86]">{item.size}</span> • Qty: {item.quantity}</p>
+                                {item.photos && item.photos.length > 0 && (
+                                  <span className="inline-block mt-1 text-[10px] font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 rounded-full">
+                                    ✓ Photo #{idx+1}: Custom Uploaded Photo Attached
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                            <span className="font-extrabold text-sm text-[#D89A86]">
+                              ₹{(item.price * item.quantity).toFixed(2)}
+                            </span>
                           </div>
-                          <div>
-                            <h5 className="font-bold text-sm text-[#3A2B24]">{item.name}</h5>
-                            <p className="text-[#6C5C54] text-xs">Size: <span className="font-semibold text-[#D89A86]">{item.size}</span> • Qty: {item.quantity}</p>
-                            {item.photos && item.photos.length > 0 && (
-                              <span className="inline-block mt-1 text-[10px] font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 rounded-full">
-                                ✓ Photo #{idx+1}: Custom Uploaded Photo Attached
-                              </span>
-                            )}
-                          </div>
+
+                          {/* Official Studio Response (if admin replied) */}
+                          {existingRev?.adminReply && (
+                            <div className="p-2.5 bg-purple-50 border border-purple-200 rounded-xl flex items-start gap-2 text-xs">
+                              <MessageSquareQuote className="h-3.5 w-3.5 text-purple-700 flex-shrink-0 mt-0.5" />
+                              <div>
+                                <span className="font-bold text-[11px] text-purple-950 block">Official Response from Pixello Team:</span>
+                                <p className="text-purple-900 italic mt-0.5">"{existingRev.adminReply}"</p>
+                              </div>
+                            </div>
+                          )}
                         </div>
-                        <span className="font-extrabold text-sm text-[#D89A86]">
-                          ₹{(item.price * item.quantity).toFixed(2)}
-                        </span>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
 
