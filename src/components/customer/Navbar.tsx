@@ -451,22 +451,26 @@ export default function Navbar() {
                 </Button>
               </DropdownMenuTrigger>
 
-              <DropdownMenuContent align="end" className="w-[360px] sm:w-[440px] rounded-3xl border border-[#EFE6DD] p-0 shadow-2xl bg-[#FFFDFB] overflow-hidden z-50">
-                {/* Espresso Luxury Header with Breathing Space */}
-                <div className="px-5 py-4 bg-[#3A2B24] text-white flex items-center justify-between border-b border-[#4E3D35]">
-                  <div className="flex items-center gap-3">
-                    <div className="h-9 w-9 rounded-2xl bg-white/10 flex items-center justify-center text-amber-300 border border-white/10 shadow-xs">
-                      <Bell className="h-4.5 w-4.5" />
+              <DropdownMenuContent align="end" className="w-[360px] sm:w-[480px] rounded-3xl border border-[#EFE6DD] p-0 shadow-2xl bg-[#FAF6F0] overflow-hidden z-50 animate-in fade-in-50 zoom-in-95 duration-200">
+                {/* Smartphone Style Header */}
+                <div className="px-5 py-3.5 bg-[#2E201A] text-white flex items-center justify-between border-b border-[#443228]">
+                  <div className="flex items-center gap-2.5">
+                    <div className="h-7 w-7 rounded-xl bg-white/10 flex items-center justify-center text-amber-300 border border-white/10 shadow-xs">
+                      <Bell className="h-4 w-4" />
                     </div>
                     <div>
-                      <h4 className="font-bold text-sm font-serif-brand tracking-tight">Notifications</h4>
-                      <p className="text-[11px] text-[#EFE6DD]/80">Review responses & order updates</p>
+                      <h4 className="font-bold text-xs font-serif-brand tracking-wide uppercase text-[#EFE6DD]">Notifications</h4>
                     </div>
+                    {unreadCount > 0 && (
+                      <span className="bg-[#D89A86] text-white text-[10px] font-black px-2 py-0.5 rounded-full shadow-2xs">
+                        {unreadCount} new
+                      </span>
+                    )}
                   </div>
                   {unreadCount > 0 && (
                     <button 
                       onClick={handleMarkAllNotifsAsRead} 
-                      className="text-[11px] bg-[#FFF8F2]/15 hover:bg-[#FFF8F2]/25 text-[#FFF8F2] px-3 py-1.5 rounded-full font-bold transition-colors cursor-pointer flex items-center gap-1.5 border border-white/10 shadow-2xs"
+                      className="text-[11px] text-[#EFE6DD]/80 hover:text-white font-semibold transition-colors cursor-pointer flex items-center gap-1"
                     >
                       <Check className="h-3.5 w-3.5 text-amber-300" />
                       <span>Mark all read</span>
@@ -474,15 +478,15 @@ export default function Navbar() {
                   )}
                 </div>
 
-                {/* Notifications Card Feed with generous padding */}
-                <div className="max-h-[420px] overflow-y-auto p-4 sm:p-5 flex flex-col gap-3.5 bg-[#FAF6F0]/70">
+                {/* Notifications Horizontal Feed (Phone Notification Center Style) */}
+                <div className="max-h-[380px] overflow-y-auto p-3 sm:p-4 flex flex-col gap-2.5 bg-[#FAF6F0]">
                   {customerNotifications.length === 0 ? (
-                    <div className="p-10 text-center text-xs text-[#6C5C54] bg-white rounded-3xl border border-[#EFE6DD] shadow-2xs">
-                      <div className="h-12 w-12 rounded-full bg-[#FFF8F2] border border-[#EFE6DD] flex items-center justify-center mx-auto mb-3 text-[#D89A86]">
-                        <Bell className="h-6 w-6" />
+                    <div className="p-8 text-center text-xs text-[#6C5C54] bg-white rounded-2xl border border-[#EFE6DD]">
+                      <div className="h-10 w-10 rounded-full bg-[#FFF8F2] border border-[#EFE6DD] flex items-center justify-center mx-auto mb-2 text-[#D89A86]">
+                        <Bell className="h-5 w-5" />
                       </div>
-                      <p className="font-bold text-sm text-[#3A2B24]">No New Notifications</p>
-                      <p className="text-xs text-[#6C5C54] mt-1">You're all caught up with official studio responses.</p>
+                      <p className="font-bold text-[#3A2B24]">No New Notifications</p>
+                      <p className="text-[11px] text-[#6C5C54] mt-0.5">You have no unread studio updates.</p>
                     </div>
                   ) : (
                     customerNotifications.map((notif) => (
@@ -495,68 +499,57 @@ export default function Navbar() {
                             window.location.href = "/profile?tab=orders";
                           }
                         }}
-                        className={`p-4 sm:p-4.5 rounded-3xl border transition-all cursor-pointer shadow-xs hover:shadow-md ${
+                        className={`p-3 sm:p-3.5 rounded-2xl border transition-all cursor-pointer shadow-xs hover:shadow-md flex items-start gap-3 relative group overflow-hidden ${
                           !notif.read 
-                            ? 'bg-white border-[#D89A86]/60 ring-2 ring-[#D89A86]/15' 
+                            ? 'bg-white border-[#D89A86]/60 shadow-amber-900/5 ring-1 ring-[#D89A86]/20' 
                             : 'bg-white/95 border-[#EFE6DD] hover:border-[#D89A86]/40'
                         }`}
                       >
-                        {notif.type === "reply" ? (
-                          /* DISTINCT STUDIO DIALOGUE MODEL */
-                          <div className="space-y-3">
-                            {/* Studio Header Row */}
-                            <div className="flex items-start justify-between gap-2.5 pb-2.5 border-b border-[#EFE6DD]/70">
-                              <div className="flex items-center gap-2.5">
-                                <div className="h-9 w-9 rounded-xl bg-[#3A2B24] border border-[#4E3D35] flex items-center justify-center text-white flex-shrink-0 shadow-2xs">
-                                  <img src="/images/pixello_logo.png" alt="Pixello" className="h-5.5 w-5.5 rounded-full object-cover" />
-                                </div>
-                                <div>
-                                  <div className="flex items-center gap-1.5">
-                                    <span className="font-bold text-xs text-[#3A2B24]">Pixello Studio Team</span>
-                                    <Badge className="bg-emerald-50 text-emerald-800 border-emerald-200 text-[9px] font-extrabold px-1.5 py-0.2 rounded-full">
-                                      Verified
-                                    </Badge>
-                                  </div>
-                                  <span className="text-[10px] text-[#6C5C54] font-medium block">
-                                    {notif.productName || "Order Feedback"} {notif.orderId ? `• #${notif.orderId}` : ""}
-                                  </span>
-                                </div>
-                              </div>
-                              <div className="flex items-center gap-1.5 flex-shrink-0 mt-0.5">
-                                <span className="text-[10px] font-semibold text-[#6C5C54]">{notif.time}</span>
-                                {!notif.read && (
-                                  <span className="h-2.5 w-2.5 rounded-full bg-[#D89A86] animate-pulse" />
-                                )}
-                              </div>
-                            </div>
-
-                            {/* Reply Speech Callout Bubble */}
-                            <div className="p-3.5 bg-gradient-to-br from-[#FFF8F2] via-white to-[#FFF8F2] border border-[#EFE6DD] rounded-2xl relative shadow-2xs">
-                              <span className="text-xl font-serif text-[#D89A86]/40 leading-none absolute top-2 left-2.5 select-none">“</span>
-                              <p className="text-xs text-[#3A2B24] font-medium italic leading-relaxed pl-3.5 pr-1">
-                                {notif.adminReply || notif.desc}
-                              </p>
-                              <div className="flex items-center justify-between mt-2 pt-2 border-t border-[#EFE6DD]/50 text-[10px]">
-                                <span className="font-bold text-[#D89A86]">Studio Response</span>
-                                <span className="text-[#6C5C54] font-semibold">Handcrafted with care</span>
-                              </div>
-                            </div>
-                          </div>
-                        ) : (
-                          /* DISTINCT SYSTEM NOTICE MODEL */
-                          <div className="flex items-start gap-3">
-                            <div className="h-9 w-9 rounded-2xl bg-amber-50 border border-amber-200 text-amber-700 flex items-center justify-center flex-shrink-0 mt-0.5 shadow-2xs">
-                              <Sparkles className="h-4.5 w-4.5" />
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center justify-between gap-1 mb-1">
-                                <h5 className="font-bold text-xs text-[#3A2B24] truncate">{notif.title}</h5>
-                                <span className="text-[10px] font-semibold text-[#6C5C54] whitespace-nowrap">{notif.time}</span>
-                              </div>
-                              <p className="text-xs text-[#6C5C54] leading-relaxed">{notif.desc}</p>
-                            </div>
-                          </div>
+                        {/* Unread Indicator Bar */}
+                        {!notif.read && (
+                          <span className="absolute left-0 top-2 bottom-2 w-1 bg-[#D89A86] rounded-r-full" />
                         )}
+
+                        {/* Left App Icon */}
+                        <div className="h-10 w-10 rounded-xl bg-[#3A2B24] border border-[#4E3D35] flex items-center justify-center flex-shrink-0 shadow-2xs overflow-hidden mt-0.5">
+                          <img src="/images/pixello_logo.png" alt="Pixello" className="h-7 w-7 rounded-full object-cover" />
+                        </div>
+
+                        {/* Horizontal Phone Notification Body */}
+                        <div className="flex-1 min-w-0 pr-1">
+                          {/* Top Row: App Name • Timestamp */}
+                          <div className="flex items-center justify-between gap-1 mb-0.5">
+                            <div className="flex items-center gap-1.5 min-w-0">
+                              <span className="font-bold text-[11px] text-[#3A2B24] tracking-tight uppercase">Pixello</span>
+                              <span className="text-[10px] text-[#6C5C54]">·</span>
+                              <span className="text-[9px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200/60 px-1.5 py-0.2 rounded-md">Verified</span>
+                            </div>
+                            <span className="text-[10px] font-medium text-[#6C5C54] whitespace-nowrap">{notif.time}</span>
+                          </div>
+
+                          {/* Title */}
+                          <h5 className="font-bold text-xs text-[#3A2B24] truncate">
+                            {notif.type === "reply" ? "Pixello Studio Team" : notif.title}
+                          </h5>
+
+                          {/* Message Text */}
+                          <p className="text-xs text-[#54433A] font-medium leading-snug line-clamp-2 mt-0.5">
+                            {notif.type === "reply" ? `"${notif.adminReply || notif.desc}"` : notif.desc}
+                          </p>
+
+                          {/* Sub-tag Row */}
+                          {notif.orderId && (
+                            <div className="mt-1 flex items-center gap-2 text-[10px] text-[#6C5C54]">
+                              <span className="font-semibold text-[#D89A86]">#{notif.orderId}</span>
+                              {notif.productName && <span>· {notif.productName}</span>}
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Right Action Arrow */}
+                        <div className="flex flex-col items-center justify-center self-center text-[#6C5C54] group-hover:text-[#D89A86] transition-colors pl-1">
+                          <ArrowRight className="h-3.5 w-3.5 opacity-60 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all" />
+                        </div>
                       </div>
                     ))
                   )}
@@ -564,12 +557,12 @@ export default function Navbar() {
 
                 {/* Footer with working action buttons */}
                 {customerNotifications.length > 0 && (
-                  <div className="p-4 bg-white border-t border-[#EFE6DD] flex items-center justify-between text-xs">
+                  <div className="px-4 py-3 bg-white border-t border-[#EFE6DD] flex items-center justify-between text-xs">
                     <button 
                       type="button"
                       onPointerDown={(e) => e.stopPropagation()}
                       onClick={handleClearNotifs} 
-                      className="text-xs text-[#6C5C54] hover:text-red-600 font-bold flex items-center gap-1.5 cursor-pointer transition-colors px-3 py-1.5 rounded-xl hover:bg-red-50 active:scale-95"
+                      className="text-[11px] text-[#6C5C54] hover:text-red-600 font-bold flex items-center gap-1.5 cursor-pointer transition-colors px-2.5 py-1 rounded-lg hover:bg-red-50"
                     >
                       <Trash2 className="h-3.5 w-3.5" /> Clear all
                     </button>
@@ -581,7 +574,7 @@ export default function Navbar() {
                         e.stopPropagation();
                         window.location.href = "/profile?tab=orders";
                       }}
-                      className="text-xs font-bold text-[#3A2B24] hover:text-[#D89A86] flex items-center gap-1.5 transition-colors px-3.5 py-1.5 rounded-xl hover:bg-[#FFF8F2] border border-[#EFE6DD] cursor-pointer active:scale-95 shadow-2xs"
+                      className="text-[11px] font-bold text-[#3A2B24] hover:text-[#D89A86] flex items-center gap-1 transition-colors px-3 py-1.5 rounded-xl hover:bg-[#FFF8F2] border border-[#EFE6DD] cursor-pointer shadow-2xs active:scale-95"
                     >
                       <span>View Orders</span>
                       <ArrowRight className="h-3.5 w-3.5 text-[#D89A86]" />
@@ -685,76 +678,67 @@ export default function Navbar() {
         </div>
       )}
 
-      {/* LIVE CUSTOMER REVIEW REPLY POPOVER TOAST (PORTAL TO BODY - LUXURY ARTISANAL MODEL) */}
+      {/* LIVE SMARTPHONE PUSH NOTIFICATION (TOP-CENTER HORIZONTAL PHONE BANNER) */}
       {mounted && liveReplyPopOver && typeof document !== "undefined" && createPortal(
-        <div className="fixed top-24 right-4 sm:right-6 z-[999999] max-w-sm sm:max-w-md w-full bg-[#FFFDFB] border border-[#D89A86]/40 rounded-3xl shadow-[0_25px_60px_rgba(58,43,36,0.22)] p-5 sm:p-6 animate-in slide-in-from-top-6 duration-300 pointer-events-auto backdrop-blur-xl">
-          {/* Top Bar with Brand Medallion */}
-          <div className="flex items-start justify-between gap-3 pb-3 border-b border-[#EFE6DD]">
-            <div className="flex items-center gap-3">
-              <div className="h-11 w-11 rounded-2xl bg-[#3A2B24] text-white flex items-center justify-center flex-shrink-0 shadow-md border border-[#4E3D35]">
-                <img src="/images/pixello_logo.png" alt="Pixello" className="h-7 w-7 rounded-full object-cover" />
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[999999] w-[92vw] sm:w-[460px] max-w-[500px] bg-[#2E201A]/95 text-white backdrop-blur-2xl border border-white/15 rounded-[24px] shadow-[0_20px_50px_rgba(0,0,0,0.35)] p-3.5 sm:p-4 animate-in slide-in-from-top-6 duration-300 pointer-events-auto flex items-start gap-3.5 group">
+          {/* App Icon */}
+          <div className="h-10 w-10 rounded-2xl bg-white/10 border border-white/15 flex items-center justify-center flex-shrink-0 shadow-sm mt-0.5 overflow-hidden">
+            <img src="/images/pixello_logo.png" alt="Pixello" className="h-7 w-7 rounded-full object-cover" />
+          </div>
+
+          {/* Middle Content */}
+          <div className="flex-1 min-w-0 pr-1">
+            {/* App Title & Time */}
+            <div className="flex items-center justify-between gap-1 mb-0.5">
+              <div className="flex items-center gap-1.5">
+                <span className="font-bold text-[11px] tracking-wide uppercase text-amber-300">Pixello Store</span>
+                <span className="text-[10px] text-white/50">·</span>
+                <span className="text-[10px] text-white/70">Just now</span>
               </div>
-              <div>
-                <div className="flex items-center gap-2">
-                  <Badge className="bg-[#FFF8F2] text-[#D89A86] border border-[#D89A86]/40 font-extrabold text-[10px] px-2.5 py-0.5 rounded-full flex items-center gap-1 shadow-2xs">
-                    <Sparkles className="h-3 w-3 text-[#D89A86]" />
-                    <span>Official Studio Message</span>
-                  </Badge>
-                </div>
-                <h4 className="font-bold text-sm text-[#3A2B24] mt-0.5 font-serif-brand">Pixello Team Replied</h4>
-              </div>
+              <button 
+                onClick={() => setLiveReplyPopOver(null)}
+                className="h-6 w-6 rounded-full bg-white/10 hover:bg-white/20 text-white/70 hover:text-white flex items-center justify-center text-xs font-bold transition-colors cursor-pointer"
+                title="Dismiss"
+              >
+                ✕
+              </button>
             </div>
-            <button 
-              onClick={() => setLiveReplyPopOver(null)}
-              className="h-7 w-7 rounded-full bg-[#FFF8F2] hover:bg-[#F2C8B5]/30 text-[#6C5C54] hover:text-[#3A2B24] flex items-center justify-center text-xs font-bold cursor-pointer transition-colors"
-            >
-              ✕
-            </button>
-          </div>
 
-          {/* Product & Order Context Tag */}
-          <div className="mt-3.5 mb-2.5 flex items-center justify-between text-xs">
-            <span className="text-[11px] font-bold text-[#6C5C54] truncate max-w-[240px]">
-              {liveReplyPopOver.productName}
-            </span>
-            {liveReplyPopOver.orderId && (
-              <span className="text-[10px] font-extrabold bg-[#FFF8F2] text-[#D89A86] px-2 py-0.5 rounded-full border border-[#EFE6DD]">
-                #{liveReplyPopOver.orderId}
-              </span>
-            )}
-          </div>
+            {/* Notification Title */}
+            <h4 className="font-bold text-xs text-white leading-tight">
+              Official Studio Response {liveReplyPopOver.orderId ? `• #${liveReplyPopOver.orderId}` : ""}
+            </h4>
 
-          {/* Speech Quote Bubble */}
-          <div className="p-3.5 bg-[#FFF8F2]/90 border-l-4 border-[#D89A86] rounded-2xl rounded-tl-sm shadow-2xs">
-            <p className="text-xs text-[#3A2B24] font-medium leading-relaxed italic">
+            {/* Notification Body Text */}
+            <p className="text-xs text-white/90 leading-snug line-clamp-2 mt-1 italic">
               “{liveReplyPopOver.adminReply || liveReplyPopOver.desc}”
             </p>
-            <div className="flex items-center justify-end gap-1 mt-2 text-[10px] text-[#6C5C54] font-bold">
-              <span>— Pixello Studio Craftsman</span>
-            </div>
-          </div>
 
-          {/* Action Buttons */}
-          <div className="flex items-center gap-2.5 mt-4">
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => setLiveReplyPopOver(null)}
-              className="flex-1 rounded-full text-xs font-bold border-[#EFE6DD] bg-white text-[#6C5C54] hover:text-[#3A2B24] hover:bg-[#FFF8F2] h-9.5 cursor-pointer shadow-2xs"
-            >
-              Dismiss
-            </Button>
-            <Button
-              size="sm"
-              onClick={() => {
-                handleMarkAllNotifsAsRead();
-                setLiveReplyPopOver(null);
-              }}
-              className="flex-1 bg-[#3A2B24] hover:bg-[#2A1E18] text-white rounded-full text-xs font-bold h-9.5 shadow-md flex items-center justify-center gap-1.5 cursor-pointer"
-            >
-              <Check className="h-4 w-4 text-[#D89A86]" />
-              <span>Mark as Read</span>
-            </Button>
+            {/* Action Buttons */}
+            <div className="flex items-center gap-2 mt-2.5 pt-2 border-t border-white/10">
+              <button
+                type="button"
+                onClick={() => {
+                  handleMarkAllNotifsAsRead();
+                  setLiveReplyPopOver(null);
+                  window.location.href = "/profile?tab=orders";
+                }}
+                className="bg-amber-400 hover:bg-amber-300 text-[#2E201A] font-bold text-[11px] px-3.5 py-1 rounded-full transition-all flex items-center gap-1 cursor-pointer shadow-xs"
+              >
+                <span>View Order</span>
+                <ArrowRight className="h-3 w-3" />
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  handleMarkAllNotifsAsRead();
+                  setLiveReplyPopOver(null);
+                }}
+                className="text-white/70 hover:text-white text-[11px] font-semibold px-2 py-1 transition-colors cursor-pointer"
+              >
+                Mark as Read
+              </button>
+            </div>
           </div>
         </div>,
         document.body
