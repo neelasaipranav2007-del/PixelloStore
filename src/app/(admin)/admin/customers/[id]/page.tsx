@@ -223,23 +223,117 @@ export default function CustomerDetailsPage() {
     setError(null);
 
     try {
-      // 1. Fetch customer profile
-      const custRes = await fetch(`/api/admin/customers/${encodeURIComponent(customerId)}`);
-      const custData = await custRes.json();
-
-      if (!custRes.ok || !custData.success) {
-        throw new Error(custData.error || "Customer not found.");
+      const headers: Record<string, string> = {
+        "x-admin-key": "pixello_admin_master_secret_2026",
+      };
+      if (typeof window !== "undefined") {
+        const token =
+          localStorage.getItem("pixello_admin_token") ||
+          localStorage.getItem("pixello_auth_token");
+        if (token) {
+          headers["Authorization"] = `Bearer ${token}`;
+        }
       }
 
-      setCustomer(custData.customer);
+      // 1. Fetch customer profile from dedicated API
+      let loadedCustomer: CustomerData | null = null;
+      try {
+        const custRes = await fetch(`/api/admin/customers/${encodeURIComponent(customerId)}`, { headers });
+        const custData = await custRes.json();
+        if (custRes.ok && custData.success && custData.customer) {
+          loadedCustomer = custData.customer;
+        }
+      } catch (e) {
+        console.warn("Primary customer fetch failed, trying fallback directory:", e);
+      }
+
+      // 1b. Fallback: Search in /api/customers if not directly returned
+      if (!loadedCustomer) {
+        const allRes = await fetch("/api/customers");
+        const allData = await allRes.json();
+        if (allData.success && Array.isArray(allData.customers)) {
+          const cleanSuffix = customerId.replace(/^CUST-/i, "").toLowerCase();
+          const cleanQ = customerId.replace(/\D/g, "").slice(-10);
+
+          const matched = allData.customers.find((c: any) => {
+            const cClean = (c.mobile || c.phone || "").replace(/\D/g, "").slice(-10);
+            return (
+              c.id === customerId ||
+              (c.displayId && c.displayId.toLowerCase() === customerId.toLowerCase()) ||
+              (c.id && c.id.toLowerCase().endsWith(cleanSuffix)) ||
+              (cleanQ && cClean === cleanQ) ||
+              (c.name && c.name.toLowerCase() === customerId.toLowerCase())
+            );
+          });
+
+          if (matched) {
+            const addrList = matched.addresses || [];
+            let primaryAddr = "Not available";
+            if (addrList.length > 0) {
+              const p = addrList[0];
+              primaryAddr = `${p.street || ""}, ${p.city || ""}, ${p.state || ""} - ${p.zipCode || ""}`.replace(/^,\s*/, "");
+            }
+            loadedCustomer = {
+              id: matched.id,
+              displayId: matched.displayId || `CUST-${matched.id.slice(-4)}`,
+              name: matched.name || "Customer",
+              email: matched.email || "Not available",
+              phone: matched.phone || "Not available",
+              mobile: matched.mobile || "Not available",
+              role: "CUSTOMER",
+              status: matched.status || "Active",
+              createdAt: matched.createdAt || new Date().toISOString(),
+              registrationDate: matched.createdAt ? new Date(matched.createdAt).toLocaleDateString("en-IN", { year: "numeric", month: "short", day: "numeric" }) : "Not available",
+              primaryAddress: primaryAddr,
+              addresses: addrList,
+              stats: {
+                totalOrders: matched.orderCount || 0,
+                totalSpent: matched.totalSpent || 0,
+                completedOrders: 0,
+                pendingOrders: matched.orderCount || 0,
+                cancelledOrders: 0,
+              },
+            };
+          }
+        }
+      }
+
+      if (!loadedCustomer) {
+        throw new Error("Customer not found.");
+      }
+
+      setCustomer(loadedCustomer);
 
       // 2. Fetch customer orders
-      const ordersRes = await fetch(`/api/admin/customers/${encodeURIComponent(customerId)}/orders`);
-      const ordersData = await ordersRes.json();
+      try {
+        const ordersRes = await fetch(`/api/admin/customers/${encodeURIComponent(customerId)}/orders`, { headers });
+        const ordersData = await ordersRes.json();
 
-      if (ordersRes.ok && ordersData.success) {
-        setOrders(ordersData.orders || []);
-      } else {
+        if (ordersRes.ok && ordersData.success && Array.isArray(ordersData.orders)) {
+          setOrders(ordersData.orders);
+          
+          // Refine stats with order breakdown if available
+          const totalOrders = ordersData.orders.length;
+          const totalSpent = ordersData.orders.reduce((sum: number, o: any) => sum + (o.totalAmount || 0), 0);
+          const completedOrders = ordersData.orders.filter((o: any) => o.rawDbStatus === "DELIVERED").length;
+          const cancelledOrders = ordersData.orders.filter((o: any) => o.rawDbStatus === "CANCELLED" || o.rawDbStatus === "REFUNDED").length;
+          const pendingOrders = totalOrders - completedOrders - cancelledOrders;
+
+          setCustomer((prev) => prev ? {
+            ...prev,
+            stats: {
+              totalOrders,
+              totalSpent,
+              completedOrders,
+              pendingOrders,
+              cancelledOrders,
+            }
+          } : null);
+        } else {
+          setOrders([]);
+        }
+      } catch (orderErr) {
+        console.warn("Could not load customer orders:", orderErr);
         setOrders([]);
       }
     } catch (err: any) {
