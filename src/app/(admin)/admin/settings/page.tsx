@@ -28,8 +28,9 @@ import {
   Sparkles,
   Star
 } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { getDeliveryConfig, saveDeliveryConfig, DEFAULT_DELIVERY_CONFIG, DeliveryConfig } from "@/lib/deliveryFee";
-import { getHomepageStats, saveHomepageStats, DEFAULT_HOMEPAGE_STATS, HomepageStatsConfig } from "@/lib/homepageStats";
+import { getHomepageStats, saveHomepageStats, DEFAULT_HOMEPAGE_STATS, HomepageStatsConfig, HomepageBadgeItem } from "@/lib/homepageStats";
 
 const DEFAULT_ADMIN_PROFILE = {
   name: "Pranav",
@@ -80,6 +81,47 @@ export default function AdminSettingsPage() {
   const showToast = (msg: string) => {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(null), 3500);
+  };
+
+  const handleAddBadge = () => {
+    const newBadgeId = `badge-${Date.now()}`;
+    const updatedBadges: HomepageBadgeItem[] = [
+      ...(homepageStats.badges || []),
+      { id: newBadgeId, value: "100%", label: "Satisfaction Guarantee" }
+    ];
+    const updatedStats: HomepageStatsConfig = {
+      ...homepageStats,
+      badges: updatedBadges
+    };
+    setHomepageStats(updatedStats);
+    saveHomepageStats(updatedStats);
+    showToast("✨ Added new trust badge! Remember to click Save Changes.");
+  };
+
+  const handleRemoveBadge = (id: string) => {
+    const updatedBadges = (homepageStats.badges || []).filter(b => b.id !== id);
+    const updatedStats: HomepageStatsConfig = {
+      ...homepageStats,
+      badges: updatedBadges
+    };
+    setHomepageStats(updatedStats);
+    saveHomepageStats(updatedStats);
+    showToast("🗑️ Removed trust badge! Remember to click Save Changes.");
+  };
+
+  const handleUpdateBadge = (id: string, field: "value" | "label", val: string) => {
+    const updatedBadges = (homepageStats.badges || []).map(b => {
+      if (b.id === id) {
+        return { ...b, [field]: val };
+      }
+      return b;
+    });
+    const updatedStats: HomepageStatsConfig = {
+      ...homepageStats,
+      badges: updatedBadges
+    };
+    setHomepageStats(updatedStats);
+    saveHomepageStats(updatedStats);
   };
 
   const handleSaveSettings = async (e: React.FormEvent) => {
@@ -310,7 +352,7 @@ export default function AdminSettingsPage() {
         </Card>
 
         {/* ========================================================================= */}
-        {/* 🌟 HOMEPAGE TRUST METRICS & HERO BADGES (EDITABLE BY ADMIN) */}
+        {/* 🌟 HOMEPAGE TRUST METRICS & HERO BADGES (DYNAMIC ADD/REMOVE BY ADMIN) */}
         {/* ========================================================================= */}
         <Card className="border border-[#EFE6DD] bg-white rounded-3xl shadow-sm overflow-hidden">
           <CardContent className="p-6 md:p-8 flex flex-col gap-6">
@@ -321,114 +363,116 @@ export default function AdminSettingsPage() {
                 </div>
                 <div>
                   <h3 className="font-serif-brand text-xl font-bold text-[#3A2B24]">Homepage Trust Metrics &amp; Badges</h3>
-                  <p className="text-xs text-[#6C5C54] mt-0.5 font-medium">Edit the 3 hero statistics shown below the main headline on the customer landing page.</p>
+                  <p className="text-xs text-[#6C5C54] mt-0.5 font-medium">Add, edit, or remove the hero statistics shown below the main headline on the customer landing page.</p>
                 </div>
               </div>
-              <Badge className="bg-[#FFF8F2] text-[#D89A86] border-[#D89A86]/40 text-xs font-bold px-3 py-1 rounded-full self-start sm:self-auto">
-                <Sparkles className="h-3 w-3 mr-1 text-[#D89A86]" /> Live Customer Storefront
-              </Badge>
-            </div>
-
-            {/* 3 Metric Editing Columns */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-              {/* Metric 1 */}
-              <div className="p-4 bg-[#FFF8F2]/60 rounded-2xl border border-[#EFE6DD] flex flex-col gap-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-[#3A2B24] uppercase tracking-wider">Badge #1</span>
-                  <span className="text-[10px] text-[#6C5C54] font-medium">Left Metric</span>
-                </div>
-                <div>
-                  <label className="text-[11px] font-bold text-[#6C5C54] mb-1 block">Value / Counter</label>
-                  <Input 
-                    value={homepageStats.stat1Value} 
-                    onChange={(e) => setHomepageStats({ ...homepageStats, stat1Value: e.target.value })}
-                    placeholder="e.g. 50K+"
-                    className="rounded-xl border-[#EFE6DD] text-sm font-bold text-[#3A2B24] bg-white h-10" 
-                  />
-                </div>
-                <div>
-                  <label className="text-[11px] font-bold text-[#6C5C54] mb-1 block">Description Label</label>
-                  <Input 
-                    value={homepageStats.stat1Label} 
-                    onChange={(e) => setHomepageStats({ ...homepageStats, stat1Label: e.target.value })}
-                    placeholder="e.g. Memories Framed"
-                    className="rounded-xl border-[#EFE6DD] text-xs font-medium text-[#3A2B24] bg-white h-10" 
-                  />
-                </div>
-              </div>
-
-              {/* Metric 2 */}
-              <div className="p-4 bg-[#FFF8F2]/60 rounded-2xl border border-[#EFE6DD] flex flex-col gap-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-[#3A2B24] uppercase tracking-wider">Badge #2</span>
-                  <span className="text-[10px] text-[#6C5C54] font-medium">Middle Metric</span>
-                </div>
-                <div>
-                  <label className="text-[11px] font-bold text-[#6C5C54] mb-1 block">Value / Counter</label>
-                  <Input 
-                    value={homepageStats.stat2Value} 
-                    onChange={(e) => setHomepageStats({ ...homepageStats, stat2Value: e.target.value })}
-                    placeholder="e.g. 2 Hours"
-                    className="rounded-xl border-[#EFE6DD] text-sm font-bold text-[#3A2B24] bg-white h-10" 
-                  />
-                </div>
-                <div>
-                  <label className="text-[11px] font-bold text-[#6C5C54] mb-1 block">Description Label</label>
-                  <Input 
-                    value={homepageStats.stat2Label} 
-                    onChange={(e) => setHomepageStats({ ...homepageStats, stat2Label: e.target.value })}
-                    placeholder="e.g. Express Local Delivery"
-                    className="rounded-xl border-[#EFE6DD] text-xs font-medium text-[#3A2B24] bg-white h-10" 
-                  />
-                </div>
-              </div>
-
-              {/* Metric 3 */}
-              <div className="p-4 bg-[#FFF8F2]/60 rounded-2xl border border-[#EFE6DD] flex flex-col gap-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-[#3A2B24] uppercase tracking-wider">Badge #3</span>
-                  <span className="text-[10px] text-[#6C5C54] font-medium">Right Metric</span>
-                </div>
-                <div>
-                  <label className="text-[11px] font-bold text-[#6C5C54] mb-1 block">Value / Counter</label>
-                  <Input 
-                    value={homepageStats.stat3Value} 
-                    onChange={(e) => setHomepageStats({ ...homepageStats, stat3Value: e.target.value })}
-                    placeholder="e.g. 4.9★"
-                    className="rounded-xl border-[#EFE6DD] text-sm font-bold text-[#3A2B24] bg-white h-10" 
-                  />
-                </div>
-                <div>
-                  <label className="text-[11px] font-bold text-[#6C5C54] mb-1 block">Description Label</label>
-                  <Input 
-                    value={homepageStats.stat3Label} 
-                    onChange={(e) => setHomepageStats({ ...homepageStats, stat3Label: e.target.value })}
-                    placeholder="e.g. Customer Happiness"
-                    className="rounded-xl border-[#EFE6DD] text-xs font-medium text-[#3A2B24] bg-white h-10" 
-                  />
-                </div>
+              <div className="flex items-center gap-2.5 self-start sm:self-auto">
+                <Button 
+                  type="button" 
+                  onClick={handleAddBadge}
+                  className="h-9 px-4 rounded-xl bg-[#D89A86] hover:bg-[#c78672] text-white text-xs font-bold flex items-center gap-1.5 shadow-xs cursor-pointer transition-all"
+                >
+                  <Plus className="h-4 w-4" /> Add New Badge
+                </Button>
+                <Badge className="bg-[#FFF8F2] text-[#D89A86] border-[#D89A86]/40 text-xs font-bold px-3 py-1 rounded-full">
+                  <Sparkles className="h-3 w-3 mr-1 text-[#D89A86]" /> Live Customer Storefront
+                </Badge>
               </div>
             </div>
+
+            {/* Dynamic Metric Editing Columns */}
+            {homepageStats.badges && homepageStats.badges.length > 0 ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                {homepageStats.badges.map((badge, idx) => (
+                  <div key={badge.id || idx} className="p-4 bg-[#FFF8F2]/70 rounded-2xl border border-[#EFE6DD] flex flex-col gap-3 relative group transition-all hover:shadow-xs">
+                    <div className="flex items-center justify-between pb-1 border-b border-[#EFE6DD]/80">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-xs font-extrabold text-[#3A2B24] uppercase tracking-wider">Badge #{idx + 1}</span>
+                        <span className="text-[10px] text-[#6C5C54] font-medium bg-white px-2 py-0.5 rounded-md border border-[#EFE6DD]">Position {idx + 1}</span>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleRemoveBadge(badge.id)}
+                        className="h-7 px-2 text-rose-600 hover:text-rose-700 hover:bg-rose-50 rounded-lg text-xs font-bold flex items-center gap-1 cursor-pointer transition-colors"
+                        title="Remove this badge"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" /> Remove
+                      </Button>
+                    </div>
+
+                    <div>
+                      <label className="text-[11px] font-bold text-[#6C5C54] mb-1 block">Value / Counter</label>
+                      <Input 
+                        value={badge.value} 
+                        onChange={(e) => handleUpdateBadge(badge.id, "value", e.target.value)}
+                        placeholder="e.g. 50K+, 2 Hours, 4.9★, 100%"
+                        className="rounded-xl border-[#EFE6DD] text-sm font-bold text-[#3A2B24] bg-white h-10" 
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-[11px] font-bold text-[#6C5C54] mb-1 block">Description Label</label>
+                      <Input 
+                        value={badge.label} 
+                        onChange={(e) => handleUpdateBadge(badge.id, "label", e.target.value)}
+                        placeholder="e.g. Memories Framed, Customer Happiness"
+                        className="rounded-xl border-[#EFE6DD] text-xs font-medium text-[#3A2B24] bg-white h-10" 
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="p-8 text-center bg-[#FFF8F2]/40 border-2 border-dashed border-[#EFE6DD] rounded-2xl flex flex-col items-center justify-center gap-3">
+                <Award className="h-8 w-8 text-[#D89A86] opacity-60" />
+                <div>
+                  <p className="text-sm font-bold text-[#3A2B24]">No Trust Badges Configured</p>
+                  <p className="text-xs text-[#6C5C54] mt-0.5">Click the button below to add your first customer landing page trust metric.</p>
+                </div>
+                <Button 
+                  type="button" 
+                  onClick={handleAddBadge}
+                  className="h-9 px-4 rounded-xl bg-[#D89A86] hover:bg-[#c78672] text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-xs"
+                >
+                  <Plus className="h-3.5 w-3.5" /> Add First Badge
+                </Button>
+              </div>
+            )}
 
             {/* Live Visual Preview */}
             <div className="p-5 bg-gradient-to-br from-[#FFF8F2] to-[#F8F3EE] rounded-2xl border border-[#EFE6DD]">
-              <span className="text-[11px] font-bold text-[#6C5C54] uppercase tracking-wider block mb-3 text-center">
-                ✨ Live Storefront Preview (as seen by customers):
-              </span>
-              <div className="grid grid-cols-3 gap-6 text-center max-w-md mx-auto pt-2 border-t border-[#EFE6DD]/70">
-                <div>
-                  <div className="font-bold text-2xl text-[#3A2B24]">{homepageStats.stat1Value || "50K+"}</div>
-                  <div className="text-xs text-[#6C5C54]">{homepageStats.stat1Label || "Memories Framed"}</div>
-                </div>
-                <div>
-                  <div className="font-bold text-2xl text-[#3A2B24]">{homepageStats.stat2Value || "2 Hours"}</div>
-                  <div className="text-xs text-[#6C5C54]">{homepageStats.stat2Label || "Express Local Delivery"}</div>
-                </div>
-                <div>
-                  <div className="font-bold text-2xl text-[#3A2B24]">{homepageStats.stat3Value || "4.9★"}</div>
-                  <div className="text-xs text-[#6C5C54]">{homepageStats.stat3Label || "Customer Happiness"}</div>
-                </div>
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-[11px] font-bold text-[#6C5C54] uppercase tracking-wider block">
+                  ✨ Live Storefront Preview (as seen by customers):
+                </span>
+                <span className="text-[10px] text-[#6C5C54] font-semibold">
+                  {homepageStats.badges?.length || 0} active badge(s)
+                </span>
               </div>
+
+              {homepageStats.badges && homepageStats.badges.length > 0 ? (
+                <div className={cn(
+                  "gap-6 text-center mx-auto pt-3 border-t border-[#EFE6DD]/70",
+                  homepageStats.badges.length === 1 ? "flex justify-center max-w-xs" :
+                  homepageStats.badges.length === 2 ? "grid grid-cols-2 max-w-sm" :
+                  homepageStats.badges.length === 3 ? "grid grid-cols-3 max-w-md" :
+                  homepageStats.badges.length === 4 ? "grid grid-cols-2 sm:grid-cols-4 max-w-xl" :
+                  "flex flex-wrap justify-center gap-6 max-w-2xl"
+                )}>
+                  {homepageStats.badges.map((b, idx) => (
+                    <div key={b.id || idx} className="min-w-[100px] px-2">
+                      <div className="font-bold text-2xl text-[#3A2B24]">{b.value || "—"}</div>
+                      <div className="text-xs text-[#6C5C54] mt-0.5">{b.label || "—"}</div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="pt-3 border-t border-[#EFE6DD]/70 text-center text-xs text-[#6C5C54] italic">
+                  (No trust badges will be displayed on the customer landing page)
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>

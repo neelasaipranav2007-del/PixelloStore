@@ -87,25 +87,28 @@ export default function HomePage() {
             </motion.div>
 
             {/* Trust Badges */}
-            <motion.div 
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ duration: 0.7, delay: 0.55 }}
-              className="grid grid-cols-3 gap-6 mt-12 pt-8 border-t border-[#EFE6DD] text-center w-full max-w-md"
-            >
-              <div>
-                <div className="font-bold text-2xl text-[#3A2B24]">{stats.stat1Value}</div>
-                <div className="text-xs text-[#6C5C54]">{stats.stat1Label}</div>
-              </div>
-              <div>
-                <div className="font-bold text-2xl text-[#3A2B24]">{stats.stat2Value}</div>
-                <div className="text-xs text-[#6C5C54]">{stats.stat2Label}</div>
-              </div>
-              <div>
-                <div className="font-bold text-2xl text-[#3A2B24]">{stats.stat3Value}</div>
-                <div className="text-xs text-[#6C5C54]">{stats.stat3Label}</div>
-              </div>
-            </motion.div>
+            {stats.badges && stats.badges.length > 0 && (
+              <motion.div 
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ duration: 0.7, delay: 0.55 }}
+                className={cn(
+                  "gap-6 mt-12 pt-8 border-t border-[#EFE6DD] text-center w-full mx-auto justify-center",
+                  stats.badges.length === 1 ? "flex justify-center max-w-xs" : 
+                  stats.badges.length === 2 ? "grid grid-cols-2 max-w-sm" : 
+                  stats.badges.length === 3 ? "grid grid-cols-3 max-w-md" : 
+                  stats.badges.length === 4 ? "grid grid-cols-2 sm:grid-cols-4 max-w-xl" : 
+                  "flex flex-wrap justify-center gap-6 max-w-2xl"
+                )}
+              >
+                {stats.badges.map((b, idx) => (
+                  <div key={b.id || idx} className="min-w-[100px] px-2">
+                    <div className="font-bold text-2xl text-[#3A2B24]">{b.value}</div>
+                    <div className="text-xs text-[#6C5C54] mt-0.5">{b.label}</div>
+                  </div>
+                ))}
+              </motion.div>
+            )}
           </div>
         </div>
       </section>
