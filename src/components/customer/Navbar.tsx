@@ -451,39 +451,39 @@ export default function Navbar() {
                 </Button>
               </DropdownMenuTrigger>
 
-              <DropdownMenuContent align="end" className="w-[94vw] sm:w-[680px] md:w-[740px] rounded-3xl border border-[#EFE6DD] p-0 shadow-2xl bg-[#FFFDFB] overflow-hidden z-50 animate-in fade-in-50 zoom-in-95 duration-200">
+              <DropdownMenuContent align="end" className="w-[94vw] sm:w-[820px] md:w-[900px] max-w-[960px] rounded-3xl border border-[#EFE6DD] p-0 shadow-2xl bg-[#FFFDFB] overflow-hidden z-50 animate-in fade-in-50 zoom-in-95 duration-200">
                 <div className="flex flex-col sm:flex-row items-stretch">
                   {/* Left Landscape Control Panel */}
-                  <div className="sm:w-56 bg-[#2E201A] text-white p-5 flex flex-col justify-between flex-shrink-0 border-b sm:border-b-0 sm:border-r border-[#443228]">
+                  <div className="sm:w-48 md:w-52 bg-[#2E201A] text-white p-4 flex flex-col justify-between flex-shrink-0 border-b sm:border-b-0 sm:border-r border-[#443228]">
                     <div>
-                      <div className="flex items-center gap-2.5 mb-3">
-                        <div className="h-8 w-8 rounded-xl bg-white/10 flex items-center justify-center text-amber-300 border border-white/10 shadow-xs">
-                          <Bell className="h-4.5 w-4.5" />
+                      <div className="flex items-center gap-2 mb-2">
+                        <div className="h-7 w-7 rounded-xl bg-white/10 flex items-center justify-center text-amber-300 border border-white/10 shadow-xs">
+                          <Bell className="h-4 w-4" />
                         </div>
                         <h4 className="font-bold text-xs font-serif-brand tracking-wider uppercase text-[#EFE6DD]">Notifications</h4>
                       </div>
-                      <p className="text-[11px] text-[#EFE6DD]/70 leading-snug mb-3">
+                      <p className="text-[10px] text-[#EFE6DD]/70 leading-snug mb-2">
                         Studio responses &amp; real-time order updates.
                       </p>
                       {unreadCount > 0 ? (
-                        <div className="inline-flex items-center gap-1.5 bg-[#D89A86]/20 border border-[#D89A86]/40 text-[#F2C8B5] px-2.5 py-1 rounded-full text-[10px] font-extrabold mb-3">
+                        <div className="inline-flex items-center gap-1.5 bg-[#D89A86]/20 border border-[#D89A86]/40 text-[#F2C8B5] px-2 py-0.5 rounded-full text-[10px] font-extrabold mb-2">
                           <span className="h-1.5 w-1.5 rounded-full bg-amber-400 animate-pulse" />
-                          <span>{unreadCount} Unread Updates</span>
+                          <span>{unreadCount} Unread</span>
                         </div>
                       ) : (
-                        <span className="text-[10px] font-medium text-white/50 block mb-3">All caught up</span>
+                        <span className="text-[10px] font-medium text-white/50 block mb-2">All caught up</span>
                       )}
                     </div>
 
-                    <div className="flex flex-col gap-2 pt-3 border-t border-white/10">
+                    <div className="flex flex-col gap-1.5 pt-2.5 border-t border-white/10">
                       {unreadCount > 0 && (
                         <button 
                           type="button"
                           onPointerDown={(e) => e.stopPropagation()}
                           onClick={handleMarkAllNotifsAsRead} 
-                          className="text-[11px] bg-white/10 hover:bg-white/20 text-white font-semibold py-1.5 px-3 rounded-xl transition-colors cursor-pointer flex items-center justify-center gap-1.5 text-center"
+                          className="text-[10px] bg-white/10 hover:bg-white/20 text-white font-semibold py-1 px-2.5 rounded-xl transition-colors cursor-pointer flex items-center justify-center gap-1 text-center"
                         >
-                          <Check className="h-3.5 w-3.5 text-amber-300" />
+                          <Check className="h-3 w-3 text-amber-300" />
                           <span>Mark all read</span>
                         </button>
                       )}
@@ -493,7 +493,7 @@ export default function Navbar() {
                             type="button"
                             onPointerDown={(e) => e.stopPropagation()}
                             onClick={handleClearNotifs} 
-                            className="text-[11px] text-white/60 hover:text-red-300 font-medium flex items-center gap-1 cursor-pointer transition-colors"
+                            className="text-[10px] text-white/60 hover:text-red-300 font-medium flex items-center gap-1 cursor-pointer transition-colors"
                           >
                             <Trash2 className="h-3 w-3" /> Clear
                           </button>
@@ -506,7 +506,7 @@ export default function Navbar() {
                             e.stopPropagation();
                             window.location.href = "/profile?tab=orders";
                           }}
-                          className="text-[11px] font-bold text-amber-300 hover:text-amber-200 flex items-center gap-1 transition-colors ml-auto cursor-pointer"
+                          className="text-[10px] font-bold text-amber-300 hover:text-amber-200 flex items-center gap-1 transition-colors ml-auto cursor-pointer"
                         >
                           <span>View Orders</span>
                           <ArrowRight className="h-3 w-3" />
@@ -515,13 +515,13 @@ export default function Navbar() {
                     </div>
                   </div>
 
-                  {/* Right Horizontal Notifications Stream */}
-                  <div className="flex-1 p-3.5 sm:p-4.5 bg-[#FAF6F0] flex flex-col gap-2.5 max-h-[340px] sm:max-h-[380px] overflow-y-auto">
+                  {/* Right Single Horizontal Line Notifications Stream */}
+                  <div className="flex-1 p-3 sm:p-4 bg-[#FAF6F0] flex flex-row items-stretch gap-3 overflow-x-auto overflow-y-hidden scrollbar-thin">
                     {customerNotifications.length === 0 ? (
-                      <div className="p-10 text-center text-xs text-[#6C5C54] bg-white rounded-2xl border border-[#EFE6DD] my-auto">
-                        <Bell className="h-6 w-6 text-[#D89A86] mx-auto mb-2 opacity-60" />
-                        <p className="font-bold text-[#3A2B24]">No Notifications</p>
-                        <p className="text-[11px] text-[#6C5C54] mt-0.5">You have no unread studio updates.</p>
+                      <div className="p-6 text-center text-xs text-[#6C5C54] bg-white rounded-2xl border border-[#EFE6DD] my-auto w-full">
+                        <Bell className="h-5 w-5 text-[#D89A86] mx-auto mb-1.5 opacity-60" />
+                        <p className="font-bold text-[#3A2B24] text-xs">No Notifications</p>
+                        <p className="text-[10px] text-[#6C5C54]">You have no unread studio updates.</p>
                       </div>
                     ) : (
                       customerNotifications.map((notif) => (
@@ -534,7 +534,7 @@ export default function Navbar() {
                               window.location.href = "/profile?tab=orders";
                             }
                           }}
-                          className={`p-3 sm:p-3.5 rounded-2xl border transition-all cursor-pointer shadow-xs hover:shadow-md flex items-start gap-3 relative group overflow-hidden ${
+                          className={`w-[290px] sm:w-[320px] md:w-[340px] flex-shrink-0 p-3 sm:p-3.5 rounded-2xl border transition-all cursor-pointer shadow-xs hover:shadow-md flex items-start gap-3 relative group overflow-hidden ${
                             !notif.read 
                               ? 'bg-white border-[#D89A86]/60 shadow-amber-900/5 ring-1 ring-[#D89A86]/20' 
                               : 'bg-white/95 border-[#EFE6DD] hover:border-[#D89A86]/40'
@@ -546,8 +546,8 @@ export default function Navbar() {
                           )}
 
                           {/* Left App Icon */}
-                          <div className="h-10 w-10 rounded-xl bg-[#3A2B24] border border-[#4E3D35] flex items-center justify-center flex-shrink-0 shadow-2xs overflow-hidden mt-0.5">
-                            <img src="/images/pixello_logo.png" alt="Pixello" className="h-7 w-7 rounded-full object-cover" />
+                          <div className="h-9 w-9 rounded-xl bg-[#3A2B24] border border-[#4E3D35] flex items-center justify-center flex-shrink-0 shadow-2xs overflow-hidden mt-0.5">
+                            <img src="/images/pixello_logo.png" alt="Pixello" className="h-6 w-6 rounded-full object-cover" />
                           </div>
 
                           {/* Horizontal Phone Notification Body */}
@@ -555,7 +555,7 @@ export default function Navbar() {
                             {/* Top Row: App Name • Timestamp */}
                             <div className="flex items-center justify-between gap-1 mb-0.5">
                               <div className="flex items-center gap-1.5 min-w-0">
-                                <span className="font-bold text-[11px] text-[#3A2B24] tracking-tight uppercase">Pixello</span>
+                                <span className="font-bold text-[10px] text-[#3A2B24] tracking-tight uppercase">Pixello</span>
                                 <span className="text-[10px] text-[#6C5C54]">·</span>
                                 <span className="text-[9px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200/60 px-1.5 py-0.2 rounded-md">Verified</span>
                               </div>
@@ -568,15 +568,15 @@ export default function Navbar() {
                             </h5>
 
                             {/* Message Text */}
-                            <p className="text-xs text-[#54433A] font-medium leading-snug line-clamp-2 mt-0.5">
+                            <p className="text-[11px] text-[#54433A] font-medium leading-snug line-clamp-2 mt-0.5">
                               {notif.type === "reply" ? `"${notif.adminReply || notif.desc}"` : notif.desc}
                             </p>
 
                             {/* Sub-tag Row */}
                             {notif.orderId && (
-                              <div className="mt-1 flex items-center gap-2 text-[10px] text-[#6C5C54]">
+                              <div className="mt-1 flex items-center gap-2 text-[9px] text-[#6C5C54]">
                                 <span className="font-semibold text-[#D89A86]">#{notif.orderId}</span>
-                                {notif.productName && <span>· {notif.productName}</span>}
+                                {notif.productName && <span className="truncate max-w-[150px]">· {notif.productName}</span>}
                               </div>
                             )}
                           </div>
