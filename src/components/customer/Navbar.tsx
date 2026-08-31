@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import { Search, ShoppingCart, Heart, User, Menu, Sparkles, LogIn, LogOut, X, Phone, Camera, ArrowRight, Bell, MessageSquareQuote, Check, CheckCheck, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -594,16 +595,16 @@ export default function Navbar() {
         </div>
       )}
 
-      {/* LIVE CUSTOMER REVIEW REPLY POPOVER TOAST */}
-      {liveReplyPopOver && (
-        <div className="fixed bottom-6 right-6 z-[9999] max-w-sm sm:max-w-md w-full bg-white border-2 border-purple-400 rounded-3xl shadow-2xl p-5 animate-in slide-in-from-bottom-8 duration-300">
+      {/* LIVE CUSTOMER REVIEW REPLY POPOVER TOAST (PORTAL TO BODY) */}
+      {mounted && liveReplyPopOver && typeof document !== "undefined" && createPortal(
+        <div className="fixed top-24 right-4 sm:right-6 z-[999999] max-w-sm sm:max-w-md w-full bg-white border-2 border-purple-500 rounded-3xl shadow-[0_25px_60px_rgba(0,0,0,0.25)] p-5 animate-in slide-in-from-top-6 duration-300 pointer-events-auto">
           <div className="flex items-start justify-between gap-3">
             <div className="flex items-center gap-2.5">
               <div className="h-10 w-10 rounded-2xl bg-purple-100 border border-purple-300 flex items-center justify-center text-purple-700 flex-shrink-0 shadow-2xs">
                 <MessageSquareQuote className="h-5 w-5" />
               </div>
               <div>
-                <Badge className="bg-purple-100 text-purple-950 border-purple-300 font-extrabold text-[10px] px-2 py-0.2 rounded-full flex items-center gap-1 w-fit">
+                <Badge className="bg-purple-100 text-purple-950 border-purple-300 font-extrabold text-[10px] px-2.5 py-0.5 rounded-full flex items-center gap-1 w-fit">
                   <Sparkles className="h-3 w-3 text-purple-700" />
                   <span>Verified Studio Reply</span>
                 </Badge>
@@ -612,16 +613,16 @@ export default function Navbar() {
             </div>
             <button 
               onClick={() => setLiveReplyPopOver(null)}
-              className="h-7 w-7 rounded-full bg-[#FFF8F2] hover:bg-[#F2C8B5]/30 text-[#3A2B24] flex items-center justify-center text-xs font-bold cursor-pointer"
+              className="h-7 w-7 rounded-full bg-[#FFF8F2] hover:bg-[#F2C8B5]/30 text-[#3A2B24] flex items-center justify-center text-xs font-bold cursor-pointer transition-colors"
             >
               ✕
             </button>
           </div>
 
-          <div className="mt-3 p-3 bg-gradient-to-r from-purple-50/90 via-[#FFF8F2] to-purple-50/70 border border-purple-200/90 rounded-2xl">
+          <div className="mt-3 p-3.5 bg-gradient-to-r from-purple-50 via-[#FFF8F2] to-purple-50/70 border border-purple-200/90 rounded-2xl">
             {liveReplyPopOver.productName && (
               <span className="text-[10px] font-bold text-[#D89A86] block mb-1">
-                For: {liveReplyPopOver.productName} {liveReplyPopOver.orderId ? `(Order #${liveReplyPopOver.orderId})` : ""}
+                Product: {liveReplyPopOver.productName} {liveReplyPopOver.orderId ? `(Order #${liveReplyPopOver.orderId})` : ""}
               </span>
             )}
             <p className="text-xs text-purple-950 font-medium italic leading-relaxed">
@@ -629,12 +630,12 @@ export default function Navbar() {
             </p>
           </div>
 
-          <div className="flex items-center gap-2 mt-3">
+          <div className="flex items-center gap-2.5 mt-3.5">
             <Button
               size="sm"
               variant="outline"
               onClick={() => setLiveReplyPopOver(null)}
-              className="flex-1 rounded-full text-xs font-bold border-[#EFE6DD] h-8 cursor-pointer"
+              className="flex-1 rounded-full text-xs font-bold border-[#EFE6DD] h-9 cursor-pointer hover:bg-[#FFF8F2]"
             >
               Dismiss
             </Button>
@@ -644,13 +645,14 @@ export default function Navbar() {
                 handleMarkAllNotifsAsRead();
                 setLiveReplyPopOver(null);
               }}
-              className="flex-1 bg-purple-700 hover:bg-purple-800 text-white rounded-full text-xs font-bold h-8 shadow-xs flex items-center justify-center gap-1 cursor-pointer"
+              className="flex-1 bg-purple-700 hover:bg-purple-800 text-white rounded-full text-xs font-bold h-9 shadow-xs flex items-center justify-center gap-1.5 cursor-pointer"
             >
-              <Check className="h-3.5 w-3.5" />
+              <Check className="h-4 w-4" />
               <span>Mark as Read</span>
             </Button>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </nav>
   );
