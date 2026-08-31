@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { ArrowRight, MapPin, Camera, Truck, Gift, Heart, Sparkles, ShieldCheck, Award } from "lucide-react";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -7,8 +8,26 @@ import { cn } from "@/lib/utils";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { motion } from "framer-motion";
+import { getHomepageStats, DEFAULT_HOMEPAGE_STATS, HomepageStatsConfig } from "@/lib/homepageStats";
 
 export default function HomePage() {
+  const [stats, setStats] = useState<HomepageStatsConfig>(DEFAULT_HOMEPAGE_STATS);
+
+  useEffect(() => {
+    setStats(getHomepageStats());
+
+    const handleStatsUpdate = () => {
+      setStats(getHomepageStats());
+    };
+
+    window.addEventListener("pixello_homepage_stats_updated", handleStatsUpdate);
+    window.addEventListener("storage", handleStatsUpdate);
+    return () => {
+      window.removeEventListener("pixello_homepage_stats_updated", handleStatsUpdate);
+      window.removeEventListener("storage", handleStatsUpdate);
+    };
+  }, []);
+
   return (
     <motion.div 
       initial={{ opacity: 0 }}
@@ -75,16 +94,16 @@ export default function HomePage() {
               className="grid grid-cols-3 gap-6 mt-12 pt-8 border-t border-[#EFE6DD] text-center w-full max-w-md"
             >
               <div>
-                <div className="font-bold text-2xl text-[#3A2B24]">50K+</div>
-                <div className="text-xs text-[#6C5C54]">Memories Framed</div>
+                <div className="font-bold text-2xl text-[#3A2B24]">{stats.stat1Value}</div>
+                <div className="text-xs text-[#6C5C54]">{stats.stat1Label}</div>
               </div>
               <div>
-                <div className="font-bold text-2xl text-[#3A2B24]">2 Hours</div>
-                <div className="text-xs text-[#6C5C54]">Express Local Delivery</div>
+                <div className="font-bold text-2xl text-[#3A2B24]">{stats.stat2Value}</div>
+                <div className="text-xs text-[#6C5C54]">{stats.stat2Label}</div>
               </div>
               <div>
-                <div className="font-bold text-2xl text-[#3A2B24]">4.9★</div>
-                <div className="text-xs text-[#6C5C54]">Customer Happiness</div>
+                <div className="font-bold text-2xl text-[#3A2B24]">{stats.stat3Value}</div>
+                <div className="text-xs text-[#6C5C54]">{stats.stat3Label}</div>
               </div>
             </motion.div>
           </div>
