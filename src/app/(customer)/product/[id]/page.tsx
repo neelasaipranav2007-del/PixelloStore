@@ -314,11 +314,19 @@ export default function ProductDetailsPage({ params }: { params: Promise<any> })
     images: adminImages || catalogEntry.images,
   } : PRODUCTS_CATALOG["1"]);
 
-  const isPolaroid = baseProduct.category.toLowerCase().includes("polaroid") || baseProduct.name.toLowerCase().includes("polaroid");
-  const isMug = baseProduct.name.toLowerCase().includes("mug") || baseProduct.category.toLowerCase().includes("mug");
-  const isPanda = baseProduct.name.toLowerCase().includes("panda") || baseProduct.category.toLowerCase().includes("panda") || baseProduct.name.toLowerCase().includes("glowing panda");
-  const isLiquidTimer = baseProduct.name.toLowerCase().includes("liquid") || baseProduct.name.toLowerCase().includes("timer") || baseProduct.category.toLowerCase().includes("timer");
-  const isPaperWeight = baseProduct.name.toLowerCase().includes("paper weight") || baseProduct.name.toLowerCase().includes("paperweight") || baseProduct.name.toLowerCase().includes("forever us");
+  const cleanName = baseProduct.name.toLowerCase();
+  const cleanCat = baseProduct.category.toLowerCase();
+
+  const isPolaroid = cleanCat.includes("polaroid") || cleanName.includes("polaroid");
+  const isMug = cleanName.includes("mug") || cleanCat.includes("mug");
+  const isPanda = cleanName.includes("panda") || cleanCat.includes("panda") || cleanName.includes("glowing panda") || cleanName.includes("lighting panda");
+  const isLiquidTimer = cleanName.includes("liquid") || cleanName.includes("timer") || cleanCat.includes("timer");
+  const isPaperWeight = cleanName.includes("paper weight") || cleanName.includes("paperweight") || cleanName.includes("forever us");
+  const isKeyChain = cleanName.includes("key chain") || cleanName.includes("keychain") || cleanCat.includes("key chain") || cleanCat.includes("keychain");
+  const isLamp = !isPanda && (cleanName.includes("lamp") || cleanCat.includes("lamp") || cleanCat.includes("led") || cleanName.includes("acrylic photo lamp"));
+
+  // Frame is STRICTLY frames (not keychains, mugs, lamps, polaroids, pandas, timers, paperweights, or general gifts)
+  const isFrame = !isPolaroid && !isMug && !isPanda && !isLiquidTimer && !isPaperWeight && !isKeyChain && !isLamp && (cleanCat.includes("frame") || cleanName.includes("frame"));
 
   // Variant objects
   const activeFrameSizes = (foundFromContext?.frameSizes && foundFromContext.frameSizes.length > 0)
@@ -364,9 +372,9 @@ export default function ProductDetailsPage({ params }: { params: Promise<any> })
 
   const minOrderQty = isPolaroid
     ? currentPolaroidObj.minOrderQty
-    : ((isPanda || isLiquidTimer || isPaperWeight || (adminVariants && adminVariants.length > 0)) ? 1 : (baseProduct.minOrderQty || 1));
+    : ((isPanda || isLiquidTimer || isPaperWeight || isKeyChain || isMug || isLamp || (adminVariants && adminVariants.length > 0)) ? 1 : (baseProduct.minOrderQty || 1));
 
-  const unitLabel = isPolaroid ? "Prints" : (isPaperWeight ? "Keepsakes" : ((isPanda || isLiquidTimer) ? "Items" : (baseProduct.unitLabel || "Items")));
+  const unitLabel = isPolaroid ? "Prints" : (isPaperWeight ? "Keepsakes" : ((isPanda || isLiquidTimer) ? "Items" : (isKeyChain ? "Keychains" : (isMug ? "Mugs" : (baseProduct.unitLabel || "Items")))));
 
   const [quantity, setQuantity] = useState<number>(minOrderQty);
 
@@ -379,7 +387,10 @@ export default function ProductDetailsPage({ params }: { params: Promise<any> })
 
   const selectedAdminVariant = adminVariants && adminVariants.length > 0 ? adminVariants[selectedAdminVariantIdx] : null;
 
-  // Unit price calculation
+  // Base fallback price for this specific product
+  const productBasePrice = foundFromContext?.price ?? (catalogEntry ? (catalogEntry as any).price : 99);
+
+  // Unit price calculation tailored to each specific product type
   const unitPrice = selectedAdminVariant
     ? selectedAdminVariant.price
     : (isPaperWeight
@@ -390,7 +401,9 @@ export default function ProductDetailsPage({ params }: { params: Promise<any> })
           ? currentPandaObj.price
           : (isPolaroid
             ? currentPolaroidObj.priceEach
-            : (selectedGsm === "180 GSM" ? (currentFrameObj?.gsm180Price || foundFromContext?.price || 149) : (currentFrameObj?.gsm260Price || foundFromContext?.price || 159))))));
+            : (isFrame
+              ? (selectedGsm === "260 GSM" ? (currentFrameObj?.gsm260Price || 159) : (currentFrameObj?.gsm180Price || 149))
+              : productBasePrice)))));
 
   const unitOriginalPrice = selectedAdminVariant
     ? (selectedAdminVariant.originalPrice || Math.round(unitPrice * 1.4))
@@ -400,15 +413,20 @@ export default function ProductDetailsPage({ params }: { params: Promise<any> })
         ? currentTimerObj.originalPrice
         : (isPanda
           ? currentPandaObj.originalPrice
-          : (isPolaroid ? Math.round(unitPrice * 1.5) : (currentFrameObj?.originalPrice || 199))))));
+          : (isPolaroid
+            ? Math.round(unitPrice * 1.5)
+            : (isFrame
+              ? (currentFrameObj?.originalPrice || 199)
+              : Math.round(unitPrice * 1.4)))))));
 
   const totalPrice = unitPrice * quantity;
   const totalOriginalPrice = unitOriginalPrice * quantity;
 
   // Photos Upload State
-  const isGiftProduct = baseProduct.category === "Gifts" || isPanda || isLiquidTimer || isPaperWeight || id === "3" || id === "4" || id === "5" || id === "7" || id === "8" || id === "9";
-  const isPhotoOptional = isGiftProduct;
-  const totalRequiredPhotos = isGiftProduct ? (isPanda || isLiquidTimer || isPaperWeight ? 0 : 1) : quantity;
+  const isNoPhotoProduct = isPanda || isLiquidTimer || isPaperWeight;
+  const isSinglePhotoProduct = isKeyChain || isMug || isLamp || baseProduct.category === "Gifts";
+  const isPhotoOptional = isNoPhotoProduct;
+  const totalRequiredPhotos = isNoPhotoProduct ? 0 : (isSinglePhotoProduct ? 1 : quantity);
   const [uploadedPhotos, setUploadedPhotos] = useState<(File | null)[]>(() => Array(totalRequiredPhotos).fill(null));
   const [uploadedPhotoDataUrls, setUploadedPhotoDataUrls] = useState<(string | null)[]>(() => Array(totalRequiredPhotos).fill(null));
   const [previewPhotoModal, setPreviewPhotoModal] = useState<{ index: number; file: File; url: string } | null>(null);
@@ -421,7 +439,7 @@ export default function ProductDetailsPage({ params }: { params: Promise<any> })
 
   // Sync photo slot length with quantity
   useEffect(() => {
-    if (isPanda || isLiquidTimer || isPaperWeight) return;
+    if (isNoPhotoProduct) return;
     setUploadedPhotos((prev) => {
       const updated = [...prev];
       while (updated.length < totalRequiredPhotos) {
@@ -436,7 +454,7 @@ export default function ProductDetailsPage({ params }: { params: Promise<any> })
       }
       return updated.slice(0, totalRequiredPhotos);
     });
-  }, [quantity, totalRequiredPhotos, isPanda, isLiquidTimer, isPaperWeight, isGiftProduct]);
+  }, [quantity, totalRequiredPhotos, isNoPhotoProduct]);
 
   const handleSingleFileUpload = (file: File, slotIdx: number) => {
     setUploadedPhotos((prev) => {
@@ -597,12 +615,98 @@ export default function ProductDetailsPage({ params }: { params: Promise<any> })
             </div>
             <div>
               <span className="font-bold text-xs text-[#3A2B24] uppercase tracking-wider block">Custom Photo Wrap</span>
-              <span className="text-[10px] text-[#6C5C54] block font-medium">Front & back prints</span>
+              <span className="text-[10px] text-[#6C5C54] block font-medium">Front &amp; back prints</span>
+            </div>
+          </div>
+        </div>
+      ) : isKeyChain ? (
+        /* PERSONALIZED KEY CHAIN FEATURES GRID */
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5 p-4 bg-[#FFF8F2] border border-[#EFE6DD] rounded-3xl mb-8 shadow-xs">
+          <div className="flex items-center gap-3 p-2 bg-white rounded-2xl border border-[#EFE6DD]">
+            <div className="h-10 w-10 rounded-xl bg-amber-50 border border-amber-200 flex items-center justify-center text-amber-600 flex-shrink-0">
+              <Camera className="h-5 w-5" />
+            </div>
+            <div>
+              <span className="font-bold text-xs text-[#3A2B24] uppercase tracking-wider block">Double-Sided HD</span>
+              <span className="text-[10px] text-[#6C5C54] block font-medium">Crystal clear photo print</span>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3 p-2 bg-white rounded-2xl border border-[#EFE6DD]">
+            <div className="h-10 w-10 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-600 flex-shrink-0">
+              <ShieldCheck className="h-5 w-5" />
+            </div>
+            <div>
+              <span className="font-bold text-xs text-[#3A2B24] uppercase tracking-wider block">Scratch-Resistant</span>
+              <span className="text-[10px] text-[#6C5C54] block font-medium">Tough acrylic casing</span>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3 p-2 bg-white rounded-2xl border border-[#EFE6DD]">
+            <div className="h-10 w-10 rounded-xl bg-pink-50 border border-pink-200 flex items-center justify-center text-pink-600 flex-shrink-0">
+              <Gift className="h-5 w-5" />
+            </div>
+            <div>
+              <span className="font-bold text-xs text-[#3A2B24] uppercase tracking-wider block">Pocket Keepsake</span>
+              <span className="text-[10px] text-[#6C5C54] block font-medium">For keys, bikes &amp; bags</span>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3 p-2 bg-white rounded-2xl border border-[#EFE6DD]">
+            <div className="h-10 w-10 rounded-xl bg-purple-50 border border-purple-200 flex items-center justify-center text-purple-600 flex-shrink-0">
+              <Sparkles className="h-5 w-5" />
+            </div>
+            <div>
+              <span className="font-bold text-xs text-[#3A2B24] uppercase tracking-wider block">Stainless Keyring</span>
+              <span className="text-[10px] text-[#6C5C54] block font-medium">Durable everyday link</span>
+            </div>
+          </div>
+        </div>
+      ) : isLamp ? (
+        /* LED ACRYLIC / PHOTO LAMP FEATURES GRID */
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5 p-4 bg-[#FFF8F2] border border-[#EFE6DD] rounded-3xl mb-8 shadow-xs">
+          <div className="flex items-center gap-3 p-2 bg-white rounded-2xl border border-[#EFE6DD]">
+            <div className="h-10 w-10 rounded-xl bg-amber-50 border border-amber-200 flex items-center justify-center text-amber-600 flex-shrink-0">
+              <Lightbulb className="h-5 w-5" />
+            </div>
+            <div>
+              <span className="font-bold text-xs text-[#3A2B24] uppercase tracking-wider block">Multi-Color LED</span>
+              <span className="text-[10px] text-[#6C5C54] block font-medium">Warm ambient modes</span>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3 p-2 bg-white rounded-2xl border border-[#EFE6DD]">
+            <div className="h-10 w-10 rounded-xl bg-rose-50 border border-rose-200 flex items-center justify-center text-rose-600 flex-shrink-0">
+              <Award className="h-5 w-5" />
+            </div>
+            <div>
+              <span className="font-bold text-xs text-[#3A2B24] uppercase tracking-wider block">Solid Wood Base</span>
+              <span className="text-[10px] text-[#6C5C54] block font-medium">Handcrafted natural base</span>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3 p-2 bg-white rounded-2xl border border-[#EFE6DD]">
+            <div className="h-10 w-10 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-600 flex-shrink-0">
+              <ShieldCheck className="h-5 w-5" />
+            </div>
+            <div>
+              <span className="font-bold text-xs text-[#3A2B24] uppercase tracking-wider block">Laser Engraved</span>
+              <span className="text-[10px] text-[#6C5C54] block font-medium">Sharp precision acrylic</span>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3 p-2 bg-white rounded-2xl border border-[#EFE6DD]">
+            <div className="h-10 w-10 rounded-xl bg-purple-50 border border-purple-200 flex items-center justify-center text-purple-600 flex-shrink-0">
+              <Zap className="h-5 w-5" />
+            </div>
+            <div>
+              <span className="font-bold text-xs text-[#3A2B24] uppercase tracking-wider block">USB Powered</span>
+              <span className="text-[10px] text-[#6C5C54] block font-medium">Convenient cord switch</span>
             </div>
           </div>
         </div>
       ) : isPaperWeight ? (
-        /* FOREVER US PAPER WEIGHT FEATURES GRID (From Image 1) */
+        /* FOREVER US PAPER WEIGHT FEATURES GRID */
         <div className="grid grid-cols-2 sm:grid-cols-5 gap-3.5 p-4 bg-[#FFF8F2] border border-[#EFE6DD] rounded-3xl mb-8 shadow-xs">
           <div className="flex items-center gap-3 p-2 bg-white rounded-2xl border border-[#EFE6DD]">
             <div className="h-10 w-10 rounded-xl bg-[#FFF8F2] border border-[#EFE6DD] flex items-center justify-center text-rose-500 flex-shrink-0">
@@ -629,7 +733,7 @@ export default function ProductDetailsPage({ params }: { params: Promise<any> })
               <ShieldCheck className="h-5 w-5" />
             </div>
             <div>
-              <span className="font-bold text-xs text-[#3A2B24] uppercase tracking-wider block">Elegant & Durable</span>
+              <span className="font-bold text-xs text-[#3A2B24] uppercase tracking-wider block">Elegant &amp; Durable</span>
               <span className="text-[10px] text-[#6C5C54] block font-medium">Heavyweight finish</span>
             </div>
           </div>
@@ -640,7 +744,7 @@ export default function ProductDetailsPage({ params }: { params: Promise<any> })
             </div>
             <div>
               <span className="font-bold text-xs text-[#3A2B24] uppercase tracking-wider block">Perfect Gift</span>
-              <span className="text-[10px] text-[#6C5C54] block font-medium">For couples & loved ones</span>
+              <span className="text-[10px] text-[#6C5C54] block font-medium">For couples &amp; loved ones</span>
             </div>
           </div>
 
@@ -649,13 +753,13 @@ export default function ProductDetailsPage({ params }: { params: Promise<any> })
               <Home className="h-5 w-5" />
             </div>
             <div>
-              <span className="font-bold text-xs text-[#3A2B24] uppercase tracking-wider block">Desk & Paper Weight</span>
+              <span className="font-bold text-xs text-[#3A2B24] uppercase tracking-wider block">Desk &amp; Paper Weight</span>
               <span className="text-[10px] text-[#6C5C54] block font-medium">Dual purpose accent</span>
             </div>
           </div>
         </div>
       ) : isLiquidTimer ? (
-        /* LIQUID MOTION TIMER FEATURES GRID (From Image 2) */
+        /* LIQUID MOTION TIMER FEATURES GRID */
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5 p-4 bg-[#FFF8F2] border border-[#EFE6DD] rounded-3xl mb-8 shadow-xs">
           <div className="flex items-center gap-3 p-2 bg-white rounded-2xl border border-[#EFE6DD]">
             <div className="h-10 w-10 rounded-xl bg-[#FFF8F2] border border-[#EFE6DD] flex items-center justify-center text-[#D89A86] flex-shrink-0">
@@ -682,7 +786,7 @@ export default function ProductDetailsPage({ params }: { params: Promise<any> })
               <Home className="h-5 w-5" />
             </div>
             <div>
-              <span className="font-bold text-xs text-[#3A2B24] uppercase tracking-wider block">Desk & Home Decor</span>
+              <span className="font-bold text-xs text-[#3A2B24] uppercase tracking-wider block">Desk &amp; Home Decor</span>
               <span className="text-[10px] text-[#6C5C54] block font-medium">Calming aesthetic vibes</span>
             </div>
           </div>
@@ -692,20 +796,20 @@ export default function ProductDetailsPage({ params }: { params: Promise<any> })
               <Award className="h-5 w-5" />
             </div>
             <div>
-              <span className="font-bold text-xs text-[#3A2B24] uppercase tracking-wider block">Durable & High Quality</span>
+              <span className="font-bold text-xs text-[#3A2B24] uppercase tracking-wider block">Durable &amp; High Quality</span>
               <span className="text-[10px] text-[#6C5C54] block font-medium">Leak-proof acrylic</span>
             </div>
           </div>
         </div>
       ) : isPanda ? (
-        /* PANDA LAMP FEATURES GRID (From Image 2) */
+        /* PANDA LAMP FEATURES GRID */
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5 p-4 bg-[#FFF8F2] border border-[#EFE6DD] rounded-3xl mb-8 shadow-xs">
           <div className="flex items-center gap-3 p-2 bg-white rounded-2xl border border-[#EFE6DD]">
             <div className="h-10 w-10 rounded-xl bg-[#FFF8F2] border border-[#EFE6DD] flex items-center justify-center text-[#D89A86] flex-shrink-0">
               <Lightbulb className="h-5 w-5" />
             </div>
             <div>
-              <span className="font-bold text-xs text-[#3A2B24] uppercase tracking-wider block">Soft & Warm Glow</span>
+              <span className="font-bold text-xs text-[#3A2B24] uppercase tracking-wider block">Soft &amp; Warm Glow</span>
               <span className="text-[10px] text-[#6C5C54] block font-medium">Eye-caring night light</span>
             </div>
           </div>
@@ -726,7 +830,7 @@ export default function ProductDetailsPage({ params }: { params: Promise<any> })
             </div>
             <div>
               <span className="font-bold text-xs text-[#3A2B24] uppercase tracking-wider block">Perfect Gift</span>
-              <span className="text-[10px] text-[#6C5C54] block font-medium">For kids & loved ones</span>
+              <span className="text-[10px] text-[#6C5C54] block font-medium">For kids &amp; loved ones</span>
             </div>
           </div>
 
@@ -741,7 +845,7 @@ export default function ProductDetailsPage({ params }: { params: Promise<any> })
           </div>
         </div>
       ) : isPolaroid ? (
-        /* POLAROID FEATURES GRID (From Image 2) */
+        /* POLAROID FEATURES GRID */
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5 p-4 bg-[#FFF8F2] border border-[#EFE6DD] rounded-3xl mb-8 shadow-xs">
           <div className="flex items-center gap-3 p-3 bg-white rounded-2xl border border-[#EFE6DD]">
             <div className="h-10 w-10 rounded-xl bg-[#FFF8F2] border border-[#EFE6DD] flex items-center justify-center text-[#D89A86] flex-shrink-0">
@@ -749,7 +853,7 @@ export default function ProductDetailsPage({ params }: { params: Promise<any> })
             </div>
             <div>
               <span className="font-bold text-xs text-[#3A2B24] uppercase tracking-wider block">High Quality Prints</span>
-              <span className="text-[10px] text-[#6C5C54] block font-medium">Vibrant colors, sharp & lasting</span>
+              <span className="text-[10px] text-[#6C5C54] block font-medium">Vibrant colors, sharp &amp; lasting</span>
             </div>
           </div>
 
@@ -768,13 +872,13 @@ export default function ProductDetailsPage({ params }: { params: Promise<any> })
               <Gift className="h-5 w-5" />
             </div>
             <div>
-              <span className="font-bold text-xs text-[#3A2B24] uppercase tracking-wider block">Gifting & Scrapbooking</span>
+              <span className="font-bold text-xs text-[#3A2B24] uppercase tracking-wider block">Gifting &amp; Scrapbooking</span>
               <span className="text-[10px] text-[#6C5C54] block font-medium">Add personal touch to gifts</span>
             </div>
           </div>
         </div>
-      ) : (
-        /* FRAME FEATURES GRID (From Image 2) */
+      ) : isFrame ? (
+        /* FRAME FEATURES GRID */
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5 p-4 bg-[#FFF8F2] border border-[#EFE6DD] rounded-3xl mb-8 shadow-xs">
           <div className="flex items-center gap-3 p-2 bg-white rounded-2xl border border-[#EFE6DD]">
             <div className="h-10 w-10 rounded-xl bg-[#FFF8F2] border border-[#EFE6DD] flex items-center justify-center text-[#D89A86] flex-shrink-0">
@@ -792,7 +896,7 @@ export default function ProductDetailsPage({ params }: { params: Promise<any> })
             </div>
             <div>
               <span className="font-bold text-xs text-[#3A2B24] uppercase tracking-wider block">PREMIUM QUALITY</span>
-              <span className="text-[10px] text-[#6C5C54] block font-medium">Durable frame & finish</span>
+              <span className="text-[10px] text-[#6C5C54] block font-medium">Durable frame &amp; finish</span>
             </div>
           </div>
 
@@ -811,8 +915,51 @@ export default function ProductDetailsPage({ params }: { params: Promise<any> })
               <LayoutGrid className="h-5 w-5" />
             </div>
             <div>
-              <span className="font-bold text-xs text-[#3A2B24] uppercase tracking-wider block">WALL & TABLE TOP</span>
-              <span className="text-[10px] text-[#6C5C54] block font-medium">With stand & hook</span>
+              <span className="font-bold text-xs text-[#3A2B24] uppercase tracking-wider block">WALL &amp; TABLE TOP</span>
+              <span className="text-[10px] text-[#6C5C54] block font-medium">With stand &amp; hook</span>
+            </div>
+          </div>
+        </div>
+      ) : (
+        /* GENERAL CUSTOM PRODUCT FEATURES GRID */
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5 p-4 bg-[#FFF8F2] border border-[#EFE6DD] rounded-3xl mb-8 shadow-xs">
+          <div className="flex items-center gap-3 p-2 bg-white rounded-2xl border border-[#EFE6DD]">
+            <div className="h-10 w-10 rounded-xl bg-amber-50 border border-amber-200 flex items-center justify-center text-amber-600 flex-shrink-0">
+              <Award className="h-5 w-5" />
+            </div>
+            <div>
+              <span className="font-bold text-xs text-[#3A2B24] uppercase tracking-wider block">Studio Craftsmanship</span>
+              <span className="text-[10px] text-[#6C5C54] block font-medium">Handcrafted with care</span>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3 p-2 bg-white rounded-2xl border border-[#EFE6DD]">
+            <div className="h-10 w-10 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-600 flex-shrink-0">
+              <ShieldCheck className="h-5 w-5" />
+            </div>
+            <div>
+              <span className="font-bold text-xs text-[#3A2B24] uppercase tracking-wider block">Premium Quality</span>
+              <span className="text-[10px] text-[#6C5C54] block font-medium">Durable &amp; long lasting</span>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3 p-2 bg-white rounded-2xl border border-[#EFE6DD]">
+            <div className="h-10 w-10 rounded-xl bg-pink-50 border border-pink-200 flex items-center justify-center text-pink-600 flex-shrink-0">
+              <Gift className="h-5 w-5" />
+            </div>
+            <div>
+              <span className="font-bold text-xs text-[#3A2B24] uppercase tracking-wider block">Personalized Gift</span>
+              <span className="text-[10px] text-[#6C5C54] block font-medium">Customized for you</span>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3 p-2 bg-white rounded-2xl border border-[#EFE6DD]">
+            <div className="h-10 w-10 rounded-xl bg-purple-50 border border-purple-200 flex items-center justify-center text-purple-600 flex-shrink-0">
+              <Sparkles className="h-5 w-5" />
+            </div>
+            <div>
+              <span className="font-bold text-xs text-[#3A2B24] uppercase tracking-wider block">Verified Studio</span>
+              <span className="text-[10px] text-[#6C5C54] block font-medium">Local studio printing</span>
             </div>
           </div>
         </div>
@@ -828,7 +975,7 @@ export default function ProductDetailsPage({ params }: { params: Promise<any> })
               className="object-cover w-full h-full"
             />
             <Badge className="absolute top-4 left-4 bg-[#3A2B24] text-white text-[10px] font-bold px-3 py-1 rounded-full border-none shadow-xs">
-              {isPaperWeight ? "ONLY AT ₹229 • BEST QUALITY ♥" : (isLiquidTimer ? "SPECIAL PRICE ₹299 ONLY ✨" : (isPanda ? "ONLY AT ₹99 ONLY ✨" : (isPolaroid ? "Tiny Prints • Big Memories" : "Special Opening Offer")))}
+              {baseProduct.badgeTag || (isPaperWeight ? "ONLY AT ₹229 • BEST QUALITY ♥" : (isLiquidTimer ? "SPECIAL PRICE ₹299 ONLY ✨" : (isPanda ? "ONLY AT ₹99 ONLY ✨" : (isKeyChain ? "ONLY AT ₹99 • DOUBLE-SIDED HD ♥" : (isLamp ? "ONLY AT ₹1,299 • 7 LED MODES ✨" : (isMug ? "ONLY AT ₹349 • HEAT REVEAL ✨" : (isPolaroid ? "Tiny Prints • Big Memories" : (isFrame ? `${currentFrameObj.discountPct}% OFF OPENING OFFER` : "Studio Special Offer"))))))))}
             </Badge>
             <Button 
               variant="ghost" 
@@ -864,7 +1011,7 @@ export default function ProductDetailsPage({ params }: { params: Promise<any> })
           {/* About Section */}
           <div className="p-5 bg-white border border-[#EFE6DD] rounded-3xl mt-2">
             <h4 className="font-serif-brand font-bold text-base text-[#3A2B24] mb-3 flex items-center gap-2">
-              <Sparkles className="h-4 w-4 text-[#D89A86]" /> {isPaperWeight ? "ABOUT FOREVER US PAPER WEIGHT" : (isLiquidTimer ? "ABOUT LIQUID MOTION TIMER" : (isPanda ? "ABOUT MOSS PANDA LAMP" : (isPolaroid ? "ABOUT OUR POLAROIDS" : "ABOUT OUR FRAMES")))}
+              <Sparkles className="h-4 w-4 text-[#D89A86]" /> {isPaperWeight ? "ABOUT FOREVER US PAPER WEIGHT" : (isLiquidTimer ? "ABOUT LIQUID MOTION TIMER" : (isPanda ? "ABOUT MOSS PANDA LAMP" : (isKeyChain ? "ABOUT PERSONALIZED KEY CHAIN" : (isLamp ? "ABOUT LED ACRYLIC PHOTO LAMP" : (isMug ? "ABOUT CUSTOM PHOTO MUG" : (isPolaroid ? "ABOUT OUR POLAROIDS" : (isFrame ? "ABOUT OUR FRAMES" : `ABOUT ${product.name.toUpperCase()}`)))))))}
             </h4>
             <ul className="flex flex-col gap-2 text-xs text-[#6C5C54]">
               {isPaperWeight ? (
@@ -879,7 +1026,7 @@ export default function ProductDetailsPage({ params }: { params: Promise<any> })
                     <CheckCircle2 className="h-4 w-4 text-rose-500 flex-shrink-0" /> Built-in warm fairy LED light-up glow
                   </li>
                   <li className="flex items-center gap-2 font-medium">
-                    <CheckCircle2 className="h-4 w-4 text-rose-500 flex-shrink-0" /> Heavyweight paper weight & aesthetic desk decor
+                    <CheckCircle2 className="h-4 w-4 text-rose-500 flex-shrink-0" /> Heavyweight paper weight &amp; aesthetic desk decor
                   </li>
                 </>
               ) : isLiquidTimer ? (
@@ -888,13 +1035,13 @@ export default function ProductDetailsPage({ params }: { params: Promise<any> })
                     <CheckCircle2 className="h-4 w-4 text-[#D89A86] flex-shrink-0" /> Mesmerizing slow-falling colorful droplets
                   </li>
                   <li className="flex items-center gap-2 font-medium">
-                    <CheckCircle2 className="h-4 w-4 text-[#D89A86] flex-shrink-0" /> Calming sensory motion & stress reliever
+                    <CheckCircle2 className="h-4 w-4 text-[#D89A86] flex-shrink-0" /> Calming sensory motion &amp; stress reliever
                   </li>
                   <li className="flex items-center gap-2 font-medium">
                     <CheckCircle2 className="h-4 w-4 text-[#D89A86] flex-shrink-0" /> Leak-proof high quality durable acrylic
                   </li>
                   <li className="flex items-center gap-2 font-medium">
-                    <CheckCircle2 className="h-4 w-4 text-[#D89A86] flex-shrink-0" /> Perfect for work desk, study table & gifting
+                    <CheckCircle2 className="h-4 w-4 text-[#D89A86] flex-shrink-0" /> Perfect for work desk, study table &amp; gifting
                   </li>
                 </>
               ) : isPanda ? (
@@ -909,7 +1056,61 @@ export default function ProductDetailsPage({ params }: { params: Promise<any> })
                     <CheckCircle2 className="h-4 w-4 text-emerald-600 flex-shrink-0" /> Cute green moss hat panda design
                   </li>
                   <li className="flex items-center gap-2 font-medium">
-                    <CheckCircle2 className="h-4 w-4 text-emerald-600 flex-shrink-0" /> Perfect for bedside companion, desk decor & gifting
+                    <CheckCircle2 className="h-4 w-4 text-emerald-600 flex-shrink-0" /> Perfect for bedside companion, desk decor &amp; gifting
+                  </li>
+                </>
+              ) : isKeyChain ? (
+                <>
+                  <li className="flex items-center gap-2 font-medium">
+                    <CheckCircle2 className="h-4 w-4 text-emerald-600 flex-shrink-0" /> Double-sided high-resolution photo print
+                  </li>
+                  <li className="flex items-center gap-2 font-medium">
+                    <CheckCircle2 className="h-4 w-4 text-emerald-600 flex-shrink-0" /> Crystal clear scratch-resistant acrylic casing
+                  </li>
+                  <li className="flex items-center gap-2 font-medium">
+                    <CheckCircle2 className="h-4 w-4 text-emerald-600 flex-shrink-0" /> Heavy-duty stainless steel keyring for keys &amp; bags
+                  </li>
+                  <li className="flex items-center gap-2 font-medium">
+                    <CheckCircle2 className="h-4 w-4 text-emerald-600 flex-shrink-0" /> Waterproof &amp; fade-proof studio quality
+                  </li>
+                  <li className="flex items-center gap-2 font-medium">
+                    <CheckCircle2 className="h-4 w-4 text-emerald-600 flex-shrink-0" /> Compact pocket keepsake for bikes, cars &amp; gifting
+                  </li>
+                </>
+              ) : isLamp ? (
+                <>
+                  <li className="flex items-center gap-2 font-medium">
+                    <CheckCircle2 className="h-4 w-4 text-emerald-600 flex-shrink-0" /> Laser-engraved high-grade acrylic panel
+                  </li>
+                  <li className="flex items-center gap-2 font-medium">
+                    <CheckCircle2 className="h-4 w-4 text-emerald-600 flex-shrink-0" /> Handcrafted natural solid wooden base
+                  </li>
+                  <li className="flex items-center gap-2 font-medium">
+                    <CheckCircle2 className="h-4 w-4 text-emerald-600 flex-shrink-0" /> 7 ambient warm &amp; multicolor LED light modes
+                  </li>
+                  <li className="flex items-center gap-2 font-medium">
+                    <CheckCircle2 className="h-4 w-4 text-emerald-600 flex-shrink-0" /> USB powered with convenient on/off cord switch
+                  </li>
+                  <li className="flex items-center gap-2 font-medium">
+                    <CheckCircle2 className="h-4 w-4 text-emerald-600 flex-shrink-0" /> Perfect bedside night lamp &amp; personalized gift
+                  </li>
+                </>
+              ) : isMug ? (
+                <>
+                  <li className="flex items-center gap-2 font-medium">
+                    <CheckCircle2 className="h-4 w-4 text-emerald-600 flex-shrink-0" /> High-grade 330ml glossy ceramic mug
+                  </li>
+                  <li className="flex items-center gap-2 font-medium">
+                    <CheckCircle2 className="h-4 w-4 text-emerald-600 flex-shrink-0" /> Heat-activated magic photo reveal effect
+                  </li>
+                  <li className="flex items-center gap-2 font-medium">
+                    <CheckCircle2 className="h-4 w-4 text-emerald-600 flex-shrink-0" /> Microwave &amp; dishwasher safe
+                  </li>
+                  <li className="flex items-center gap-2 font-medium">
+                    <CheckCircle2 className="h-4 w-4 text-emerald-600 flex-shrink-0" /> Fade-proof permanent photo wrap print
+                  </li>
+                  <li className="flex items-center gap-2 font-medium">
+                    <CheckCircle2 className="h-4 w-4 text-emerald-600 flex-shrink-0" /> Perfect morning coffee gift for loved ones
                   </li>
                 </>
               ) : isPolaroid ? (
@@ -918,16 +1119,16 @@ export default function ProductDetailsPage({ params }: { params: Promise<any> })
                     <CheckCircle2 className="h-4 w-4 text-emerald-600 flex-shrink-0" /> Premium high-gsm photo paper prints
                   </li>
                   <li className="flex items-center gap-2 font-medium">
-                    <CheckCircle2 className="h-4 w-4 text-emerald-600 flex-shrink-0" /> Vibrant colors, sharp details & fade resistant
+                    <CheckCircle2 className="h-4 w-4 text-emerald-600 flex-shrink-0" /> Vibrant colors, sharp details &amp; fade resistant
                   </li>
                   <li className="flex items-center gap-2 font-medium">
                     <CheckCircle2 className="h-4 w-4 text-emerald-600 flex-shrink-0" /> Authentic retro polaroid white borders
                   </li>
                   <li className="flex items-center gap-2 font-medium">
-                    <CheckCircle2 className="h-4 w-4 text-emerald-600 flex-shrink-0" /> Perfect for wall decor, scrapbooks & gifting
+                    <CheckCircle2 className="h-4 w-4 text-emerald-600 flex-shrink-0" /> Perfect for wall decor, scrapbooks &amp; gifting
                   </li>
                 </>
-              ) : (
+              ) : isFrame ? (
                 <>
                   <li className="flex items-center gap-2 font-medium">
                     <CheckCircle2 className="h-4 w-4 text-emerald-600 flex-shrink-0" /> High quality MDF wood frame
@@ -939,10 +1140,28 @@ export default function ProductDetailsPage({ params }: { params: Promise<any> })
                     <CheckCircle2 className="h-4 w-4 text-emerald-600 flex-shrink-0" /> Fade resistant print
                   </li>
                   <li className="flex items-center gap-2 font-medium">
-                    <CheckCircle2 className="h-4 w-4 text-emerald-600 flex-shrink-0" /> Sturdy backing with stand & hook
+                    <CheckCircle2 className="h-4 w-4 text-emerald-600 flex-shrink-0" /> Sturdy backing with stand &amp; hook
                   </li>
                   <li className="flex items-center gap-2 font-medium">
-                    <CheckCircle2 className="h-4 w-4 text-emerald-600 flex-shrink-0" /> Perfect for home, office & gifting
+                    <CheckCircle2 className="h-4 w-4 text-emerald-600 flex-shrink-0" /> Perfect for home, office &amp; gifting
+                  </li>
+                </>
+              ) : (
+                <>
+                  <li className="flex items-center gap-2 font-medium">
+                    <CheckCircle2 className="h-4 w-4 text-emerald-600 flex-shrink-0" /> Master studio handcrafted finish
+                  </li>
+                  <li className="flex items-center gap-2 font-medium">
+                    <CheckCircle2 className="h-4 w-4 text-emerald-600 flex-shrink-0" /> High-definition vibrant color reproduction
+                  </li>
+                  <li className="flex items-center gap-2 font-medium">
+                    <CheckCircle2 className="h-4 w-4 text-emerald-600 flex-shrink-0" /> Durable premium materials built to last
+                  </li>
+                  <li className="flex items-center gap-2 font-medium">
+                    <CheckCircle2 className="h-4 w-4 text-emerald-600 flex-shrink-0" /> Printed &amp; dispatched by verified local studio
+                  </li>
+                  <li className="flex items-center gap-2 font-medium">
+                    <CheckCircle2 className="h-4 w-4 text-emerald-600 flex-shrink-0" /> Safe packaging &amp; doorstep express delivery
                   </li>
                 </>
               )}
@@ -972,7 +1191,7 @@ export default function ProductDetailsPage({ params }: { params: Promise<any> })
             <span className="text-xs text-[#6C5C54] font-medium">per item</span>
             <span className="text-lg text-muted-foreground line-through ml-2">₹{unitOriginalPrice}</span>
             <Badge suppressHydrationWarning className="bg-[#3A2B24] text-white font-bold text-xs px-3 py-1 rounded-full border-none">
-              {baseProduct.badgeTag || (isPaperWeight ? "ONLY AT ₹229 • BEST QUALITY ♥" : (isLiquidTimer ? "SPECIAL PRICE ₹299 ONLY ✨" : (isPanda ? "ONLY AT ₹99 ONLY ✨" : (isPolaroid ? `Min Order ${currentPolaroidObj.minOrderQty} Prints` : `${currentFrameObj.discountPct}% OFF OPENING OFFER`))))}
+              {baseProduct.badgeTag || (isPaperWeight ? "ONLY AT ₹229 • BEST QUALITY ♥" : (isLiquidTimer ? "SPECIAL PRICE ₹299 ONLY ✨" : (isPanda ? "ONLY AT ₹99 ONLY ✨" : (isKeyChain ? "ONLY AT ₹99 • DOUBLE-SIDED HD ♥" : (isLamp ? "ONLY AT ₹1,299 • 7 LED MODES ✨" : (isMug ? "ONLY AT ₹349 • HEAT REVEAL ✨" : (isPolaroid ? `Min Order ${currentPolaroidObj.minOrderQty} Prints` : (isFrame ? `${currentFrameObj.discountPct}% OFF OPENING OFFER` : "SPECIAL STUDIO OFFER"))))))))}
             </Badge>
           </div>
 
@@ -1030,7 +1249,7 @@ export default function ProductDetailsPage({ params }: { params: Promise<any> })
                 </div>
               </div>
             ) : isPaperWeight ? (
-              /* FOREVER US PAPER WEIGHT OFFER VARIANT CARDS (From Image 1) */
+              /* FOREVER US PAPER WEIGHT OFFER VARIANT CARDS */
               <div>
                 <div className="flex items-center justify-between mb-3">
                   <h3 className="font-serif-brand text-xl font-bold text-[#3A2B24]">Choose Paper Weight Edition</h3>
@@ -1080,7 +1299,7 @@ export default function ProductDetailsPage({ params }: { params: Promise<any> })
                 </div>
               </div>
             ) : isLiquidTimer ? (
-              /* LIQUID MOTION TIMER OFFER VARIANT CARDS (From Image 2) */
+              /* LIQUID MOTION TIMER OFFER VARIANT CARDS */
               <div>
                 <div className="flex items-center justify-between mb-3">
                   <h3 className="font-serif-brand text-xl font-bold text-[#3A2B24]">Choose Liquid Motion Edition</h3>
@@ -1115,7 +1334,7 @@ export default function ProductDetailsPage({ params }: { params: Promise<any> })
                   })}
                 </div>
 
-                {/* Perfect For Section (From Image 2) */}
+                {/* Perfect For Section */}
                 <div className="mt-5 p-4 bg-white border border-[#EFE6DD] rounded-2xl">
                   <label className="text-xs font-bold text-[#3A2B24] mb-3 block uppercase tracking-wider">
                     ♥ Perfect For ♥
@@ -1155,7 +1374,7 @@ export default function ProductDetailsPage({ params }: { params: Promise<any> })
                 </div>
               </div>
             ) : isPanda ? (
-              /* PANDA LAMP OFFER VARIANT CARDS (From Image 2) */
+              /* PANDA LAMP OFFER VARIANT CARDS */
               <div>
                 <div className="flex items-center justify-between mb-3">
                   <h3 className="font-serif-brand text-xl font-bold text-[#3A2B24]">Choose Lamp Edition</h3>
@@ -1205,7 +1424,7 @@ export default function ProductDetailsPage({ params }: { params: Promise<any> })
                 </div>
               </div>
             ) : isPolaroid ? (
-              /* OUR POLAROID PRICES (From Image 2) */
+              /* OUR POLAROID PRICES */
               <div>
                 <div className="flex items-center justify-between mb-3">
                   <h3 className="font-serif-brand text-xl font-bold text-[#3A2B24]">Our Polaroid Prices</h3>
@@ -1248,8 +1467,47 @@ export default function ProductDetailsPage({ params }: { params: Promise<any> })
                   })}
                 </div>
               </div>
-            ) : (
-              /* CHOOSE YOUR FRAME SIZES (From Image 2) */
+            ) : isKeyChain ? (
+              /* KEY CHAIN SPECIFICATIONS & CUSTOMIZATION */
+              <div>
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="font-serif-brand text-xl font-bold text-[#3A2B24]">Personalized Keychain Options</h3>
+                  <span className="text-xs text-[#D89A86] font-bold">✨ ₹99 FLAT • DOUBLE-SIDED HD ✨</span>
+                </div>
+
+                <div className="p-4 rounded-2xl border border-[#EFE6DD] bg-white flex flex-col gap-3 shadow-2xs">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-[#3A2B24] uppercase tracking-wider">Product Specifications</span>
+                    <span className="text-[10px] font-bold bg-emerald-100 text-emerald-800 px-2.5 py-0.5 rounded-full">Double-Sided HD</span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 text-xs text-[#6C5C54]">
+                    <div className="p-2.5 bg-[#FFF8F2] rounded-xl border border-[#EFE6DD]">
+                      <span className="text-[10px] text-[#6C5C54] block font-medium">Dimensions:</span>
+                      <strong className="text-[#3A2B24] font-bold">5.5 x 3.8 cm (Pocket-fit)</strong>
+                    </div>
+                    <div className="p-2.5 bg-[#FFF8F2] rounded-xl border border-[#EFE6DD]">
+                      <span className="text-[10px] text-[#6C5C54] block font-medium">Material:</span>
+                      <strong className="text-[#3A2B24] font-bold">Scratch-Proof Acrylic</strong>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Optional Custom Text Input */}
+                <div className="mt-4">
+                  <label className="text-xs font-bold text-[#3A2B24] mb-1.5 flex items-center justify-between">
+                    <span>Add Optional Custom Name / Date / Note:</span>
+                    <span className="text-[10px] text-[#D89A86]">Optional</span>
+                  </label>
+                  <Input 
+                    placeholder="Enter name, vehicle number, or special date ❤️"
+                    value={customGiftMessage}
+                    onChange={(e) => setCustomGiftMessage(e.target.value)}
+                    className="rounded-xl border-[#EFE6DD] bg-white text-xs font-medium"
+                  />
+                </div>
+              </div>
+            ) : isFrame ? (
+              /* CHOOSE YOUR FRAME SIZES (STRICTLY ONLY FOR FRAMES) */
               <div>
                 <div className="flex items-center justify-between mb-3">
                   <h3 className="font-serif-brand text-xl font-bold text-[#3A2B24]">Choose Your Frame Size</h3>
@@ -1301,10 +1559,39 @@ export default function ProductDetailsPage({ params }: { params: Promise<any> })
                   </div>
                 )}
               </div>
+            ) : (
+              /* GENERAL PRODUCT CUSTOMIZATION */
+              <div>
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="font-serif-brand text-xl font-bold text-[#3A2B24]">{product.name} Options</h3>
+                  <span className="text-xs text-[#D89A86] font-bold">✨ Studio Quality ✨</span>
+                </div>
+
+                <div className="p-4 rounded-2xl border border-[#EFE6DD] bg-white flex flex-col gap-2 shadow-2xs">
+                  <span className="text-xs font-bold text-[#3A2B24] uppercase tracking-wider">Product Edition</span>
+                  <p className="text-xs text-[#6C5C54]">
+                    Handcrafted by our verified local photo studio partners. Upload your customized photos below!
+                  </p>
+                </div>
+
+                {/* Optional Custom Instructions */}
+                <div className="mt-4">
+                  <label className="text-xs font-bold text-[#3A2B24] mb-1.5 flex items-center justify-between">
+                    <span>Add Optional Note or Instructions (Free):</span>
+                    <span className="text-[10px] text-[#D89A86]">Optional</span>
+                  </label>
+                  <Input 
+                    placeholder="Enter custom instructions or message"
+                    value={customGiftMessage}
+                    onChange={(e) => setCustomGiftMessage(e.target.value)}
+                    className="rounded-xl border-[#EFE6DD] bg-white text-xs font-medium"
+                  />
+                </div>
+              </div>
             )}
 
-            {/* GSM & COLOR OPTIONS ONLY FOR FRAMES */}
-            {!isPolaroid && !isPanda && !isLiquidTimer && !isPaperWeight && (
+            {/* GSM & COLOR OPTIONS STRICTLY FOR FRAMES ONLY */}
+            {isFrame && (
               <>
                 <div>
                   <label className="text-xs font-bold text-[#3A2B24] mb-2 block uppercase tracking-wider">
@@ -1555,7 +1842,7 @@ export default function ProductDetailsPage({ params }: { params: Promise<any> })
               {/* Total Amount Card */}
               <div className="mt-4 p-4 rounded-2xl bg-white border border-[#EFE6DD] flex items-center justify-between shadow-xs max-w-md">
                 <span className="text-xs font-medium text-[#6C5C54]">
-                  Total ({isPaperWeight ? currentPaperWeightObj.name : (isLiquidTimer ? currentTimerObj.name : (isPanda ? currentPandaObj.name : (isPolaroid ? `${selectedPolaroidSize} Polaroid` : `${selectedSizeLabel} • ${selectedGsm}`)))})
+                  Total ({selectedAdminVariant ? selectedAdminVariant.name : (isPaperWeight ? currentPaperWeightObj.name : (isLiquidTimer ? currentTimerObj.name : (isPanda ? currentPandaObj.name : (isKeyChain ? "Personalized Keychain" : (isMug ? product.name : (isLamp ? `${product.name} (7 LED Modes)` : (isPolaroid ? `${selectedPolaroidSize} Polaroid` : `${selectedSizeLabel} • ${selectedGsm}`)))))))})
                 </span>
                 <div className="flex items-baseline gap-2">
                   <span suppressHydrationWarning className="text-2xl font-bold text-[#D89A86]">₹{totalPrice}</span>
@@ -1602,16 +1889,26 @@ export default function ProductDetailsPage({ params }: { params: Promise<any> })
                 className="flex-1 h-14 text-lg rounded-full btn-pixello-primary cursor-pointer"
                 onClick={() => {
                   if (!isComplete && !isPhotoOptional) {
-                    alert(`⚠️ Photo upload is compulsory for Frames & Polaroids! Please upload all ${totalRequiredPhotos} photo(s) before adding to cart (${uploadedCount}/${totalRequiredPhotos} uploaded).`);
+                    alert(`⚠️ Photo upload is compulsory! Please upload all ${totalRequiredPhotos} photo(s) before adding to cart (${uploadedCount}/${totalRequiredPhotos} uploaded).`);
                     return;
                   }
-                  const chosenSize = isPaperWeight
-                    ? `${currentPaperWeightObj.name}`
-                    : (isLiquidTimer
-                      ? `${currentTimerObj.name}`
-                      : (isPanda
-                        ? `${currentPandaObj.name}`
-                        : (isPolaroid ? `${selectedPolaroidSize} Polaroid (${quantity} Prints)` : `${selectedSizeLabel} (${selectedGsm}, ${selectedColor} Frame)`)));
+                  const chosenSize = selectedAdminVariant
+                    ? selectedAdminVariant.name
+                    : (isPaperWeight
+                      ? `${currentPaperWeightObj.name}`
+                      : (isLiquidTimer
+                        ? `${currentTimerObj.name}`
+                        : (isPanda
+                          ? `${currentPandaObj.name}`
+                          : (isKeyChain
+                            ? `Personalized Keychain (Double-Sided HD)`
+                            : (isMug
+                              ? `${product.name} (330ml Ceramic)`
+                              : (isLamp
+                                ? `${product.name} (7 LED Light Modes)`
+                                : (isPolaroid
+                                  ? `${selectedPolaroidSize} Polaroid (${quantity} Prints)`
+                                  : `${selectedSizeLabel} (${selectedGsm}, ${selectedColor} Frame)`)))))));
 
                   const validPhotoDataUrls = uploadedPhotoDataUrls.filter(Boolean) as string[];
                   const primaryImage = validPhotoDataUrls.length > 0
@@ -1619,7 +1916,7 @@ export default function ProductDetailsPage({ params }: { params: Promise<any> })
                     : (uploadedPhotos[0] ? URL.createObjectURL(uploadedPhotos[0]) : product.images[mainImageIndex]);
 
                   addToCart({
-                    id: `custom-${id}-${selectedPaperWeightVariant}-${selectedTimerVariant}-${selectedPandaVariant}-${selectedPolaroidSize}-${selectedSizeLabel}-${Date.now()}`,
+                    id: `custom-${id}-${selectedAdminVariantIdx}-${selectedPaperWeightVariant}-${selectedTimerVariant}-${selectedPandaVariant}-${selectedPolaroidSize}-${selectedSizeLabel}-${Date.now()}`,
                     name: product.name,
                     size: customGiftMessage ? `${chosenSize} [Message: ${customGiftMessage}]` : chosenSize,
                     price: unitPrice,
@@ -1639,16 +1936,26 @@ export default function ProductDetailsPage({ params }: { params: Promise<any> })
               className="flex-1 h-14 text-lg rounded-full bg-[#3A2B24] text-white hover:bg-[#544036] cursor-pointer"
               onClick={() => {
                 if (!isComplete && !isPhotoOptional) {
-                  alert(`⚠️ Photo upload is compulsory for Frames & Polaroids! Please upload all ${totalRequiredPhotos} photo(s) before checkout (${uploadedCount}/${totalRequiredPhotos} uploaded).`);
+                  alert(`⚠️ Photo upload is compulsory! Please upload all ${totalRequiredPhotos} photo(s) before checkout (${uploadedCount}/${totalRequiredPhotos} uploaded).`);
                   return;
                 }
-                const chosenSize = isPaperWeight
-                  ? `${currentPaperWeightObj.name}`
-                  : (isLiquidTimer
-                    ? `${currentTimerObj.name}`
-                    : (isPanda
-                      ? `${currentPandaObj.name}`
-                      : (isPolaroid ? `${selectedPolaroidSize} Polaroid (${quantity} Prints)` : `${selectedSizeLabel} (${selectedGsm}, ${selectedColor} Frame)`)));
+                const chosenSize = selectedAdminVariant
+                  ? selectedAdminVariant.name
+                  : (isPaperWeight
+                    ? `${currentPaperWeightObj.name}`
+                    : (isLiquidTimer
+                      ? `${currentTimerObj.name}`
+                      : (isPanda
+                        ? `${currentPandaObj.name}`
+                        : (isKeyChain
+                          ? `Personalized Keychain (Double-Sided HD)`
+                          : (isMug
+                            ? `${product.name} (330ml Ceramic)`
+                            : (isLamp
+                              ? `${product.name} (7 LED Light Modes)`
+                              : (isPolaroid
+                                ? `${selectedPolaroidSize} Polaroid (${quantity} Prints)`
+                                : `${selectedSizeLabel} (${selectedGsm}, ${selectedColor} Frame)`)))))));
 
                 const validPhotoDataUrls = uploadedPhotoDataUrls.filter(Boolean) as string[];
                 const primaryImage = validPhotoDataUrls.length > 0
@@ -1656,7 +1963,7 @@ export default function ProductDetailsPage({ params }: { params: Promise<any> })
                   : (uploadedPhotos[0] ? URL.createObjectURL(uploadedPhotos[0]) : product.images[mainImageIndex]);
 
                 addToCart({
-                  id: `custom-${id}-${selectedPaperWeightVariant}-${selectedTimerVariant}-${selectedPandaVariant}-${selectedPolaroidSize}-${selectedSizeLabel}-${Date.now()}`,
+                  id: `custom-${id}-${selectedAdminVariantIdx}-${selectedPaperWeightVariant}-${selectedTimerVariant}-${selectedPandaVariant}-${selectedPolaroidSize}-${selectedSizeLabel}-${Date.now()}`,
                   name: product.name,
                   size: customGiftMessage ? `${chosenSize} [Message: ${customGiftMessage}]` : chosenSize,
                   price: unitPrice,
@@ -1664,7 +1971,7 @@ export default function ProductDetailsPage({ params }: { params: Promise<any> })
                   image: primaryImage,
                   photos: validPhotoDataUrls.length > 0 ? validPhotoDataUrls : []
                 });
-                router.push("/checkout");
+                router.push("/cart");
               }}
             >
               Buy Now
