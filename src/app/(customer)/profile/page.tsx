@@ -1032,89 +1032,93 @@ function ProfileContent() {
                         </div>
 
                         <CardContent className="p-6">
-                          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4 border-b border-[#EFE6DD] pb-4">
-                            <div>
-                              <Badge className={cn(
-                                "border-none mb-1.5 px-3 py-0.5 rounded-full text-xs font-bold",
-                                isDelivered ? "bg-emerald-100 text-emerald-800" : (isCancelled ? "bg-rose-100 text-rose-800" : (isPrintingStarted ? "bg-amber-100 text-amber-900 border border-amber-300" : "bg-[#FFF8F2] text-[#D89A86] border border-[#D89A86]/30"))
-                              )}>
-                                {isCancelled ? "Cancelled" : order.status}
-                              </Badge>
+                          <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center mb-6 gap-4 border-b border-[#EFE6DD] pb-5">
+                            {/* Left: Status & Ambassador Info */}
+                            <div className="space-y-1.5 min-w-0">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <Badge className={cn(
+                                  "border-none px-3 py-1 rounded-full text-xs font-bold shadow-2xs",
+                                  isDelivered ? "bg-emerald-100 text-emerald-900 border border-emerald-300" : (isCancelled ? "bg-rose-100 text-rose-900 border border-rose-300" : (isPrintingStarted ? "bg-amber-100 text-amber-900 border border-amber-300" : "bg-[#FFF8F2] text-[#D89A86] border border-[#D89A86]/30"))
+                                )}>
+                                  {isCancelled ? "Cancelled" : order.status}
+                                </Badge>
+
+                                {order.referralCode && (
+                                  <span className="text-[11px] font-bold text-emerald-900 bg-emerald-50 border border-emerald-200 px-3 py-0.5 rounded-full flex items-center gap-1.5 shadow-2xs">
+                                    🎟️ Ambassador: <span className="font-mono">{order.referralCode}</span> {order.referralDiscount ? `(-₹${order.referralDiscount.toFixed(2)})` : ""}
+                                  </span>
+                                )}
+
+                                {(() => {
+                                  const isReplacementOrder = order.status === "Replacement Requested" || (order.history && order.history.some((h: any) => h.status === "Replacement Requested" || (h.note && h.note.includes("Replacement"))));
+                                  if (isReplacementOrder) {
+                                    return (
+                                      <span className="text-[11px] font-bold text-purple-900 bg-purple-100 border border-purple-300 px-3 py-0.5 rounded-full flex items-center gap-1.5 shadow-2xs">
+                                        <RefreshCw className="h-3 w-3 text-purple-700 animate-spin" style={{ animationDuration: "3s" }} />
+                                        <span>Replacement In Progress</span>
+                                      </span>
+                                    );
+                                  }
+                                  return null;
+                                })()}
+                              </div>
+
                               <h3 className="font-bold text-base text-[#3A2B24]">
                                 Pixello Handcrafted Express Delivery • Doorstep Tracking
                               </h3>
-                              <p className="text-xs text-[#6C5C54] mt-0.5">Ship to: {order.deliveryAddress}</p>
+                              <p className="text-xs text-[#6C5C54]">Ship to: {order.deliveryAddress}</p>
                             </div>
 
-                            <div className="flex flex-wrap items-center gap-2.5">
-                              {order.referralCode && (
-                                <span className="text-[11px] font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 px-3 py-1 rounded-full flex items-center gap-1.5 shadow-2xs">
-                                  🎟️ Ambassador Code: {order.referralCode} {order.referralDiscount ? `(-₹${order.referralDiscount.toFixed(2)})` : ""}
-                                </span>
-                              )}
-                              {(() => {
-                                const isReplacementOrder = order.status === "Replacement Requested" || (order.history && order.history.some((h: any) => h.status === "Replacement Requested" || (h.note && h.note.includes("Replacement"))));
-                                if (isReplacementOrder) {
-                                  return (
-                                    <span className="text-[11px] font-bold text-purple-900 bg-purple-100 border border-purple-300 px-3 py-1 rounded-full flex items-center gap-1.5 shadow-2xs">
-                                      <RefreshCw className="h-3 w-3 text-purple-700 animate-spin" style={{ animationDuration: "3s" }} />
-                                      <span>Replacement In Progress ({order.status})</span>
-                                    </span>
-                                  );
-                                }
-                                return null;
-                              })()}
+                            {/* Right: Consolidated Action Toolbar */}
+                            <div className="flex items-center gap-2.5 flex-wrap w-full xl:w-auto justify-start xl:justify-end">
                               {isCancelled ? (
-                                <span className="text-[11px] font-bold text-rose-800 bg-rose-50 border border-rose-200 px-3 py-1 rounded-full flex items-center gap-1.5 shadow-2xs">
-                                  ❌ Order Cancelled (Refund Initiated / Completed)
+                                <span className="text-[11px] font-bold text-rose-800 bg-rose-50 border border-rose-200 px-3.5 py-1.5 rounded-full flex items-center gap-1.5 shadow-2xs">
+                                  ❌ Order Cancelled (Refund Initiated)
                                 </span>
                               ) : (
                                 <>
                                   {isPrintingStarted && !isDelivered && (
-                                    <span className="text-[11px] font-bold text-amber-800 bg-amber-50 border border-amber-200 px-3 py-1 rounded-full flex items-center gap-1.5 shadow-2xs">
+                                    <span className="text-[11px] font-bold text-amber-900 bg-amber-50 border border-amber-200 px-3 py-1.5 rounded-full flex items-center gap-1.5 shadow-2xs">
                                       🖨️ Printing Started (Non-Cancellable)
                                     </span>
                                   )}
-                                  {!isPrintingStarted && hoursElapsed >= 24 && !isDelivered && (
-                                    <span className="text-[11px] font-bold text-slate-700 bg-slate-100 border border-slate-200 px-3 py-1 rounded-full flex items-center gap-1.5 shadow-2xs">
-                                      ⏰ 24h Cancel Window Expired
-                                    </span>
-                                  )}
+
                                   {isCancelEligible && (
-                                    <div className="flex items-center gap-2">
-                                      <span className="text-[11px] font-bold text-rose-700 bg-rose-50 border border-rose-200 px-2.5 py-1 rounded-full flex items-center gap-1">
-                                        ⏳ Cancel Window ({hoursRemaining}h {minsRemaining}m left)
-                                      </span>
-                                      <Button 
-                                        size="sm" 
-                                        variant="outline"
-                                        className="border-rose-300 text-rose-700 hover:bg-rose-50 hover:border-rose-400 font-bold text-xs rounded-full h-9 px-4 cursor-pointer"
-                                        onClick={() => setCancelOrderModal(order)}
-                                      >
-                                        Cancel Order
-                                      </Button>
-                                    </div>
+                                    <Button 
+                                      size="sm" 
+                                      variant="outline"
+                                      className="border-rose-300 text-rose-700 bg-rose-50/60 hover:bg-rose-100 hover:border-rose-400 font-bold text-xs rounded-full h-10 px-4 cursor-pointer flex items-center gap-1.5 shadow-2xs"
+                                      onClick={() => setCancelOrderModal(order)}
+                                    >
+                                      <span>Cancel Order ({hoursRemaining}h left)</span>
+                                    </Button>
                                   )}
+
                                   {isReplacementEligible && (
                                     <Button 
                                       size="sm" 
                                       variant="outline"
-                                      className="border-purple-300 text-purple-900 bg-purple-50 hover:bg-purple-100 hover:border-purple-400 font-bold text-xs rounded-full h-9 px-4 cursor-pointer shadow-2xs flex items-center gap-1.5"
+                                      className="border-purple-300 text-purple-950 bg-purple-50 hover:bg-purple-100 hover:border-purple-400 font-bold text-xs rounded-full h-10 px-4.5 cursor-pointer shadow-2xs flex items-center gap-2 transition-all"
                                       onClick={() => {
                                         setReplacementSuccessMsg("");
                                         setReplacementModalOrder(order);
                                       }}
                                     >
                                       <RefreshCw className="h-3.5 w-3.5 text-purple-700" />
-                                      <span>Request Replacement ({hoursRemaining}h left)</span>
+                                      <span>Request Replacement</span>
+                                      <span className="text-[10px] bg-purple-200/80 text-purple-900 px-1.5 py-0.2 rounded-full font-black">
+                                        {hoursRemaining}h left
+                                      </span>
                                     </Button>
                                   )}
+
                                   <Button 
                                     size="sm" 
-                                    className="btn-pixello-primary text-xs px-5 h-9 rounded-full"
+                                    className="btn-pixello-primary text-xs font-bold px-5 h-10 rounded-full flex items-center gap-1.5 shadow-xs"
                                     onClick={() => setTrackingOrder(order.id)}
                                   >
-                                    Track Live Order
+                                    <Truck className="h-3.5 w-3.5 text-white" />
+                                    <span>Track Live Order</span>
                                   </Button>
                                 </>
                               )}
@@ -1916,9 +1920,9 @@ function ProfileContent() {
               ✕
             </button>
 
-            <Badge className="bg-purple-100 text-purple-900 border border-purple-300 mb-2 px-3 py-0.5 rounded-full text-xs font-bold flex items-center gap-1 w-fit">
-              <RefreshCw className="h-3 w-3 text-purple-700" />
-              <span>Free 7-Day Replacement Guarantee</span>
+            <Badge className="bg-purple-100 text-purple-900 border border-purple-300 mb-2 px-3 py-0.5 rounded-full text-xs font-bold flex items-center gap-1.5 w-fit">
+              <RefreshCw className="h-3.5 w-3.5 text-purple-700" />
+              <span>24-Hour Free Replacement Guarantee • Express Redelivery</span>
             </Badge>
 
             <h3 className="font-serif-brand text-2xl font-bold text-[#3A2B24] mb-1">
