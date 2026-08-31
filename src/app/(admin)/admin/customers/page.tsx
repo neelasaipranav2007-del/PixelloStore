@@ -1,8 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
-import { Search, Mail, Phone, RefreshCw, Download, CheckCircle2, ChevronDown, ChevronRight, X, User } from "lucide-react";
+import { Search, Mail, Phone, RefreshCw, Download, CheckCircle2, ChevronDown, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -13,7 +12,6 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 
 export interface CustomerRecord {
   id: string;
-  displayId: string;
   name: string;
   email: string;
   phone: string;
@@ -23,7 +21,6 @@ export interface CustomerRecord {
 }
 
 export default function AdminCustomersPage() {
-  const router = useRouter();
   const { orders } = useOrders();
   const [searchQuery, setSearchQuery] = useState("");
   const [customers, setCustomers] = useState<CustomerRecord[]>([]);
@@ -34,7 +31,7 @@ export default function AdminCustomersPage() {
     setTimeout(() => setToastMessage(null), 3000);
   };
 
-  // Dynamically aggregate real registered customer profiles from Prisma Database & Orders Context
+  // Dynamically aggregate real registered customer profiles from Customer Portal & Orders Context
   useEffect(() => {
     const syncCustomers = async () => {
       const customerMap: Record<string, CustomerRecord> = {};
@@ -49,7 +46,7 @@ export default function AdminCustomersPage() {
         } catch (e) {}
       }
 
-      // 1. Fetch from Prisma Database API
+      // 1. Fetch from Database API
       try {
         const res = await fetch("/api/customers");
         const data = await res.json();
@@ -58,10 +55,8 @@ export default function AdminCustomersPage() {
             const cleanMob = (c.mobile || c.phone || "").replace(/\D/g, "").slice(-10);
             if (cleanMob) {
               const currentStatus = statusOverrides[cleanMob] || statusOverrides[c.id] || c.status || "Active";
-              const displayId = c.id ? (c.id.startsWith("CUST-") ? c.id : `CUST-${c.id.slice(-4)}`) : `CUST-${idCounter++}`;
               customerMap[cleanMob] = {
-                id: c.id || displayId,
-                displayId: displayId,
+                id: c.id ? `CUST-${c.id.slice(-4)}` : `CUST-${idCounter++}`,
                 name: c.name || "Customer",
                 email: c.email || `${cleanMob}@pixello.store`,
                 phone: c.phone || `+91 ${cleanMob}`,
@@ -86,10 +81,8 @@ export default function AdminCustomersPage() {
               const cleanMob = (c.mobile || c.phone || "").replace(/\D/g, "").slice(-10);
               if (cleanMob && !customerMap[cleanMob]) {
                 const currentStatus = statusOverrides[cleanMob] || c.status || "Active";
-                const displayId = `CUST-${idCounter++}`;
                 customerMap[cleanMob] = {
-                  id: c.id || displayId,
-                  displayId: displayId,
+                  id: `CUST-${idCounter++}`,
                   name: c.name || "Customer",
                   email: c.email || `${cleanMob}@pixello.store`,
                   phone: c.phone || `+91 ${cleanMob}`,
@@ -112,10 +105,8 @@ export default function AdminCustomersPage() {
           if (cleanMob) {
             const currentStatus = statusOverrides[cleanMob] || "Active";
             if (!customerMap[cleanMob]) {
-              const displayId = `CUST-${idCounter++}`;
               customerMap[cleanMob] = {
-                id: activeUser.id || displayId,
-                displayId: displayId,
+                id: `CUST-${idCounter++}`,
                 name: activeUser.name || "Customer",
                 email: activeUser.email || `${cleanMob}@pixello.store`,
                 phone: activeUser.phone || `+91 ${cleanMob}`,
@@ -132,7 +123,7 @@ export default function AdminCustomersPage() {
         }
       } catch (e) {}
 
-      // 4. Aggregate customer orders from OrderContext
+      // 4. Aggregate actual customer order histories from OrderContext
       orders.forEach((o) => {
         const rawPhone = o.customerPhone || "";
         const cleanPhone = rawPhone.replace(/\D/g, "").slice(-10) || "default";
@@ -142,10 +133,8 @@ export default function AdminCustomersPage() {
         if (cleanPhone && cleanPhone !== "default") {
           const currentStatus = statusOverrides[cleanPhone] || "Active";
           if (!customerMap[cleanPhone]) {
-            const displayId = `CUST-${idCounter++}`;
             customerMap[cleanPhone] = {
-              id: displayId,
-              displayId: displayId,
+              id: `CUST-${idCounter++}`,
               name: name,
               email: `${name.toLowerCase().replace(/\s+/g, ".")}@example.com`,
               phone: rawPhone.includes("+91") ? rawPhone : `+91 ${cleanPhone}`,
@@ -259,7 +248,7 @@ export default function AdminCustomersPage() {
   const handleExportCSV = () => {
     const rows = [
       ["Customer ID", "Name", "Email", "Phone", "Total Orders", "Total Spent (INR)", "Status"],
-      ...customers.map((c) => [c.displayId || c.id, c.name, c.email, c.phone, c.orders, c.totalSpent.toFixed(2), c.status]),
+      ...customers.map((c) => [c.id, c.name, c.email, c.phone, c.orders, c.totalSpent.toFixed(2), c.status]),
     ];
     const csvContent = "data:text/csv;charset=utf-8," + rows.map((e) => e.map((val) => `"${val}"`).join(",")).join("\n");
     const encodedUri = encodeURI(csvContent);
@@ -279,13 +268,12 @@ export default function AdminCustomersPage() {
       c.email.toLowerCase().includes(q) ||
       c.phone.toLowerCase().includes(q) ||
       c.id.toLowerCase().includes(q) ||
-      (c.displayId && c.displayId.toLowerCase().includes(q)) ||
       c.status.toLowerCase().includes(q)
     );
   });
 
   return (
-    <div className="flex flex-col gap-6 p-6 md:p-8 bg-[#F8F3EE] min-h-screen relative">
+    <div className="flex flex-col gap-6 p-6 bg-[#F8F3EE] min-h-screen relative">
       {/* Toast Notification */}
       {toastMessage && (
         <div className="fixed top-20 right-8 z-50 bg-[#3A2B24] text-white px-5 py-3 rounded-2xl shadow-xl border border-[#D89A86]/40 flex items-center gap-2.5 animate-in fade-in slide-in-from-top-4 duration-300">
@@ -297,12 +285,8 @@ export default function AdminCustomersPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h2 className="font-serif-brand text-2xl md:text-3xl font-bold tracking-tight text-[#3A2B24]">
-            Customer Management
-          </h2>
-          <p className="text-xs text-[#6C5C54] mt-1 font-medium">
-            Click on any customer to inspect their full profile, saved addresses, order history, and visual delivery timeline.
-          </p>
+          <h2 className="font-serif-brand text-3xl font-bold tracking-tight text-[#3A2B24]">Customer Management</h2>
+          <p className="text-xs text-[#6C5C54] mt-1">Manage customer account statuses (Active / Inactive) live.</p>
         </div>
         <Button 
           onClick={handleExportCSV}
@@ -313,7 +297,7 @@ export default function AdminCustomersPage() {
       </div>
 
       <Card className="border border-[#EFE6DD] bg-white rounded-3xl shadow-xs overflow-hidden">
-        <CardContent className="p-6 md:p-8">
+        <CardContent className="p-6">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
             <div>
               <h3 className="font-serif-brand text-xl font-bold text-[#3A2B24]">Registered Customers</h3>
@@ -330,7 +314,7 @@ export default function AdminCustomersPage() {
               {searchQuery && (
                 <button
                   onClick={() => setSearchQuery("")}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-[#6C5C54] hover:text-[#3A2B24] p-0.5 cursor-pointer"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-[#6C5C54] hover:text-[#3A2B24] p-0.5"
                 >
                   <X className="h-3.5 w-3.5" />
                 </button>
@@ -354,33 +338,23 @@ export default function AdminCustomersPage() {
                 <tbody className="divide-y divide-[#EFE6DD]">
                   {filteredCustomers.length === 0 ? (
                     <tr>
-                      <td colSpan={6} className="text-center py-12 text-xs text-[#6C5C54]">
+                      <td colSpan={6} className="text-center py-10 text-xs text-[#6C5C54]">
                         {searchQuery ? `No customers found matching "${searchQuery}"` : "No registered customers found."}
                       </td>
                     </tr>
                   ) : (
                     filteredCustomers.map((customer) => (
-                      <tr 
-                        key={customer.id}
-                        onClick={() => router.push(`/admin/customers/${encodeURIComponent(customer.displayId || customer.id)}`)}
-                        className="hover:bg-[#FFF8F2]/70 transition-colors cursor-pointer group"
-                        title={`Click to view complete details & orders for ${customer.name}`}
-                      >
+                      <tr key={customer.id} className="hover:bg-[#FFF8F2]/50 transition-colors">
                         <td className="px-4 py-4">
                           <div className="flex items-center gap-3">
-                            <Avatar className="h-9 w-9 border border-[#EFE6DD] bg-[#FFF8F2] group-hover:border-[#D89A86] transition-colors shadow-2xs">
+                            <Avatar className="h-9 w-9 border border-[#EFE6DD] bg-[#FFF8F2]">
                               <AvatarFallback className="font-bold text-[#D89A86] bg-[#FFF8F2]">
                                 {customer.name.charAt(0).toUpperCase()}
                               </AvatarFallback>
                             </Avatar>
                             <div>
-                              <div className="font-bold text-[#3A2B24] group-hover:text-[#D89A86] transition-colors flex items-center gap-1">
-                                <span>{customer.name}</span>
-                                <ChevronRight className="h-3.5 w-3.5 text-[#D89A86] opacity-0 group-hover:opacity-100 transition-opacity" />
-                              </div>
-                              <div className="text-xs text-[#6C5C54] font-medium font-mono">
-                                {customer.displayId || customer.id}
-                              </div>
+                              <div className="font-bold text-[#3A2B24]">{customer.name}</div>
+                              <div className="text-xs text-[#6C5C54] font-medium">{customer.id}</div>
                             </div>
                           </div>
                         </td>
@@ -393,12 +367,10 @@ export default function AdminCustomersPage() {
                           </div>
                         </td>
                         <td className="px-4 py-4 font-bold text-[#3A2B24]">{customer.orders} orders</td>
-                        <td className="px-4 py-4 font-extrabold text-[#D89A86]">
-                          ₹{customer.totalSpent.toLocaleString("en-IN", { maximumFractionDigits: 2 })}
-                        </td>
+                        <td className="px-4 py-4 font-extrabold text-[#D89A86]">₹{customer.totalSpent.toLocaleString("en-IN", { maximumFractionDigits: 2 })}</td>
                         
                         {/* Interactive Status Badge Dropdown */}
-                        <td className="px-4 py-4" onClick={(e) => e.stopPropagation()}>
+                        <td className="px-4 py-4">
                           <DropdownMenu>
                             <DropdownMenuTrigger className="cursor-pointer group flex items-center gap-1 focus:outline-none bg-transparent border-none p-0">
                               <Badge 
@@ -418,10 +390,7 @@ export default function AdminCustomersPage() {
                               </div>
                               <div className="py-1 flex flex-col gap-1">
                                 <DropdownMenuItem
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    updateCustomerStatus(customer.id, customer.name, "Active");
-                                  }}
+                                  onClick={() => updateCustomerStatus(customer.id, customer.name, "Active")}
                                   className={`flex items-center gap-2 p-2 rounded-xl cursor-pointer ${
                                     customer.status === "Active" ? "bg-[#FFF8F2] font-bold text-emerald-700" : "hover:bg-slate-50 text-[#3A2B24]"
                                   }`}
@@ -430,10 +399,7 @@ export default function AdminCustomersPage() {
                                   <span className="text-xs">Active</span>
                                 </DropdownMenuItem>
                                 <DropdownMenuItem
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    updateCustomerStatus(customer.id, customer.name, "Inactive");
-                                  }}
+                                  onClick={() => updateCustomerStatus(customer.id, customer.name, "Inactive")}
                                   className={`flex items-center gap-2 p-2 rounded-xl cursor-pointer ${
                                     customer.status === "Inactive" ? "bg-rose-50 font-bold text-rose-700" : "hover:bg-slate-50 text-[#3A2B24]"
                                   }`}
@@ -447,18 +413,17 @@ export default function AdminCustomersPage() {
                         </td>
 
                         {/* Quick Toggle Button */}
-                        <td className="px-4 py-4 text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                        <td className="px-4 py-4 text-right whitespace-nowrap">
                           <Button
                             size="sm"
                             variant="outline"
-                            onClick={(e) => {
-                              e.stopPropagation();
+                            onClick={() =>
                               updateCustomerStatus(
                                 customer.id,
                                 customer.name,
                                 customer.status === "Active" ? "Inactive" : "Active"
-                              );
-                            }}
+                              )
+                            }
                             className={`rounded-full text-xs font-bold px-3.5 h-8 border flex items-center gap-1.5 ml-auto cursor-pointer shadow-2xs ${
                               customer.status === "Active"
                                 ? "border-rose-200 text-rose-700 bg-white hover:bg-rose-50"

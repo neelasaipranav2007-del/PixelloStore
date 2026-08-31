@@ -232,12 +232,37 @@ export async function POST(req: Request) {
         }
       }
 
-      // Create Production Notification for Photo Studio & Admin
+      // Create Notifications for Admin, Customer, and Photo Studio
+      await tx.notification.create({
+        data: {
+          role: "ADMIN",
+          type: "PAYMENT_SUCCESS",
+          title: "Payment Successful",
+          message: `Order #${newOrder.id} (${authenticatedCustomerName}) paid via ${isCod ? "Cash on Delivery" : "Online"} — ₹${newOrder.totalAmount.toFixed(2)}`,
+          referenceType: "ORDER",
+          referenceId: newOrder.id,
+        },
+      });
+
+      await tx.notification.create({
+        data: {
+          role: "CUSTOMER",
+          userId: user.id,
+          type: "PAYMENT_SUCCESS",
+          title: isCod ? "Order Confirmed" : "Payment Successful",
+          message: isCod 
+            ? `Order #${newOrder.id} placed via Cash on Delivery — ₹${newOrder.totalAmount.toFixed(2)}.`
+            : `Payment received for Order #${newOrder.id} — ₹${newOrder.totalAmount.toFixed(2)}.`,
+          referenceType: "ORDER",
+          referenceId: newOrder.id,
+        },
+      });
+
       await tx.notification.create({
         data: {
           role: "STUDIO",
           type: "NEW_ORDER",
-          title: "New Production Order Assigned",
+          title: "New Order Assigned",
           message: `Order #${newOrder.id} (${authenticatedCustomerName}) is ready for production.`,
           referenceType: "ORDER",
           referenceId: newOrder.id,
@@ -261,6 +286,7 @@ export async function POST(req: Request) {
     portalEvents.emit("order_change", { action: "CREATE", orderId: createdOrder.id });
     portalEvents.emit("order_update", { action: "CREATE", orderId: createdOrder.id });
     portalEvents.emit("payment_success", { orderId: createdOrder.id, paymentId: razorpayPaymentId });
+    portalEvents.emit("notification_change", { action: "CREATE", orderId: createdOrder.id });
 
     return NextResponse.json({
       success: true,

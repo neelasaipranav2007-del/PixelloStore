@@ -6,12 +6,28 @@ import { Map, List, Wallet, User, Heart, LogOut, Truck, ShieldCheck, Power } fro
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useState, useEffect } from "react";
+import { 
+  useMobileNotifications, 
+  MobileNotificationToast, 
+  CompactNotificationCenter 
+} from "@/components/common/MobileNotificationSystem";
 
 export default function DeliveryLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
 
   const [isOnline, setIsOnline] = useState(true);
+
+  // Real Database Notifications System for Delivery Portal
+  const {
+    notifications: dbNotifications,
+    unreadCount,
+    activeToast,
+    dismissToast,
+    markAsRead,
+    markAllAsRead,
+    clearAll,
+  } = useMobileNotifications("DELIVERY");
 
   useEffect(() => {
     try {
@@ -85,7 +101,20 @@ export default function DeliveryLayout({ children }: { children: React.ReactNode
           </div>
 
           {/* Right Side Info & Actions */}
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
+            {/* Real Database Connected Compact Notification Center */}
+            <CompactNotificationCenter
+              role="DELIVERY"
+              notifications={dbNotifications}
+              unreadCount={unreadCount}
+              onMarkRead={markAsRead}
+              onMarkAllRead={markAllAsRead}
+              onClearAll={clearAll}
+              onNavigateOrder={() => {
+                router.push("/delivery/tasks");
+              }}
+            />
+
             <Button 
               variant={isOnline ? "default" : "secondary"} 
               className={`rounded-full shadow-md h-9 px-4 font-bold text-xs transition-all cursor-pointer flex items-center gap-2 ${
@@ -127,6 +156,17 @@ export default function DeliveryLayout({ children }: { children: React.ReactNode
       <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8">
         {children}
       </main>
+
+      {/* MOBILE-STYLE ONE-LINE FLOATING POPUP TOAST */}
+      <MobileNotificationToast
+        toast={activeToast}
+        onDismiss={dismissToast}
+        onClick={(toast) => {
+          markAsRead(toast.id);
+          dismissToast();
+          router.push("/delivery/tasks");
+        }}
+      />
     </div>
   );
 }

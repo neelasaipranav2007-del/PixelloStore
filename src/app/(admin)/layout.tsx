@@ -8,6 +8,11 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
+import { 
+  useMobileNotifications, 
+  MobileNotificationToast, 
+  CompactNotificationCenter 
+} from "@/components/common/MobileNotificationSystem";
 
 export interface AdminNotification {
   id: string;
@@ -37,171 +42,17 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const router = useRouter();
   const pathname = usePathname();
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
-  const [activeTab, setActiveTab] = useState<"unread" | "all">("unread");
   
-  // Interactive Notification State with localStorage persistence
-  const [notifications, setNotifications] = useState<AdminNotification[]>(() => {
-    if (typeof window !== "undefined") {
-      const saved = localStorage.getItem("pixello_admin_notifications_v3");
-      if (saved) {
-        try {
-          const parsed = JSON.parse(saved);
-          if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-        } catch (e) {
-          console.error(e);
-        }
-      }
-    }
-    return INITIAL_NOTIFICATIONS;
-  });
-
-  const unreadNotifications = notifications.filter((n) => !n.read);
-  const unreadCount = unreadNotifications.length;
-
-  const handleMarkAllAsRead = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    const updated = notifications.map((n) => ({ ...n, read: true }));
-    setNotifications(updated);
-    if (typeof window !== "undefined") {
-      localStorage.setItem("pixello_admin_notifications_v3", JSON.stringify(updated));
-    }
-  };
-
-  const handleMarkAsRead = (id: string, e?: React.MouseEvent) => {
-    if (e) e.stopPropagation();
-    const updated = notifications.map((n) => (n.id === id ? { ...n, read: true } : n));
-    setNotifications(updated);
-    if (typeof window !== "undefined") {
-      localStorage.setItem("pixello_admin_notifications_v3", JSON.stringify(updated));
-    }
-  };
-
-  const handleDismiss = (id: string, e: React.MouseEvent) => {
-    e.stopPropagation();
-    const updated = notifications.filter((n) => n.id !== id);
-    setNotifications(updated);
-    if (typeof window !== "undefined") {
-      localStorage.setItem("pixello_admin_notifications_v3", JSON.stringify(updated));
-    }
-  };
-
-  const handleLoadNewNotifications = (e?: React.MouseEvent) => {
-    if (e) e.stopPropagation();
-    const existingIds = new Set(notifications.map((n) => n.id));
-    const newItems = SECONDARY_NOTIFICATIONS.filter((n) => !existingIds.has(n.id));
-
-    let updated: AdminNotification[];
-    if (newItems.length > 0) {
-      updated = [...newItems, ...notifications];
-    } else {
-      const randomOrderNum = Math.floor(1000 + Math.random() * 9000);
-      const freshAlert: AdminNotification = {
-        id: `notif-live-${Date.now()}`,
-        title: "New Incoming Customer Order",
-        desc: `Order PXL-${randomOrderNum}-5000 received for Instant Studio Printing`,
-        time: "Just now",
-        read: false,
-        type: "order",
-        link: "/admin/orders",
-      };
-      updated = [freshAlert, ...notifications];
-    }
-    setNotifications(updated);
-    setActiveTab("unread");
-    if (typeof window !== "undefined") {
-      localStorage.setItem("pixello_admin_notifications_v3", JSON.stringify(updated));
-    }
-  };
-
-  // Sync incoming orders from OrderContext
-  useEffect(() => {
-    const handleOrderUpdate = () => {
-      try {
-        const savedOrders = localStorage.getItem("pixello_customer_orders_v3");
-        if (savedOrders) {
-          const orders = JSON.parse(savedOrders);
-          if (Array.isArray(orders) && orders.length > 0) {
-            const latest = orders[0];
-            setNotifications((prev) => {
-              if (prev.some((n) => n.desc.includes(latest.id))) return prev;
-              const liveNotif: AdminNotification = {
-                id: `notif-order-${latest.id}`,
-                title: "New Customer Order Placed",
-                desc: `Order ${latest.id} placed by ${latest.customerName} (₹${latest.totalAmount})`,
-                time: "Just now",
-                read: false,
-                type: "order",
-                link: "/admin/orders",
-              };
-              const updated = [liveNotif, ...prev];
-              if (typeof window !== "undefined") {
-                localStorage.setItem("pixello_admin_notifications_v3", JSON.stringify(updated));
-              }
-              return updated;
-            });
-          }
-        }
-      } catch (e) {
-        console.error(e);
-      }
-    };
-    window.addEventListener("pixello_orders_updated", handleOrderUpdate);
-    return () => window.removeEventListener("pixello_orders_updated", handleOrderUpdate);
-  }, []);
-
-  // Live Review Popup State for Real-Time Toast in Admin Portal
-  const [liveReviewPopOver, setLiveReviewPopOver] = useState<{
-    id: string;
-    reviewerName: string;
-    productName: string;
-    rating: number;
-    title: string;
-    comment: string;
-    orderId: string;
-  } | null>(null);
-
-  useEffect(() => {
-    const handleReviewNotification = (e: any) => {
-      try {
-        const reviewData = e.detail || (typeof window !== "undefined" ? JSON.parse(localStorage.getItem("pixello_last_submitted_review") || "null") : null);
-        if (reviewData && reviewData.reviewerName) {
-          setLiveReviewPopOver(reviewData);
-
-          const liveNotif: AdminNotification = {
-            id: `notif-rev-${reviewData.id || Date.now()}`,
-            title: `⭐ New ${reviewData.rating}-Star Customer Review!`,
-            desc: `${reviewData.reviewerName} reviewed ${reviewData.productName}: "${reviewData.title}"`,
-            time: "Just now",
-            read: false,
-            type: "order",
-            link: "/admin/reviews",
-          };
-
-          setNotifications(prev => [liveNotif, ...prev.filter(n => n.id !== liveNotif.id)]);
-          if (typeof window !== "undefined") {
-            const savedNotifs = JSON.parse(localStorage.getItem("pixello_admin_notifications_v3") || "[]");
-            localStorage.setItem("pixello_admin_notifications_v3", JSON.stringify([liveNotif, ...savedNotifs.filter((n: any) => n.id !== liveNotif.id)]));
-          }
-        }
-      } catch (err) {
-        console.error(err);
-      }
-    };
-
-    window.addEventListener("pixello_new_review", handleReviewNotification);
-    window.addEventListener("storage", (e) => {
-      if (e.key === "pixello_last_submitted_review" && e.newValue) {
-        try {
-          const parsed = JSON.parse(e.newValue);
-          handleReviewNotification({ detail: parsed });
-        } catch (err) {}
-      }
-    });
-
-    return () => {
-      window.removeEventListener("pixello_new_review", handleReviewNotification);
-    };
-  }, []);
+  // Real Database Notifications System for Admin Portal
+  const {
+    notifications: dbNotifications,
+    unreadCount,
+    activeToast,
+    dismissToast,
+    markAsRead,
+    markAllAsRead,
+    clearAll,
+  } = useMobileNotifications("ADMIN");
 
   // Live Admin Profile State Synced from Admin Settings
   const [adminProfile, setAdminProfile] = useState(() => {
@@ -285,42 +136,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     { label: "Delivery Charges", href: "/admin/delivery", icon: Truck },
     { label: "Settings", href: "/admin/settings", icon: Settings },
   ];
-
-  const displayedNotifications = activeTab === "unread" ? unreadNotifications : notifications;
-
-  const getNotifIcon = (type: AdminNotification["type"]) => {
-    switch (type) {
-      case "order":
-        return <Package className="h-3.5 w-3.5 text-emerald-600" />;
-      case "studio":
-        return <Store className="h-3.5 w-3.5 text-blue-600" />;
-      case "stock":
-        return <AlertTriangle className="h-3.5 w-3.5 text-rose-600" />;
-      case "ambassador":
-        return <Users className="h-3.5 w-3.5 text-purple-600" />;
-      case "delivery":
-        return <Truck className="h-3.5 w-3.5 text-amber-600" />;
-      default:
-        return <Bell className="h-3.5 w-3.5 text-[#D89A86]" />;
-    }
-  };
-
-  const getNotifBg = (type: AdminNotification["type"]) => {
-    switch (type) {
-      case "order":
-        return "bg-emerald-50 border-emerald-200";
-      case "studio":
-        return "bg-blue-50 border-blue-200";
-      case "stock":
-        return "bg-rose-50 border-rose-200";
-      case "ambassador":
-        return "bg-purple-50 border-purple-200";
-      case "delivery":
-        return "bg-amber-50 border-amber-200";
-      default:
-        return "bg-[#FFF8F2] border-[#EFE6DD]";
-    }
-  };
 
   useEffect(() => {
     if (pathname === "/admin/login") {
@@ -460,166 +275,18 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           </div>
 
           <div className="flex items-center gap-4">
-            {/* Interactive Dynamic Notification Bell Dropdown Menu */}
-            <DropdownMenu>
-              <DropdownMenuTrigger className="relative rounded-full hover:bg-[#FFF8F2] text-[#6C5C54] cursor-pointer p-2 flex items-center justify-center border-none outline-none bg-transparent focus:outline-none transition-colors">
-                <Bell className="h-5 w-5 text-[#6C5C54]" />
-                {unreadCount > 0 && (
-                  <span className="absolute top-1.5 right-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-[#F48A8A] text-[9px] font-black text-white ring-2 ring-white animate-pulse">
-                    {unreadCount}
-                  </span>
-                )}
-              </DropdownMenuTrigger>
-
-              <DropdownMenuContent align="end" className="w-84 sm:w-96 p-0 rounded-3xl border border-[#EFE6DD] shadow-2xl bg-white overflow-hidden z-50">
-                {/* Header */}
-                <div className="p-4 bg-[#FFF8F2] border-b border-[#EFE6DD]">
-                  <div className="flex items-center justify-between mb-2.5">
-                    <div className="flex items-center gap-2">
-                      <Bell className="h-4 w-4 text-[#D89A86]" />
-                      <span className="font-serif-brand font-bold text-sm text-[#3A2B24]">Admin Notifications</span>
-                      {unreadCount > 0 && (
-                        <Badge className="bg-[#D89A86] text-white border-none text-[10px] px-2 py-0.2 rounded-full font-bold">
-                          {unreadCount} New
-                        </Badge>
-                      )}
-                    </div>
-                    {unreadCount > 0 && (
-                      <button
-                        onClick={handleMarkAllAsRead}
-                        className="text-[11px] text-[#D89A86] font-bold hover:underline cursor-pointer flex items-center gap-1 transition-colors"
-                      >
-                        <CheckCheck className="h-3.5 w-3.5" /> Mark all as read
-                      </button>
-                    )}
-                  </div>
-
-                  {/* Tabs: Unread vs All */}
-                  <div className="flex items-center gap-1.5 bg-white p-1 rounded-xl border border-[#EFE6DD]">
-                    <button
-                      onClick={() => setActiveTab("unread")}
-                      className={`flex-1 text-[11px] font-bold py-1 px-2.5 rounded-lg transition-all ${
-                        activeTab === "unread"
-                          ? "bg-[#3A2B24] text-white shadow-2xs"
-                          : "text-[#6C5C54] hover:text-[#3A2B24]"
-                      }`}
-                    >
-                      Unread ({unreadCount})
-                    </button>
-                    <button
-                      onClick={() => setActiveTab("all")}
-                      className={`flex-1 text-[11px] font-bold py-1 px-2.5 rounded-lg transition-all ${
-                        activeTab === "all"
-                          ? "bg-[#3A2B24] text-white shadow-2xs"
-                          : "text-[#6C5C54] hover:text-[#3A2B24]"
-                      }`}
-                    >
-                      All History ({notifications.length})
-                    </button>
-                  </div>
-                </div>
-
-                {/* Notifications Body */}
-                <div className="divide-y divide-[#EFE6DD] max-h-80 overflow-y-auto">
-                  {displayedNotifications.length === 0 ? (
-                    <div className="py-8 px-5 text-center flex flex-col items-center justify-center bg-white">
-                      <div className="h-12 w-12 rounded-full bg-[#FFF8F2] border border-[#EFE6DD] flex items-center justify-center text-[#D89A86] mb-3 shadow-xs">
-                        <Sparkles className="h-6 w-6 text-[#D89A86]" />
-                      </div>
-                      <h4 className="font-serif-brand font-bold text-sm text-[#3A2B24] mb-1">All Caught Up!</h4>
-                      <p className="text-xs text-[#6C5C54] mb-4 max-w-[220px] leading-relaxed">
-                        {activeTab === "unread"
-                          ? "You have marked all notifications as read."
-                          : "No notifications recorded yet."}
-                      </p>
-                      <div className="flex flex-col gap-2 w-full max-w-[220px]">
-                        <Button
-                          size="sm"
-                          onClick={handleLoadNewNotifications}
-                          className="btn-pixello-primary w-full h-8 text-xs font-bold rounded-xl shadow-xs flex items-center justify-center gap-1.5 cursor-pointer"
-                        >
-                          <RefreshCw className="h-3.5 w-3.5" /> Check For New Alerts
-                        </Button>
-                        {activeTab === "unread" && notifications.length > 0 && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => setActiveTab("all")}
-                            className="text-[11px] text-[#6C5C54] hover:text-[#3A2B24] h-7 font-bold cursor-pointer"
-                          >
-                            View Read History ({notifications.length})
-                          </Button>
-                        )}
-                      </div>
-                    </div>
-                  ) : (
-                    displayedNotifications.map((item) => (
-                      <div
-                        key={item.id}
-                        className={`p-3.5 hover:bg-[#FFF8F2]/60 transition-colors flex items-start justify-between gap-3 group ${
-                          !item.read ? "bg-amber-50/20" : "bg-white"
-                        }`}
-                      >
-                        <Link href={item.link} className="flex-1 flex items-start gap-2.5">
-                          <div className={`h-7 w-7 rounded-lg flex items-center justify-center border flex-shrink-0 mt-0.5 ${getNotifBg(item.type)}`}>
-                            {getNotifIcon(item.type)}
-                          </div>
-                          <div>
-                            <div className="flex items-center gap-1.5 mb-0.5">
-                              <span className={`text-xs font-bold ${!item.read ? "text-[#3A2B24]" : "text-[#6C5C54]"}`}>
-                                {item.title}
-                              </span>
-                              {!item.read && (
-                                <span className="h-1.5 w-1.5 rounded-full bg-[#D89A86]" />
-                              )}
-                            </div>
-                            <p className="text-[11px] text-[#6C5C54] line-clamp-2 leading-relaxed">
-                              {item.desc}
-                            </p>
-                            <span className="text-[10px] text-[#D89A86] font-semibold mt-1 inline-block">
-                              {item.time}
-                            </span>
-                          </div>
-                        </Link>
-
-                        <div className="flex items-center gap-1 flex-shrink-0">
-                          {!item.read ? (
-                            <button
-                              title="Mark as read"
-                              onClick={(e) => handleMarkAsRead(item.id, e)}
-                              className="h-6 w-6 rounded-md hover:bg-[#FFF8F2] border border-transparent hover:border-[#EFE6DD] flex items-center justify-center text-[#D89A86] cursor-pointer"
-                            >
-                              <Check className="h-3.5 w-3.5" />
-                            </button>
-                          ) : (
-                            <button
-                              title="Dismiss"
-                              onClick={(e) => handleDismiss(item.id, e)}
-                              className="h-6 w-6 rounded-md hover:bg-rose-50 border border-transparent hover:border-rose-200 flex items-center justify-center text-[#6C5C54] hover:text-rose-600 cursor-pointer"
-                            >
-                              <X className="h-3.5 w-3.5" />
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    ))
-                  )}
-                </div>
-
-                {/* Footer */}
-                <div className="p-3 bg-[#FFF8F2] border-t border-[#EFE6DD] flex items-center justify-between">
-                  <button
-                    onClick={handleLoadNewNotifications}
-                    className="text-[11px] font-bold text-[#6C5C54] hover:text-[#3A2B24] flex items-center gap-1 cursor-pointer transition-colors"
-                  >
-                    <RefreshCw className="h-3 w-3" /> Fetch New Alerts
-                  </button>
-                  <Link href="/admin/orders" className="text-xs font-bold text-[#D89A86] hover:underline flex items-center gap-1">
-                    View All Orders →
-                  </Link>
-                </div>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            {/* Real Database Connected Compact Notification Center */}
+            <CompactNotificationCenter
+              role="ADMIN"
+              notifications={dbNotifications}
+              unreadCount={unreadCount}
+              onMarkRead={markAsRead}
+              onMarkAllRead={markAllAsRead}
+              onClearAll={clearAll}
+              onNavigateOrder={(orderId) => {
+                router.push("/admin/orders");
+              }}
+            />
 
             {/* High-Contrast Harmonious Admin Profile Dropdown Menu Synced Live */}
             <DropdownMenu>
@@ -702,67 +369,16 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         {/* Scrollable Page Body */}
         <div className="flex-1 overflow-y-auto overflow-x-hidden min-w-0 w-full">{children}</div>
 
-        {/* Live Customer Review Popover Toast */}
-        {liveReviewPopOver && (
-          <div className="fixed bottom-6 right-6 z-[9999] max-w-sm sm:max-w-md w-full bg-white border-2 border-amber-400 rounded-3xl shadow-2xl p-5 animate-in slide-in-from-bottom-8 duration-300">
-            <div className="flex items-start justify-between gap-3">
-              <div className="flex items-center gap-2.5">
-                <div className="h-10 w-10 rounded-2xl bg-amber-100 border border-amber-300 flex items-center justify-center text-amber-600 flex-shrink-0">
-                  <Star className="h-5 w-5 fill-amber-400 text-amber-500" />
-                </div>
-                <div>
-                  <Badge className="bg-amber-100 text-amber-950 border-amber-300 font-extrabold text-[10px] px-2 py-0.2 rounded-full flex items-center gap-1 w-fit">
-                    <Sparkles className="h-3 w-3 text-amber-600" />
-                    <span>Live Customer Review Received!</span>
-                  </Badge>
-                  <h4 className="font-bold text-sm text-[#3A2B24] mt-0.5">{liveReviewPopOver.reviewerName}</h4>
-                </div>
-              </div>
-              <button 
-                onClick={() => setLiveReviewPopOver(null)}
-                className="h-7 w-7 rounded-full bg-[#FFF8F2] hover:bg-[#F2C8B5]/30 text-[#3A2B24] flex items-center justify-center text-xs font-bold cursor-pointer"
-              >
-                ✕
-              </button>
-            </div>
-
-            <div className="mt-3 p-3 bg-[#FFF8F2] border border-[#EFE6DD] rounded-2xl">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center text-amber-400">
-                  {Array.from({ length: 5 }).map((_, i) => (
-                    <Star key={i} className={cn("h-3.5 w-3.5", i < liveReviewPopOver.rating ? "fill-amber-400 text-amber-400" : "text-gray-300")} />
-                  ))}
-                </div>
-                <span className="text-[11px] font-bold text-[#D89A86]">Order #{liveReviewPopOver.orderId}</span>
-              </div>
-              <h5 className="font-bold text-xs text-[#3A2B24] mt-1.5 truncate">"{liveReviewPopOver.title}"</h5>
-              {liveReviewPopOver.comment && (
-                <p className="text-[11px] text-[#6C5C54] mt-0.5 line-clamp-2 italic">"{liveReviewPopOver.comment}"</p>
-              )}
-              <p className="text-[10px] text-[#D89A86] font-semibold mt-1">Product: {liveReviewPopOver.productName}</p>
-            </div>
-
-            <div className="flex items-center gap-2 mt-3">
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => setLiveReviewPopOver(null)}
-                className="flex-1 rounded-full text-xs font-bold border-[#EFE6DD] h-8 cursor-pointer"
-              >
-                Dismiss
-              </Button>
-              <Link href="/admin/reviews" className="flex-1" onClick={() => setLiveReviewPopOver(null)}>
-                <Button
-                  size="sm"
-                  className="w-full bg-amber-500 hover:bg-amber-600 text-white rounded-full text-xs font-bold h-8 shadow-xs flex items-center justify-center gap-1 cursor-pointer"
-                >
-                  <span>Open in Reviews</span>
-                  <ArrowUpRight className="h-3.5 w-3.5" />
-                </Button>
-              </Link>
-            </div>
-          </div>
-        )}
+        {/* MOBILE-STYLE ONE-LINE FLOATING POPUP TOAST */}
+        <MobileNotificationToast
+          toast={activeToast}
+          onDismiss={dismissToast}
+          onClick={(toast) => {
+            markAsRead(toast.id);
+            dismissToast();
+            router.push(toast.type?.includes("REVIEW") ? "/admin/reviews" : "/admin/orders");
+          }}
+        />
       </main>
     </div>
   );

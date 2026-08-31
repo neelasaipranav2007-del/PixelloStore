@@ -175,8 +175,21 @@ export async function POST(req: Request) {
 
     await saveStoredReviews(updatedReviews);
 
-    // Broadcast review event
+    // Create Notification for Admin
+    await prisma.notification.create({
+      data: {
+        role: "ADMIN",
+        type: "REVIEW_RECEIVED",
+        title: "New Review Received",
+        message: `${newReview.reviewerName} rated ${newReview.rating}★ on ${newReview.productName}: "${newReview.title}"`,
+        referenceType: "REVIEW",
+        referenceId: newReview.id,
+      },
+    }).catch(() => {});
+
+    // Broadcast review & notification events
     portalEvents.emit("new_review", newReview);
+    portalEvents.emit("notification_change", { action: "CREATE", type: "REVIEW" });
 
     return NextResponse.json({ success: true, review: newReview });
   } catch (error: any) {
@@ -210,6 +223,22 @@ export async function PATCH(req: Request) {
 
     reviews[targetIdx] = updated;
     await saveStoredReviews(reviews);
+
+    // If Admin replied, create customer notification
+    if (adminReply && adminReply.trim()) {
+      await prisma.notification.create({
+        data: {
+          role: "CUSTOMER",
+          type: "STUDIO_REPLY",
+          title: "Pixello Studio Team",
+          message: adminReply,
+          referenceType: "ORDER",
+          referenceId: updated.orderId,
+        },
+      }).catch(() => {});
+
+      portalEvents.emit("notification_change", { action: "CREATE", type: "REPLY" });
+    }
 
     return NextResponse.json({ success: true, review: updated });
   } catch (error: any) {

@@ -8,6 +8,11 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
+import { 
+  useMobileNotifications, 
+  MobileNotificationToast, 
+  CompactNotificationCenter 
+} from "@/components/common/MobileNotificationSystem";
 
 export default function AmbassadorLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -43,6 +48,17 @@ export default function AmbassadorLayout({ children }: { children: React.ReactNo
       referralCode: "",
     };
   });
+
+  // Real Database Notifications System for Ambassador Portal
+  const {
+    notifications: dbNotifications,
+    unreadCount,
+    activeToast,
+    dismissToast,
+    markAsRead,
+    markAllAsRead,
+    clearAll,
+  } = useMobileNotifications("AMBASSADOR");
 
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(() => {
     if (typeof window !== "undefined") {
@@ -261,6 +277,19 @@ export default function AmbassadorLayout({ children }: { children: React.ReactNo
               Available Balance: <span suppressHydrationWarning className="text-emerald-600 font-extrabold">₹{profile.balance.toLocaleString("en-IN")}</span>
             </div>
 
+            {/* Real Database Connected Compact Notification Center */}
+            <CompactNotificationCenter
+              role="AMBASSADOR"
+              notifications={dbNotifications}
+              unreadCount={unreadCount}
+              onMarkRead={markAsRead}
+              onMarkAllRead={markAllAsRead}
+              onClearAll={clearAll}
+              onNavigateOrder={() => {
+                router.push("/ambassador/orders");
+              }}
+            />
+
             <Link href="/products" target="_blank">
               <Button variant="outline" className="rounded-full border-[#EFE6DD] text-xs font-bold text-[#3A2B24] hover:bg-[#FFF8F2] flex items-center gap-1.5">
                 <ShoppingBag className="h-3.5 w-3.5 text-[#D89A86]" /> Customer Store <ExternalLink className="h-3 w-3 text-[#6C5C54]" />
@@ -351,6 +380,17 @@ export default function AmbassadorLayout({ children }: { children: React.ReactNo
         <div className="flex-1 overflow-y-auto overflow-x-hidden min-w-0 p-6">
           {children}
         </div>
+
+        {/* MOBILE-STYLE ONE-LINE FLOATING POPUP TOAST */}
+        <MobileNotificationToast
+          toast={activeToast}
+          onDismiss={dismissToast}
+          onClick={(toast) => {
+            markAsRead(toast.id);
+            dismissToast();
+            router.push("/ambassador/orders");
+          }}
+        />
       </main>
     </div>
   );

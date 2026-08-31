@@ -13,6 +13,11 @@ import { useWishlist } from "@/context/WishlistContext";
 import { useRouter } from "next/navigation";
 import { usePixelloTransition } from "@/components/customer/PixelloPageTransition";
 import { motion } from "framer-motion";
+import { 
+  useMobileNotifications, 
+  MobileNotificationToast, 
+  CompactNotificationCenter 
+} from "@/components/common/MobileNotificationSystem";
 
 export interface CustomerNotification {
   id: string;
@@ -81,148 +86,22 @@ export default function Navbar() {
   const [mounted, setMounted] = useState(false);
   const searchContainerRef = useRef<HTMLDivElement>(null);
 
-  // Customer Notifications State
-  const [customerNotifications, setCustomerNotifications] = useState<CustomerNotification[]>(() => {
-    if (typeof window !== "undefined") {
-      try {
-        const saved = localStorage.getItem("pixello_customer_notifications_v1");
-        if (saved) return JSON.parse(saved);
-      } catch (e) {}
-    }
-    return [
-      {
-        id: "notif-welcome",
-        title: "Welcome to Pixello!",
-        desc: "Handcrafted personalized frames and polaroids delivered right to your doorstep.",
-        time: "1d ago",
-        read: true,
-        type: "promo",
-      }
-    ];
-  });
+  const [currentUser, setCurrentUser] = useState<any>(null);
 
-  const [liveReplyPopOver, setLiveReplyPopOver] = useState<CustomerNotification | null>(null);
-
-  const unreadCount = customerNotifications.filter((n) => !n.read).length;
-
-  const handleMarkAllNotifsAsRead = (e?: React.MouseEvent) => {
-    if (e) {
-      e.preventDefault();
-      e.stopPropagation();
-    }
-    const updated = customerNotifications.map((n) => ({ ...n, read: true }));
-    setCustomerNotifications(updated);
-    if (typeof window !== "undefined") {
-      localStorage.setItem("pixello_customer_notifications_v1", JSON.stringify(updated));
-    }
-  };
-
-  const handleMarkNotifAsRead = (id: string, e?: React.MouseEvent) => {
-    if (e) {
-      e.preventDefault();
-      e.stopPropagation();
-    }
-    const updated = customerNotifications.map((n) => (n.id === id ? { ...n, read: true } : n));
-    setCustomerNotifications(updated);
-    if (typeof window !== "undefined") {
-      localStorage.setItem("pixello_customer_notifications_v1", JSON.stringify(updated));
-    }
-  };
-
-  const handleClearNotifs = (e?: React.MouseEvent) => {
-    if (e) {
-      e.preventDefault();
-      e.stopPropagation();
-    }
-    if (typeof window !== "undefined") {
-      try {
-        const currentIds = customerNotifications.map((n) => n.id);
-        const existingCleared = JSON.parse(localStorage.getItem("pixello_cleared_notif_ids") || "[]");
-        const updatedCleared = Array.from(new Set([...existingCleared, ...currentIds]));
-        localStorage.setItem("pixello_cleared_notif_ids", JSON.stringify(updatedCleared));
-        localStorage.setItem("pixello_customer_notifications_v1", JSON.stringify([]));
-      } catch (err) {}
-    }
-    setCustomerNotifications([]);
-  };
-
-  // Sync official studio responses from /api/reviews
-  useEffect(() => {
-    const syncStudioReplies = async () => {
-      try {
-        const res = await fetch("/api/reviews");
-        const data = await res.json();
-        if (data.success && Array.isArray(data.reviews)) {
-          const repliedReviews = data.reviews.filter((r: any) => r.adminReply && r.adminReply.trim().length > 0);
-          
-          if (repliedReviews.length > 0) {
-            const clearedIds = new Set(
-              typeof window !== "undefined"
-                ? JSON.parse(localStorage.getItem("pixello_cleared_notif_ids") || "[]")
-                : []
-            );
-
-            setCustomerNotifications((prev) => {
-              const existingIds = new Set(prev.map((n) => n.id));
-              const newNotifs: CustomerNotification[] = [];
-
-              repliedReviews.forEach((r: any) => {
-                const notifId = `reply-rev-${r.id}`;
-                if (!existingIds.has(notifId) && !clearedIds.has(notifId)) {
-                  const itemNotif: CustomerNotification = {
-                    id: notifId,
-                    title: `Official Store Response from Pixello`,
-                    desc: r.adminReply,
-                    time: "Just now",
-                    read: false,
-                    type: "reply",
-                    adminReply: r.adminReply,
-                    productName: r.productName,
-                    orderId: r.orderId,
-                  };
-                  newNotifs.push(itemNotif);
-
-                  // Trigger live popover toast
-                  const seenPopovers = JSON.parse(sessionStorage.getItem("pixello_seen_reply_popovers") || "[]");
-                  if (!seenPopovers.includes(notifId)) {
-                    setLiveReplyPopOver(itemNotif);
-                    sessionStorage.setItem("pixello_seen_reply_popovers", JSON.stringify([...seenPopovers, notifId]));
-                  }
-                }
-              });
-
-              if (newNotifs.length > 0) {
-                const combined = [...newNotifs, ...prev];
-                if (typeof window !== "undefined") {
-                  localStorage.setItem("pixello_customer_notifications_v1", JSON.stringify(combined));
-                }
-                return combined;
-              }
-              return prev;
-            });
-          }
-        }
-      } catch (err) {
-        console.error("Error syncing customer notifications:", err);
-      }
-    };
-
-    syncStudioReplies();
-    window.addEventListener("pixello_admin_reviews_updated", syncStudioReplies);
-    window.addEventListener("storage", syncStudioReplies);
-    const interval = setInterval(syncStudioReplies, 10000);
-    return () => {
-      window.removeEventListener("pixello_admin_reviews_updated", syncStudioReplies);
-      window.removeEventListener("storage", syncStudioReplies);
-      clearInterval(interval);
-    };
-  }, []);
+  // Real Database Notifications System for Customer Portal
+  const {
+    notifications: dbNotifications,
+    unreadCount,
+    activeToast,
+    dismissToast,
+    markAsRead,
+    markAllAsRead,
+    clearAll,
+  } = useMobileNotifications("CUSTOMER", currentUser?.id);
 
   useEffect(() => {
     setMounted(true);
   }, []);
-
-  const [currentUser, setCurrentUser] = useState<any>(null);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -433,165 +312,18 @@ export default function Navbar() {
           </div>
 
           <div className="flex items-center gap-1.5 sm:gap-3 flex-shrink-0">
-            {/* Customer Notifications Dropdown Bell */}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button 
-                  variant="ghost" 
-                  size="icon" 
-                  aria-label="Notifications" 
-                  className="relative hover:bg-[#FFF8F2] text-[#3A2B24] rounded-full h-9 w-9 sm:h-10 sm:w-10 cursor-pointer"
-                >
-                  <Bell className="h-4 w-4 sm:h-5 sm:w-5 text-[#3A2B24]" />
-                  {mounted && unreadCount > 0 && (
-                    <span className="absolute top-1 right-1 flex h-4 w-4 items-center justify-center rounded-full bg-[#D89A86] text-[10px] font-extrabold text-white shadow-xs animate-pulse">
-                      {unreadCount}
-                    </span>
-                  )}
-                </Button>
-              </DropdownMenuTrigger>
-
-              <DropdownMenuContent align="end" className="w-[94vw] sm:w-[820px] md:w-[900px] max-w-[960px] rounded-3xl border border-[#EFE6DD] p-0 shadow-2xl bg-[#FFFDFB] overflow-hidden z-50 animate-in fade-in-50 zoom-in-95 duration-200">
-                <div className="flex flex-col sm:flex-row items-stretch">
-                  {/* Left Landscape Control Panel */}
-                  <div className="sm:w-48 md:w-52 bg-[#2E201A] text-white p-4 flex flex-col justify-between flex-shrink-0 border-b sm:border-b-0 sm:border-r border-[#443228]">
-                    <div>
-                      <div className="flex items-center gap-2 mb-2">
-                        <div className="h-7 w-7 rounded-xl bg-white/10 flex items-center justify-center text-amber-300 border border-white/10 shadow-xs">
-                          <Bell className="h-4 w-4" />
-                        </div>
-                        <h4 className="font-bold text-xs font-serif-brand tracking-wider uppercase text-[#EFE6DD]">Notifications</h4>
-                      </div>
-                      <p className="text-[10px] text-[#EFE6DD]/70 leading-snug mb-2">
-                        Studio responses &amp; real-time order updates.
-                      </p>
-                      {unreadCount > 0 ? (
-                        <div className="inline-flex items-center gap-1.5 bg-[#D89A86]/20 border border-[#D89A86]/40 text-[#F2C8B5] px-2 py-0.5 rounded-full text-[10px] font-extrabold mb-2">
-                          <span className="h-1.5 w-1.5 rounded-full bg-amber-400 animate-pulse" />
-                          <span>{unreadCount} Unread</span>
-                        </div>
-                      ) : (
-                        <span className="text-[10px] font-medium text-white/50 block mb-2">All caught up</span>
-                      )}
-                    </div>
-
-                    <div className="flex flex-col gap-1.5 pt-2.5 border-t border-white/10">
-                      {unreadCount > 0 && (
-                        <button 
-                          type="button"
-                          onPointerDown={(e) => e.stopPropagation()}
-                          onClick={handleMarkAllNotifsAsRead} 
-                          className="text-[10px] bg-white/10 hover:bg-white/20 text-white font-semibold py-1 px-2.5 rounded-xl transition-colors cursor-pointer flex items-center justify-center gap-1 text-center"
-                        >
-                          <Check className="h-3 w-3 text-amber-300" />
-                          <span>Mark all read</span>
-                        </button>
-                      )}
-                      <div className="flex items-center justify-between gap-2">
-                        {customerNotifications.length > 0 && (
-                          <button 
-                            type="button"
-                            onPointerDown={(e) => e.stopPropagation()}
-                            onClick={handleClearNotifs} 
-                            className="text-[10px] text-white/60 hover:text-red-300 font-medium flex items-center gap-1 cursor-pointer transition-colors"
-                          >
-                            <Trash2 className="h-3 w-3" /> Clear
-                          </button>
-                        )}
-                        <button 
-                          type="button"
-                          onPointerDown={(e) => e.stopPropagation()}
-                          onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            window.location.href = "/profile?tab=orders";
-                          }}
-                          className="text-[10px] font-bold text-amber-300 hover:text-amber-200 flex items-center gap-1 transition-colors ml-auto cursor-pointer"
-                        >
-                          <span>View Orders</span>
-                          <ArrowRight className="h-3 w-3" />
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Right Single Horizontal Line Notifications Stream */}
-                  <div className="flex-1 p-3 sm:p-4 bg-[#FAF6F0] flex flex-row items-stretch gap-3 overflow-x-auto overflow-y-hidden scrollbar-thin">
-                    {customerNotifications.length === 0 ? (
-                      <div className="p-6 text-center text-xs text-[#6C5C54] bg-white rounded-2xl border border-[#EFE6DD] my-auto w-full">
-                        <Bell className="h-5 w-5 text-[#D89A86] mx-auto mb-1.5 opacity-60" />
-                        <p className="font-bold text-[#3A2B24] text-xs">No Notifications</p>
-                        <p className="text-[10px] text-[#6C5C54]">You have no unread studio updates.</p>
-                      </div>
-                    ) : (
-                      customerNotifications.map((notif) => (
-                        <div 
-                          key={notif.id}
-                          onPointerDown={(e) => e.stopPropagation()}
-                          onClick={(e) => {
-                            handleMarkNotifAsRead(notif.id, e);
-                            if (notif.type === "reply" || notif.orderId) {
-                              window.location.href = "/profile?tab=orders";
-                            }
-                          }}
-                          className={`w-[290px] sm:w-[320px] md:w-[340px] flex-shrink-0 p-3 sm:p-3.5 rounded-2xl border transition-all cursor-pointer shadow-xs hover:shadow-md flex items-start gap-3 relative group overflow-hidden ${
-                            !notif.read 
-                              ? 'bg-white border-[#D89A86]/60 shadow-amber-900/5 ring-1 ring-[#D89A86]/20' 
-                              : 'bg-white/95 border-[#EFE6DD] hover:border-[#D89A86]/40'
-                          }`}
-                        >
-                          {/* Unread Indicator Bar */}
-                          {!notif.read && (
-                            <span className="absolute left-0 top-2 bottom-2 w-1 bg-[#D89A86] rounded-r-full" />
-                          )}
-
-                          {/* Left App Icon */}
-                          <div className="h-9 w-9 rounded-xl bg-[#3A2B24] border border-[#4E3D35] flex items-center justify-center flex-shrink-0 shadow-2xs overflow-hidden mt-0.5">
-                            <img src="/images/pixello_logo.png" alt="Pixello" className="h-6 w-6 rounded-full object-cover" />
-                          </div>
-
-                          {/* Horizontal Phone Notification Body */}
-                          <div className="flex-1 min-w-0 pr-1">
-                            {/* Top Row: App Name • Timestamp */}
-                            <div className="flex items-center justify-between gap-1 mb-0.5">
-                              <div className="flex items-center gap-1.5 min-w-0">
-                                <span className="font-bold text-[10px] text-[#3A2B24] tracking-tight uppercase">Pixello</span>
-                                <span className="text-[10px] text-[#6C5C54]">·</span>
-                                <span className="text-[9px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200/60 px-1.5 py-0.2 rounded-md">Verified</span>
-                              </div>
-                              <span className="text-[10px] font-medium text-[#6C5C54] whitespace-nowrap">{notif.time}</span>
-                            </div>
-
-                            {/* Title */}
-                            <h5 className="font-bold text-xs text-[#3A2B24] truncate">
-                              {notif.type === "reply" ? "Pixello Studio Team" : notif.title}
-                            </h5>
-
-                            {/* Message Text */}
-                            <p className="text-[11px] text-[#54433A] font-medium leading-snug line-clamp-2 mt-0.5">
-                              {notif.type === "reply" ? `"${notif.adminReply || notif.desc}"` : notif.desc}
-                            </p>
-
-                            {/* Sub-tag Row */}
-                            {notif.orderId && (
-                              <div className="mt-1 flex items-center gap-2 text-[9px] text-[#6C5C54]">
-                                <span className="font-semibold text-[#D89A86]">#{notif.orderId}</span>
-                                {notif.productName && <span className="truncate max-w-[150px]">· {notif.productName}</span>}
-                              </div>
-                            )}
-                          </div>
-
-                          {/* Right Action Arrow */}
-                          <div className="flex flex-col items-center justify-center self-center text-[#6C5C54] group-hover:text-[#D89A86] transition-colors pl-1">
-                            <ArrowRight className="h-3.5 w-3.5 opacity-60 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all" />
-                          </div>
-                        </div>
-                      ))
-                    )}
-                  </div>
-                </div>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            {/* Real Database Connected Compact Notification Center */}
+            <CompactNotificationCenter
+              role="CUSTOMER"
+              notifications={dbNotifications}
+              unreadCount={unreadCount}
+              onMarkRead={markAsRead}
+              onMarkAllRead={markAllAsRead}
+              onClearAll={clearAll}
+              onNavigateOrder={() => {
+                window.location.href = "/profile?tab=orders";
+              }}
+            />
 
             <Link href="/profile?tab=wishlist">
               <Button variant="ghost" size="icon" aria-label="Wishlist" className="relative hover:bg-[#FFF8F2] text-[#3A2B24] rounded-full h-9 w-9 sm:h-10 sm:w-10">
@@ -687,71 +419,16 @@ export default function Navbar() {
         </div>
       )}
 
-      {/* LIVE SMARTPHONE PUSH NOTIFICATION (TOP-CENTER HORIZONTAL PHONE BANNER) */}
-      {mounted && liveReplyPopOver && typeof document !== "undefined" && createPortal(
-        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[999999] w-[92vw] sm:w-[460px] max-w-[500px] bg-[#2E201A]/95 text-white backdrop-blur-2xl border border-white/15 rounded-[24px] shadow-[0_20px_50px_rgba(0,0,0,0.35)] p-3.5 sm:p-4 animate-in slide-in-from-top-6 duration-300 pointer-events-auto flex items-start gap-3.5 group">
-          {/* App Icon */}
-          <div className="h-10 w-10 rounded-2xl bg-white/10 border border-white/15 flex items-center justify-center flex-shrink-0 shadow-sm mt-0.5 overflow-hidden">
-            <img src="/images/pixello_logo.png" alt="Pixello" className="h-7 w-7 rounded-full object-cover" />
-          </div>
-
-          {/* Middle Content */}
-          <div className="flex-1 min-w-0 pr-1">
-            {/* App Title & Time */}
-            <div className="flex items-center justify-between gap-1 mb-0.5">
-              <div className="flex items-center gap-1.5">
-                <span className="font-bold text-[11px] tracking-wide uppercase text-amber-300">Pixello Store</span>
-                <span className="text-[10px] text-white/50">·</span>
-                <span className="text-[10px] text-white/70">Just now</span>
-              </div>
-              <button 
-                onClick={() => setLiveReplyPopOver(null)}
-                className="h-6 w-6 rounded-full bg-white/10 hover:bg-white/20 text-white/70 hover:text-white flex items-center justify-center text-xs font-bold transition-colors cursor-pointer"
-                title="Dismiss"
-              >
-                ✕
-              </button>
-            </div>
-
-            {/* Notification Title */}
-            <h4 className="font-bold text-xs text-white leading-tight">
-              Official Studio Response {liveReplyPopOver.orderId ? `• #${liveReplyPopOver.orderId}` : ""}
-            </h4>
-
-            {/* Notification Body Text */}
-            <p className="text-xs text-white/90 leading-snug line-clamp-2 mt-1 italic">
-              “{liveReplyPopOver.adminReply || liveReplyPopOver.desc}”
-            </p>
-
-            {/* Action Buttons */}
-            <div className="flex items-center gap-2 mt-2.5 pt-2 border-t border-white/10">
-              <button
-                type="button"
-                onClick={() => {
-                  handleMarkAllNotifsAsRead();
-                  setLiveReplyPopOver(null);
-                  window.location.href = "/profile?tab=orders";
-                }}
-                className="bg-amber-400 hover:bg-amber-300 text-[#2E201A] font-bold text-[11px] px-3.5 py-1 rounded-full transition-all flex items-center gap-1 cursor-pointer shadow-xs"
-              >
-                <span>View Order</span>
-                <ArrowRight className="h-3 w-3" />
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  handleMarkAllNotifsAsRead();
-                  setLiveReplyPopOver(null);
-                }}
-                className="text-white/70 hover:text-white text-[11px] font-semibold px-2 py-1 transition-colors cursor-pointer"
-              >
-                Mark as Read
-              </button>
-            </div>
-          </div>
-        </div>,
-        document.body
-      )}
+      {/* MOBILE-STYLE ONE-LINE FLOATING POPUP TOAST */}
+      <MobileNotificationToast
+        toast={activeToast}
+        onDismiss={dismissToast}
+        onClick={(toast) => {
+          markAsRead(toast.id);
+          dismissToast();
+          window.location.href = "/profile?tab=orders";
+        }}
+      />
     </nav>
   );
 }

@@ -6,12 +6,13 @@ import { Camera, LayoutDashboard, FileText, Package, Settings, LogOut, Bell, Che
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useRouter, usePathname } from "next/navigation";
+import { 
+  useMobileNotifications, 
+  MobileNotificationToast, 
+  CompactNotificationCenter 
+} from "@/components/common/MobileNotificationSystem";
 
-const MOCK_NOTIFICATIONS = [
-  { id: 1, title: "New Order #ORD-59709430 Assigned", desc: "Liquid Timer Motion • Express Delivery", time: "2 mins ago", unread: true },
-  { id: 2, title: "High-Res Photo File Uploaded", desc: "Customer attached HD photo for Wooden Frame", time: "15 mins ago", unread: true },
-  { id: 3, title: "Rider Ramesh Dispatched", desc: "Order #ORD-1092 picked up for doorstep delivery", time: "1 hour ago", unread: false },
-];
+
 
 export default function StudioLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -19,9 +20,17 @@ export default function StudioLayout({ children }: { children: React.ReactNode }
 
   const [isAccepting, setIsAccepting] = useState(true);
   const [studioBranchName, setStudioBranchName] = useState("Studio Alpha (Powai Branch)");
-  const [showNotifications, setShowNotifications] = useState(false);
-  const [notifications, setNotifications] = useState(MOCK_NOTIFICATIONS);
-  const notifRef = useRef<HTMLDivElement>(null);
+
+  // Real Database Notifications System for Studio Portal
+  const {
+    notifications: dbNotifications,
+    unreadCount,
+    activeToast,
+    dismissToast,
+    markAsRead,
+    markAllAsRead,
+    clearAll,
+  } = useMobileNotifications("STUDIO");
 
   useEffect(() => {
     try {
@@ -69,21 +78,7 @@ export default function StudioLayout({ children }: { children: React.ReactNode }
     }
   };
 
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (notifRef.current && !notifRef.current.contains(e.target as Node)) {
-        setShowNotifications(false);
-      }
-    };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
 
-  const markAllRead = () => {
-    setNotifications(prev => prev.map(n => ({ ...n, unread: false })));
-  };
-
-  const unreadCount = notifications.filter(n => n.unread).length;
 
   const SIDEBAR_ITEMS = [
     { label: "Dashboard", href: "/studio", icon: LayoutDashboard },
@@ -182,98 +177,35 @@ export default function StudioLayout({ children }: { children: React.ReactNode }
               {isAccepting ? "Accepting Orders" : "Orders Paused"}
             </Button>
 
-            {/* Interactive Notification Bell Icon with Popover */}
-            <div ref={notifRef} className="relative">
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => setShowNotifications(prev => !prev)}
-                className="relative rounded-full hover:bg-slate-100 text-slate-700"
-                aria-label="Notifications"
-              >
-                <Bell className="h-5 w-5 text-slate-600" />
-                {unreadCount > 0 && (
-                  <span className="absolute top-1.5 right-1.5 h-2.5 w-2.5 rounded-full bg-red-500 ring-2 ring-white animate-pulse" />
-                )}
-              </Button>
-
-              {/* Notifications Popover */}
-              {showNotifications && (
-                <div className="absolute right-0 mt-2 w-80 sm:w-96 bg-white border border-[#EFE6DD] rounded-3xl shadow-2xl overflow-hidden z-50 animate-in fade-in zoom-in-95">
-                  <div className="p-4 bg-[#FFF8F2] border-b border-[#EFE6DD] flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <h4 className="font-serif-brand font-bold text-sm text-[#3A2B24]">Studio Notifications</h4>
-                      {unreadCount > 0 && (
-                        <Badge className="bg-[#D89A86] text-white border-none text-[10px] px-2 py-0.5 rounded-full font-bold">
-                          {unreadCount} New
-                        </Badge>
-                      )}
-                    </div>
-                    {unreadCount > 0 && (
-                      <button onClick={markAllRead} className="text-[11px] font-bold text-[#D89A86] hover:underline cursor-pointer flex items-center gap-1">
-                        <Check className="h-3 w-3" /> Mark all as read
-                      </button>
-                    )}
-                  </div>
-
-                  <div className="divide-y divide-[#EFE6DD] max-h-80 overflow-y-auto">
-                    {notifications.filter(n => n.unread).length === 0 ? (
-                      <div className="py-8 px-5 text-center flex flex-col items-center justify-center bg-white">
-                        <div className="h-10 w-10 rounded-full bg-[#FFF8F2] border border-[#EFE6DD] flex items-center justify-center text-[#D89A86] mb-2.5 shadow-2xs">
-                          <Sparkles className="h-5 w-5 text-[#D89A86]" />
-                        </div>
-                        <h5 className="font-serif-brand font-bold text-sm text-[#3A2B24] mb-1">All caught up!</h5>
-                        <p className="text-xs text-[#6C5C54] mb-3 max-w-[200px]">No pending unread production notifications.</p>
-                        <Button
-                          size="sm"
-                          onClick={() => {
-                            setNotifications([
-                              { id: Date.now(), title: "New Urgent Order Queued", desc: "5x7 Wooden Frame • Customer requested 2-hr priority dispatch", time: "Just now", unread: true },
-                              ...notifications
-                            ]);
-                          }}
-                          className="btn-pixello-primary h-7 text-xs font-bold rounded-xl shadow-2xs"
-                        >
-                          Check For Production Alerts
-                        </Button>
-                      </div>
-                    ) : (
-                      notifications.filter(n => n.unread).map((n) => (
-                        <div key={n.id} className="p-3.5 hover:bg-[#FFF8F2]/60 transition-colors bg-amber-50/20 flex items-start justify-between gap-3">
-                          <div>
-                            <div className="flex items-center gap-1.5 mb-0.5">
-                              <h5 className="font-bold text-xs text-[#3A2B24]">{n.title}</h5>
-                              <span className="h-1.5 w-1.5 rounded-full bg-[#D89A86]" />
-                            </div>
-                            <p className="text-xs text-[#6C5C54] leading-relaxed">{n.desc}</p>
-                            <span className="text-[10px] text-[#D89A86] font-semibold mt-1 inline-block">{n.time}</span>
-                          </div>
-                          <button
-                            title="Mark as read"
-                            onClick={() => setNotifications(prev => prev.map(item => item.id === n.id ? { ...item, unread: false } : item))}
-                            className="h-6 w-6 rounded-md hover:bg-[#FFF8F2] border border-transparent hover:border-[#EFE6DD] flex items-center justify-center text-[#D89A86] cursor-pointer flex-shrink-0"
-                          >
-                            <Check className="h-3.5 w-3.5" />
-                          </button>
-                        </div>
-                      ))
-                    )}
-                  </div>
-
-                  <div className="p-3 bg-slate-50 border-t border-[#EFE6DD] text-center">
-                    <Link href="/studio/orders" onClick={() => setShowNotifications(false)} className="text-xs font-bold text-[#D89A86] hover:underline">
-                      View All Production Orders ➔
-                    </Link>
-                  </div>
-                </div>
-              )}
-            </div>
+            {/* Real Database Connected Compact Notification Center */}
+            <CompactNotificationCenter
+              role="STUDIO"
+              notifications={dbNotifications}
+              unreadCount={unreadCount}
+              onMarkRead={markAsRead}
+              onMarkAllRead={markAllAsRead}
+              onClearAll={clearAll}
+              onNavigateOrder={(orderId) => {
+                router.push("/studio/orders");
+              }}
+            />
           </div>
         </header>
 
         <div className="flex-1 overflow-auto p-8">
           {children}
         </div>
+
+        {/* MOBILE-STYLE ONE-LINE FLOATING POPUP TOAST */}
+        <MobileNotificationToast
+          toast={activeToast}
+          onDismiss={dismissToast}
+          onClick={(toast) => {
+            markAsRead(toast.id);
+            dismissToast();
+            router.push("/studio/orders");
+          }}
+        />
       </main>
     </div>
   );

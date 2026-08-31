@@ -81,6 +81,81 @@ export async function PATCH(
         });
       }
 
+      // 5. Create Portal-Specific Notifications based on status change
+      let statusTitle = `Order Update: ${status}`;
+      let customerMsg = `Order #${order.id} status updated to ${status}.`;
+      let adminMsg = `Order #${order.id} updated to ${status}.`;
+
+      if (dbStatus === "ACCEPTED_BY_STUDIO") {
+        statusTitle = "Studio Accepted Order";
+        customerMsg = `Studio accepted Order #${order.id} and has begun craft preparation.`;
+        adminMsg = `Studio accepted Order #${order.id}.`;
+      } else if (dbStatus === "PRINTING" || dbStatus === "FRAMING" || dbStatus === "DESIGNING" || dbStatus === "QUALITY_CHECK") {
+        statusTitle = "Production Update";
+        customerMsg = `Order #${order.id} is currently in ${status.toLowerCase().replace(/_/g, " ")}.`;
+        adminMsg = `Order #${order.id} is now ${status.toLowerCase().replace(/_/g, " ")}.`;
+      } else if (dbStatus === "READY_FOR_PICKUP") {
+        statusTitle = "Ready for Pickup";
+        customerMsg = `Order #${order.id} is handcrafted & packed, waiting for delivery pickup.`;
+        adminMsg = `Order #${order.id} is ready for pickup at studio.`;
+
+        // Notify Delivery Rider
+        await tx.notification.create({
+          data: {
+            role: "DELIVERY",
+            type: "PICKUP_AVAILABLE",
+            title: "Pickup Available",
+            message: `Order #${order.id} is ready for pickup at Studio.`,
+            referenceType: "ORDER",
+            referenceId: order.id,
+          },
+        });
+      } else if (dbStatus === "OUT_FOR_DELIVERY" || dbStatus === "PICKED_UP") {
+        statusTitle = "Out for Delivery";
+        customerMsg = `Order #${order.id} is on the way with delivery partner Ramesh Kumar! 🚀`;
+        adminMsg = `Order #${order.id} is out for doorstep delivery.`;
+      } else if (dbStatus === "DELIVERED") {
+        statusTitle = "Order Delivered 🎉";
+        customerMsg = `Order #${order.id} has been delivered successfully to your doorstep.`;
+        adminMsg = `Order #${order.id} successfully delivered.`;
+      } else if (dbStatus === "CANCELLED") {
+        statusTitle = "Order Cancelled";
+        customerMsg = `Order #${order.id} has been cancelled.`;
+        adminMsg = `Order #${order.id} was cancelled.`;
+      }
+
+      // Notify Admin
+      await tx.notification.create({
+        data: {
+          role: "ADMIN",
+          type: `ORDER_${dbStatus}`,
+          title: statusTitle,
+          message: adminMsg,
+          referenceType: "ORDER",
+          referenceId: order.id,
+        },
+      });
+
+      // Notify Customer if customer profile exists
+      if (targetOrder.customerProfileId) {
+        const profile = await tx.customerProfile.findUnique({
+          where: { id: targetOrder.customerProfileId },
+        });
+        if (profile?.userId) {
+          await tx.notification.create({
+            data: {
+              role: "CUSTOMER",
+              userId: profile.userId,
+              type: `ORDER_${dbStatus}`,
+              title: statusTitle,
+              message: customerMsg,
+              referenceType: "ORDER",
+              referenceId: order.id,
+            },
+          });
+        }
+      }
+
       return order;
     });
 
@@ -94,6 +169,7 @@ export async function PATCH(
     // Broadcast real-time update to all listeners
     portalEvents.emit("order_change", { action: "STATUS_UPDATE", orderId: updatedOrder.id, status: dbStatus });
     portalEvents.emit("order_update", { action: "STATUS_UPDATE", orderId: updatedOrder.id, status: dbStatus });
+    portalEvents.emit("notification_change", { action: "CREATE", orderId: updatedOrder.id, status: dbStatus });
 
     return NextResponse.json({ success: true, order: updatedOrder });
   } catch (error: any) {

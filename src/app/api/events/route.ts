@@ -27,6 +27,7 @@ export async function GET() {
       const handleInventoryEvent = (data: any) => sendEvent("inventory_update", data);
       const handleCustomerEvent = (data: any) => sendEvent("customer_update", data);
       const handleCartEvent = (data: any) => sendEvent("cart_update", data);
+      const handleNotificationEvent = (data: any) => sendEvent("notification_update", data);
 
       portalEvents.on("order_change", handleOrderEvent);
       portalEvents.on("promo_change", handlePromoEvent);
@@ -35,6 +36,7 @@ export async function GET() {
       portalEvents.on("inventory_change", handleInventoryEvent);
       portalEvents.on("customer_change", handleCustomerEvent);
       portalEvents.on("cart_change", handleCartEvent);
+      portalEvents.on("notification_change", handleNotificationEvent);
 
       // Send initial connection heartbeat
       sendEvent("ping", { time: new Date().toISOString() });
@@ -58,6 +60,7 @@ export async function GET() {
         portalEvents.off("inventory_change", handleInventoryEvent);
         portalEvents.off("customer_change", handleCustomerEvent);
         portalEvents.off("cart_change", handleCartEvent);
+        portalEvents.off("notification_change", handleNotificationEvent);
       };
     },
   });

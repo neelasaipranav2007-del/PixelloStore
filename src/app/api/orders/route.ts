@@ -245,24 +245,55 @@ export async function POST(req: Request) {
         }
       }
 
-      // 3. Create Notification for Studio & Admin
+      // 3. Create Real Database Notifications for Admin, Studio, and Customer
       await tx.notification.create({
         data: {
-          role: "STUDIO",
+          role: "ADMIN",
           type: "NEW_ORDER",
-          title: "New Production Order Assigned",
-          message: `Order #${newOrder.id} (${authenticatedCustomerName}) received for production.`,
+          title: "New Order Received",
+          message: `Order #${newOrder.id} placed by ${authenticatedCustomerName} — ₹${newOrder.totalAmount.toFixed(2)}`,
           referenceType: "ORDER",
           referenceId: newOrder.id,
         },
       });
 
+      await tx.notification.create({
+        data: {
+          role: "STUDIO",
+          type: "NEW_ORDER",
+          title: "New Order Assigned",
+          message: `Order #${newOrder.id} (${authenticatedCustomerName}) assigned for studio printing.`,
+          referenceType: "ORDER",
+          referenceId: newOrder.id,
+        },
+      });
+
+      if (customerProfileId) {
+        const cProfile = await tx.customerProfile.findUnique({
+          where: { id: customerProfileId },
+        });
+        if (cProfile?.userId) {
+          await tx.notification.create({
+            data: {
+              userId: cProfile.userId,
+              role: "CUSTOMER",
+              type: "ORDER_CONFIRMED",
+              title: "Order Confirmed",
+              message: `Order #${newOrder.id} is confirmed and sent to studio for preparation.`,
+              referenceType: "ORDER",
+              referenceId: newOrder.id,
+            },
+          });
+        }
+      }
+
       return newOrder;
     });
 
-    // Broadcast real-time event to all connected portals (Admin, Customer, Studio, Delivery)
+    // Broadcast real-time events to all connected portals (Admin, Customer, Studio, Delivery)
     portalEvents.emit("order_change", { action: "CREATE", orderId: createdOrder.id });
     portalEvents.emit("order_update", { action: "CREATE", orderId: createdOrder.id });
+    portalEvents.emit("notification_change", { action: "CREATE", orderId: createdOrder.id });
 
     return NextResponse.json({ success: true, order: createdOrder });
   } catch (error: any) {
