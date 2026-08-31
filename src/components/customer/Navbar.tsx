@@ -451,136 +451,145 @@ export default function Navbar() {
                 </Button>
               </DropdownMenuTrigger>
 
-              <DropdownMenuContent align="end" className="w-[360px] sm:w-[480px] rounded-3xl border border-[#EFE6DD] p-0 shadow-2xl bg-[#FAF6F0] overflow-hidden z-50 animate-in fade-in-50 zoom-in-95 duration-200">
-                {/* Smartphone Style Header */}
-                <div className="px-5 py-3.5 bg-[#2E201A] text-white flex items-center justify-between border-b border-[#443228]">
-                  <div className="flex items-center gap-2.5">
-                    <div className="h-7 w-7 rounded-xl bg-white/10 flex items-center justify-center text-amber-300 border border-white/10 shadow-xs">
-                      <Bell className="h-4 w-4" />
-                    </div>
+              <DropdownMenuContent align="end" className="w-[94vw] sm:w-[680px] md:w-[740px] rounded-3xl border border-[#EFE6DD] p-0 shadow-2xl bg-[#FFFDFB] overflow-hidden z-50 animate-in fade-in-50 zoom-in-95 duration-200">
+                <div className="flex flex-col sm:flex-row items-stretch">
+                  {/* Left Landscape Control Panel */}
+                  <div className="sm:w-56 bg-[#2E201A] text-white p-5 flex flex-col justify-between flex-shrink-0 border-b sm:border-b-0 sm:border-r border-[#443228]">
                     <div>
-                      <h4 className="font-bold text-xs font-serif-brand tracking-wide uppercase text-[#EFE6DD]">Notifications</h4>
-                    </div>
-                    {unreadCount > 0 && (
-                      <span className="bg-[#D89A86] text-white text-[10px] font-black px-2 py-0.5 rounded-full shadow-2xs">
-                        {unreadCount} new
-                      </span>
-                    )}
-                  </div>
-                  {unreadCount > 0 && (
-                    <button 
-                      onClick={handleMarkAllNotifsAsRead} 
-                      className="text-[11px] text-[#EFE6DD]/80 hover:text-white font-semibold transition-colors cursor-pointer flex items-center gap-1"
-                    >
-                      <Check className="h-3.5 w-3.5 text-amber-300" />
-                      <span>Mark all read</span>
-                    </button>
-                  )}
-                </div>
-
-                {/* Notifications Horizontal Feed (Phone Notification Center Style) */}
-                <div className="max-h-[380px] overflow-y-auto p-3 sm:p-4 flex flex-col gap-2.5 bg-[#FAF6F0]">
-                  {customerNotifications.length === 0 ? (
-                    <div className="p-8 text-center text-xs text-[#6C5C54] bg-white rounded-2xl border border-[#EFE6DD]">
-                      <div className="h-10 w-10 rounded-full bg-[#FFF8F2] border border-[#EFE6DD] flex items-center justify-center mx-auto mb-2 text-[#D89A86]">
-                        <Bell className="h-5 w-5" />
-                      </div>
-                      <p className="font-bold text-[#3A2B24]">No New Notifications</p>
-                      <p className="text-[11px] text-[#6C5C54] mt-0.5">You have no unread studio updates.</p>
-                    </div>
-                  ) : (
-                    customerNotifications.map((notif) => (
-                      <div 
-                        key={notif.id}
-                        onPointerDown={(e) => e.stopPropagation()}
-                        onClick={(e) => {
-                          handleMarkNotifAsRead(notif.id, e);
-                          if (notif.type === "reply" || notif.orderId) {
-                            window.location.href = "/profile?tab=orders";
-                          }
-                        }}
-                        className={`p-3 sm:p-3.5 rounded-2xl border transition-all cursor-pointer shadow-xs hover:shadow-md flex items-start gap-3 relative group overflow-hidden ${
-                          !notif.read 
-                            ? 'bg-white border-[#D89A86]/60 shadow-amber-900/5 ring-1 ring-[#D89A86]/20' 
-                            : 'bg-white/95 border-[#EFE6DD] hover:border-[#D89A86]/40'
-                        }`}
-                      >
-                        {/* Unread Indicator Bar */}
-                        {!notif.read && (
-                          <span className="absolute left-0 top-2 bottom-2 w-1 bg-[#D89A86] rounded-r-full" />
-                        )}
-
-                        {/* Left App Icon */}
-                        <div className="h-10 w-10 rounded-xl bg-[#3A2B24] border border-[#4E3D35] flex items-center justify-center flex-shrink-0 shadow-2xs overflow-hidden mt-0.5">
-                          <img src="/images/pixello_logo.png" alt="Pixello" className="h-7 w-7 rounded-full object-cover" />
+                      <div className="flex items-center gap-2.5 mb-3">
+                        <div className="h-8 w-8 rounded-xl bg-white/10 flex items-center justify-center text-amber-300 border border-white/10 shadow-xs">
+                          <Bell className="h-4.5 w-4.5" />
                         </div>
+                        <h4 className="font-bold text-xs font-serif-brand tracking-wider uppercase text-[#EFE6DD]">Notifications</h4>
+                      </div>
+                      <p className="text-[11px] text-[#EFE6DD]/70 leading-snug mb-3">
+                        Studio responses &amp; real-time order updates.
+                      </p>
+                      {unreadCount > 0 ? (
+                        <div className="inline-flex items-center gap-1.5 bg-[#D89A86]/20 border border-[#D89A86]/40 text-[#F2C8B5] px-2.5 py-1 rounded-full text-[10px] font-extrabold mb-3">
+                          <span className="h-1.5 w-1.5 rounded-full bg-amber-400 animate-pulse" />
+                          <span>{unreadCount} Unread Updates</span>
+                        </div>
+                      ) : (
+                        <span className="text-[10px] font-medium text-white/50 block mb-3">All caught up</span>
+                      )}
+                    </div>
 
-                        {/* Horizontal Phone Notification Body */}
-                        <div className="flex-1 min-w-0 pr-1">
-                          {/* Top Row: App Name • Timestamp */}
-                          <div className="flex items-center justify-between gap-1 mb-0.5">
-                            <div className="flex items-center gap-1.5 min-w-0">
-                              <span className="font-bold text-[11px] text-[#3A2B24] tracking-tight uppercase">Pixello</span>
-                              <span className="text-[10px] text-[#6C5C54]">·</span>
-                              <span className="text-[9px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200/60 px-1.5 py-0.2 rounded-md">Verified</span>
-                            </div>
-                            <span className="text-[10px] font-medium text-[#6C5C54] whitespace-nowrap">{notif.time}</span>
+                    <div className="flex flex-col gap-2 pt-3 border-t border-white/10">
+                      {unreadCount > 0 && (
+                        <button 
+                          type="button"
+                          onPointerDown={(e) => e.stopPropagation()}
+                          onClick={handleMarkAllNotifsAsRead} 
+                          className="text-[11px] bg-white/10 hover:bg-white/20 text-white font-semibold py-1.5 px-3 rounded-xl transition-colors cursor-pointer flex items-center justify-center gap-1.5 text-center"
+                        >
+                          <Check className="h-3.5 w-3.5 text-amber-300" />
+                          <span>Mark all read</span>
+                        </button>
+                      )}
+                      <div className="flex items-center justify-between gap-2">
+                        {customerNotifications.length > 0 && (
+                          <button 
+                            type="button"
+                            onPointerDown={(e) => e.stopPropagation()}
+                            onClick={handleClearNotifs} 
+                            className="text-[11px] text-white/60 hover:text-red-300 font-medium flex items-center gap-1 cursor-pointer transition-colors"
+                          >
+                            <Trash2 className="h-3 w-3" /> Clear
+                          </button>
+                        )}
+                        <button 
+                          type="button"
+                          onPointerDown={(e) => e.stopPropagation()}
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            window.location.href = "/profile?tab=orders";
+                          }}
+                          className="text-[11px] font-bold text-amber-300 hover:text-amber-200 flex items-center gap-1 transition-colors ml-auto cursor-pointer"
+                        >
+                          <span>View Orders</span>
+                          <ArrowRight className="h-3 w-3" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Right Horizontal Notifications Stream */}
+                  <div className="flex-1 p-3.5 sm:p-4.5 bg-[#FAF6F0] flex flex-col gap-2.5 max-h-[340px] sm:max-h-[380px] overflow-y-auto">
+                    {customerNotifications.length === 0 ? (
+                      <div className="p-10 text-center text-xs text-[#6C5C54] bg-white rounded-2xl border border-[#EFE6DD] my-auto">
+                        <Bell className="h-6 w-6 text-[#D89A86] mx-auto mb-2 opacity-60" />
+                        <p className="font-bold text-[#3A2B24]">No Notifications</p>
+                        <p className="text-[11px] text-[#6C5C54] mt-0.5">You have no unread studio updates.</p>
+                      </div>
+                    ) : (
+                      customerNotifications.map((notif) => (
+                        <div 
+                          key={notif.id}
+                          onPointerDown={(e) => e.stopPropagation()}
+                          onClick={(e) => {
+                            handleMarkNotifAsRead(notif.id, e);
+                            if (notif.type === "reply" || notif.orderId) {
+                              window.location.href = "/profile?tab=orders";
+                            }
+                          }}
+                          className={`p-3 sm:p-3.5 rounded-2xl border transition-all cursor-pointer shadow-xs hover:shadow-md flex items-start gap-3 relative group overflow-hidden ${
+                            !notif.read 
+                              ? 'bg-white border-[#D89A86]/60 shadow-amber-900/5 ring-1 ring-[#D89A86]/20' 
+                              : 'bg-white/95 border-[#EFE6DD] hover:border-[#D89A86]/40'
+                          }`}
+                        >
+                          {/* Unread Indicator Bar */}
+                          {!notif.read && (
+                            <span className="absolute left-0 top-2 bottom-2 w-1 bg-[#D89A86] rounded-r-full" />
+                          )}
+
+                          {/* Left App Icon */}
+                          <div className="h-10 w-10 rounded-xl bg-[#3A2B24] border border-[#4E3D35] flex items-center justify-center flex-shrink-0 shadow-2xs overflow-hidden mt-0.5">
+                            <img src="/images/pixello_logo.png" alt="Pixello" className="h-7 w-7 rounded-full object-cover" />
                           </div>
 
-                          {/* Title */}
-                          <h5 className="font-bold text-xs text-[#3A2B24] truncate">
-                            {notif.type === "reply" ? "Pixello Studio Team" : notif.title}
-                          </h5>
-
-                          {/* Message Text */}
-                          <p className="text-xs text-[#54433A] font-medium leading-snug line-clamp-2 mt-0.5">
-                            {notif.type === "reply" ? `"${notif.adminReply || notif.desc}"` : notif.desc}
-                          </p>
-
-                          {/* Sub-tag Row */}
-                          {notif.orderId && (
-                            <div className="mt-1 flex items-center gap-2 text-[10px] text-[#6C5C54]">
-                              <span className="font-semibold text-[#D89A86]">#{notif.orderId}</span>
-                              {notif.productName && <span>· {notif.productName}</span>}
+                          {/* Horizontal Phone Notification Body */}
+                          <div className="flex-1 min-w-0 pr-1">
+                            {/* Top Row: App Name • Timestamp */}
+                            <div className="flex items-center justify-between gap-1 mb-0.5">
+                              <div className="flex items-center gap-1.5 min-w-0">
+                                <span className="font-bold text-[11px] text-[#3A2B24] tracking-tight uppercase">Pixello</span>
+                                <span className="text-[10px] text-[#6C5C54]">·</span>
+                                <span className="text-[9px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200/60 px-1.5 py-0.2 rounded-md">Verified</span>
+                              </div>
+                              <span className="text-[10px] font-medium text-[#6C5C54] whitespace-nowrap">{notif.time}</span>
                             </div>
-                          )}
-                        </div>
 
-                        {/* Right Action Arrow */}
-                        <div className="flex flex-col items-center justify-center self-center text-[#6C5C54] group-hover:text-[#D89A86] transition-colors pl-1">
-                          <ArrowRight className="h-3.5 w-3.5 opacity-60 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all" />
-                        </div>
-                      </div>
-                    ))
-                  )}
-                </div>
+                            {/* Title */}
+                            <h5 className="font-bold text-xs text-[#3A2B24] truncate">
+                              {notif.type === "reply" ? "Pixello Studio Team" : notif.title}
+                            </h5>
 
-                {/* Footer with working action buttons */}
-                {customerNotifications.length > 0 && (
-                  <div className="px-4 py-3 bg-white border-t border-[#EFE6DD] flex items-center justify-between text-xs">
-                    <button 
-                      type="button"
-                      onPointerDown={(e) => e.stopPropagation()}
-                      onClick={handleClearNotifs} 
-                      className="text-[11px] text-[#6C5C54] hover:text-red-600 font-bold flex items-center gap-1.5 cursor-pointer transition-colors px-2.5 py-1 rounded-lg hover:bg-red-50"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" /> Clear all
-                    </button>
-                    <button 
-                      type="button"
-                      onPointerDown={(e) => e.stopPropagation()}
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        window.location.href = "/profile?tab=orders";
-                      }}
-                      className="text-[11px] font-bold text-[#3A2B24] hover:text-[#D89A86] flex items-center gap-1 transition-colors px-3 py-1.5 rounded-xl hover:bg-[#FFF8F2] border border-[#EFE6DD] cursor-pointer shadow-2xs active:scale-95"
-                    >
-                      <span>View Orders</span>
-                      <ArrowRight className="h-3.5 w-3.5 text-[#D89A86]" />
-                    </button>
+                            {/* Message Text */}
+                            <p className="text-xs text-[#54433A] font-medium leading-snug line-clamp-2 mt-0.5">
+                              {notif.type === "reply" ? `"${notif.adminReply || notif.desc}"` : notif.desc}
+                            </p>
+
+                            {/* Sub-tag Row */}
+                            {notif.orderId && (
+                              <div className="mt-1 flex items-center gap-2 text-[10px] text-[#6C5C54]">
+                                <span className="font-semibold text-[#D89A86]">#{notif.orderId}</span>
+                                {notif.productName && <span>· {notif.productName}</span>}
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Right Action Arrow */}
+                          <div className="flex flex-col items-center justify-center self-center text-[#6C5C54] group-hover:text-[#D89A86] transition-colors pl-1">
+                            <ArrowRight className="h-3.5 w-3.5 opacity-60 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all" />
+                          </div>
+                        </div>
+                      ))
+                    )}
                   </div>
-                )}
+                </div>
               </DropdownMenuContent>
             </DropdownMenu>
 
