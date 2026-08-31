@@ -435,8 +435,8 @@ export default function Navbar() {
                       <Bell className="h-4.5 w-4.5" />
                     </div>
                     <div>
-                      <h4 className="font-bold text-sm font-serif-brand tracking-tight">Studio Inbox</h4>
-                      <p className="text-[11px] text-[#EFE6DD]/80">Official responses & order alerts</p>
+                      <h4 className="font-bold text-sm font-serif-brand tracking-tight">Notifications</h4>
+                      <p className="text-[11px] text-[#EFE6DD]/80">Review responses & order updates</p>
                     </div>
                   </div>
                   {unreadCount > 0 && (
