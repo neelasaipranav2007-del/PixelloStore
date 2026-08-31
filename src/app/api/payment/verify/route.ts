@@ -134,6 +134,8 @@ export async function POST(req: Request) {
     const finalTotal = Number(totalAmount) || 0;
     const cleanReferral = referralCode ? referralCode.trim().toUpperCase() : null;
 
+    const isCod = razorpayPaymentId.startsWith("COD_") || body.paymentMethod === "COD";
+
     const createdOrder = await prisma.$transaction(async (tx) => {
       // Create Central Order
       const newOrder = await tx.order.create({
@@ -164,16 +166,18 @@ export async function POST(req: Request) {
           history: {
             create: {
               status: "PLACED",
-              note: `Payment verified via Razorpay (${razorpayPaymentId}). Order placed by ${authenticatedCustomerName}`,
+              note: isCod
+                ? `Order placed via Cash on Delivery (COD). Payment to be collected upon doorstep delivery.`
+                : `Payment verified via Razorpay (${razorpayPaymentId}). Order placed by ${authenticatedCustomerName}`,
             },
           },
           transaction: {
             create: {
               amount: finalTotal,
-              paymentMethod: "RAZORPAY",
-              razorpayOrderId,
+              paymentMethod: isCod ? "COD" : "RAZORPAY",
+              razorpayOrderId: effectiveOrderId,
               razorpayPaymentId,
-              status: "SUCCESS",
+              status: isCod ? "PENDING" : "SUCCESS",
             },
           },
           deliveryInfo: {

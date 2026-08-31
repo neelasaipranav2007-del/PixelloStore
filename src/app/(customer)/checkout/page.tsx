@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
-import { CheckCircle2, MapPin, CreditCard, Wallet, Building2, ChevronLeft, ShieldCheck, Loader2, ArrowRight, Sparkles, Tag, AlertCircle, Copy, Check, QrCode, ExternalLink, Smartphone, RefreshCw, X, Ban, Trash2 } from "lucide-react";
+import { CheckCircle2, MapPin, CreditCard, Wallet, Truck, Banknote, ChevronLeft, ShieldCheck, Loader2, ArrowRight, Sparkles, Tag, AlertCircle, Copy, Check, QrCode, ExternalLink, Smartphone, RefreshCw, X, Ban, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -44,7 +44,7 @@ export default function CheckoutPage() {
     type: "percentage" | "flat";
     value: number;
   } | null>(null);
-  const [paymentMethod, setPaymentMethod] = useState<"upi" | "netbanking">("upi");
+  const [paymentMethod, setPaymentMethod] = useState<"upi" | "cod">("upi");
   const [copiedUpi, setCopiedUpi] = useState(false);
   const [utrNumber, setUtrNumber] = useState("");
   const [promoError, setPromoError] = useState("");
@@ -520,6 +520,7 @@ export default function CheckoutPage() {
     studioName: string;
     totalAmount: number;
     address: string;
+    paymentMethod?: string;
   } | null>(null);
 
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
@@ -717,8 +718,18 @@ export default function CheckoutPage() {
           studioName: confirmedOrder.assignedStudio || finalStudio,
           totalAmount: confirmedOrder.totalAmount,
           address: confirmedOrder.shippingAddress || formattedAddressStr,
+          paymentMethod: paymentMethod === "cod" ? "Cash on Delivery (COD)" : "UPI / Online Payment",
         });
       };
+
+      // If Cash on Delivery is selected, complete order placement directly
+      if (paymentMethod === "cod") {
+        const codPaymentId = `COD_${Date.now()}`;
+        const codOrderId = `order_cod_${Date.now()}`;
+        await verifyAndConfirm(codPaymentId, "cod_verified", codOrderId);
+        setIsProcessingPayment(false);
+        return;
+      }
 
       // 3. Load official Razorpay SDK and launch Test Checkout Modal
       const isLoaded = await loadRazorpayScript();
@@ -1118,29 +1129,52 @@ export default function CheckoutPage() {
                     )}
                   </div>
 
-                  {/* Net Banking Option */}
+                  {/* Cash on Delivery (COD) Option */}
                   <div
-                    onClick={() => setPaymentMethod("netbanking")}
+                    onClick={() => setPaymentMethod("cod")}
                     className={cn(
-                      "p-4 border rounded-2xl cursor-pointer transition-all flex items-center justify-between",
-                      paymentMethod === "netbanking"
+                      "p-4 md:p-5 border rounded-2xl cursor-pointer transition-all",
+                      paymentMethod === "cod"
                         ? "border-[#D89A86] bg-[#FFF8F2]/60 shadow-sm"
                         : "border-[#EFE6DD] hover:border-[#D89A86] bg-white"
                     )}
                   >
-                    <div className="flex items-center gap-3">
-                      <input
-                        type="radio"
-                        name="payment"
-                        checked={paymentMethod === "netbanking"}
-                        onChange={() => setPaymentMethod("netbanking")}
-                        className="text-[#D89A86] focus:ring-[#D89A86] h-4 w-4"
-                      />
-                      <div className="font-semibold text-[#3A2B24] flex items-center gap-2">
-                        <Building2 className="h-5 w-5 text-[#5AAE7F]" /> Net Banking
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <input
+                          type="radio"
+                          name="payment"
+                          checked={paymentMethod === "cod"}
+                          onChange={() => setPaymentMethod("cod")}
+                          className="text-[#D89A86] focus:ring-[#D89A86] h-4 w-4 accent-[#D89A86]"
+                        />
+                        <div className="font-semibold text-[#3A2B24] flex items-center gap-2">
+                          <Truck className="h-5 w-5 text-[#D89A86]" /> Cash on Delivery (COD)
+                        </div>
                       </div>
+                      <Badge className="bg-amber-100 text-amber-900 border-amber-200 text-[11px] font-bold">
+                        Pay at Doorstep
+                      </Badge>
                     </div>
-                    <span className="text-xs text-[#6C5C54]">All Major Indian Banks</span>
+
+                    {/* Expandable COD Information Card */}
+                    {paymentMethod === "cod" && (
+                      <div className="mt-4 pt-4 border-t border-[#D89A86]/20 bg-white p-4 rounded-2xl border border-[#EFE6DD] shadow-xs text-left animate-in fade-in">
+                        <div className="flex items-start gap-3">
+                          <div className="h-10 w-10 rounded-2xl bg-amber-50 border border-amber-200 flex items-center justify-center text-amber-800 flex-shrink-0 mt-0.5">
+                            <Banknote className="h-5 w-5" />
+                          </div>
+                          <div>
+                            <p className="text-xs font-bold text-[#3A2B24] mb-1">
+                              Pay ₹{total.toFixed(2)} in Cash or Scan QR upon doorstep arrival
+                            </p>
+                            <p className="text-[11px] text-[#6C5C54] leading-relaxed">
+                              You can pay via Cash or scan the delivery agent&apos;s UPI QR code when your order arrives. Zero additional COD convenience charges.
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               </CardContent>
@@ -1288,12 +1322,17 @@ export default function CheckoutPage() {
                   {isProcessingPayment ? (
                     <>
                       <Loader2 className="h-5 w-5 animate-spin text-white" />
-                      <span>Opening Secure Razorpay Gateway...</span>
+                      <span>{paymentMethod === "cod" ? "Placing Cash on Delivery Order..." : "Opening Secure Razorpay Gateway..."}</span>
+                    </>
+                  ) : paymentMethod === "cod" ? (
+                    <>
+                      <Truck className="h-5 w-5 text-white" />
+                      <span>Place Order (Cash on Delivery) • ₹{total.toFixed(2)}</span>
                     </>
                   ) : (
                     <>
                       <CreditCard className="h-5 w-5 text-white" />
-                      <span>Pay ₹{total.toFixed(2)} Securely</span>
+                      <span>Pay ₹{total.toFixed(2)} with UPI / Online</span>
                     </>
                   )}
                 </Button>
@@ -1424,7 +1463,7 @@ export default function CheckoutPage() {
             </div>
 
             <Badge className="bg-emerald-100 text-emerald-800 border-none font-bold text-xs px-3 py-1 mb-2 rounded-full">
-              Payment Successful 🎉
+              {orderSuccessModal.paymentMethod === "Cash on Delivery (COD)" ? "Order Placed (Cash on Delivery) 📦" : "Payment Successful 🎉"}
             </Badge>
 
             <h2 className="font-serif-brand text-2xl font-bold text-[#3A2B24] mb-1">
@@ -1437,11 +1476,15 @@ export default function CheckoutPage() {
 
             <div className="bg-[#FFF8F2] border border-[#EFE6DD] rounded-2xl p-4 text-left text-xs flex flex-col gap-2.5 mb-6">
               <div className="flex justify-between items-center pb-2 border-b border-[#EFE6DD]">
+                <span className="text-[#6C5C54]">Payment Method:</span>
+                <span className="font-bold text-[#3A2B24]">{orderSuccessModal.paymentMethod || "UPI / Online"}</span>
+              </div>
+              <div className="flex justify-between items-center pb-2 border-b border-[#EFE6DD]">
                 <span className="text-[#6C5C54]">Estimated Delivery:</span>
                 <span className="font-bold text-emerald-700">Within 2 Hours 🚀</span>
               </div>
               <div className="flex justify-between items-center pb-2 border-b border-[#EFE6DD]">
-                <span className="text-[#6C5C54]">Amount Paid:</span>
+                <span className="text-[#6C5C54]">{orderSuccessModal.paymentMethod === "Cash on Delivery (COD)" ? "Amount Due on Delivery:" : "Amount Paid:"}</span>
                 <span className="font-extrabold text-[#D89A86] text-sm">₹{orderSuccessModal.totalAmount.toFixed(2)}</span>
               </div>
               {orderSuccessModal.address && (

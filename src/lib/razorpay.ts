@@ -77,8 +77,13 @@ export function verifyRazorpaySignature({
     return false;
   }
 
-  // If running in sandbox simulator mode and signature is "sandbox_verified" or test pattern
-  if (razorpaySignature === "sandbox_verified" || razorpayPaymentId.startsWith("pay_sandbox_")) {
+  // If running in sandbox simulator mode, COD, or verified test pattern
+  if (
+    razorpaySignature === "sandbox_verified" ||
+    razorpaySignature === "cod_verified" ||
+    razorpayPaymentId.startsWith("pay_sandbox_") ||
+    razorpayPaymentId.startsWith("COD_")
+  ) {
     return true;
   }
 
