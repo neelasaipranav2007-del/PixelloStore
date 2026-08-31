@@ -1663,7 +1663,7 @@ export default function ProductDetailsPage({ params }: { params: Promise<any> })
                         </span>
                       )}
                       <span>
-                        Upload Photos for <strong className="text-[#D89A86]">{isPolaroid ? `${selectedPolaroidSize} Polaroid` : selectedSizeLabel}</strong> ({uploadedCount}/{totalRequiredPhotos} Uploaded)
+                        Upload Photos for <strong className="text-[#D89A86]">{isPolaroid ? `${selectedPolaroidSize} Polaroid` : (isFrame ? selectedSizeLabel : product.name)}</strong> ({uploadedCount}/{totalRequiredPhotos} Uploaded)
                       </span>
                     </h3>
                   </div>
@@ -1842,7 +1842,7 @@ export default function ProductDetailsPage({ params }: { params: Promise<any> })
               {/* Total Amount Card */}
               <div className="mt-4 p-4 rounded-2xl bg-white border border-[#EFE6DD] flex items-center justify-between shadow-xs max-w-md">
                 <span className="text-xs font-medium text-[#6C5C54]">
-                  Total ({selectedAdminVariant ? selectedAdminVariant.name : (isPaperWeight ? currentPaperWeightObj.name : (isLiquidTimer ? currentTimerObj.name : (isPanda ? currentPandaObj.name : (isKeyChain ? "Personalized Keychain" : (isMug ? product.name : (isLamp ? `${product.name} (7 LED Modes)` : (isPolaroid ? `${selectedPolaroidSize} Polaroid` : `${selectedSizeLabel} • ${selectedGsm}`)))))))})
+                  Total ({selectedAdminVariant ? selectedAdminVariant.name : (isPaperWeight ? currentPaperWeightObj.name : (isLiquidTimer ? currentTimerObj.name : (isPanda ? currentPandaObj.name : (isKeyChain ? "Personalized Keychain" : (isMug ? product.name : (isLamp ? `${product.name} (7 LED Modes)` : (isPolaroid ? `${selectedPolaroidSize} Polaroid` : (isFrame ? `${selectedSizeLabel} • ${selectedGsm}` : product.name))))))))})
                 </span>
                 <div className="flex items-baseline gap-2">
                   <span suppressHydrationWarning className="text-2xl font-bold text-[#D89A86]">₹{totalPrice}</span>
@@ -1908,7 +1908,7 @@ export default function ProductDetailsPage({ params }: { params: Promise<any> })
                                 ? `${product.name} (7 LED Light Modes)`
                                 : (isPolaroid
                                   ? `${selectedPolaroidSize} Polaroid (${quantity} Prints)`
-                                  : `${selectedSizeLabel} (${selectedGsm}, ${selectedColor} Frame)`)))))));
+                                  : (isFrame ? `${selectedSizeLabel} (${selectedGsm}, ${selectedColor} Frame)` : `${product.name} (Standard)`))))))));
 
                   const validPhotoDataUrls = uploadedPhotoDataUrls.filter(Boolean) as string[];
                   const primaryImage = validPhotoDataUrls.length > 0
@@ -1955,7 +1955,7 @@ export default function ProductDetailsPage({ params }: { params: Promise<any> })
                               ? `${product.name} (7 LED Light Modes)`
                               : (isPolaroid
                                 ? `${selectedPolaroidSize} Polaroid (${quantity} Prints)`
-                                : `${selectedSizeLabel} (${selectedGsm}, ${selectedColor} Frame)`)))))));
+                                : (isFrame ? `${selectedSizeLabel} (${selectedGsm}, ${selectedColor} Frame)` : `${product.name} (Standard)`))))))));
 
                 const validPhotoDataUrls = uploadedPhotoDataUrls.filter(Boolean) as string[];
                 const primaryImage = validPhotoDataUrls.length > 0

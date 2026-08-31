@@ -186,6 +186,21 @@ function getProductTypeMeta(product: {
     };
   }
 
+  if (name.includes("key chain") || name.includes("keychain") || cat.includes("key chain") || cat.includes("keychain")) {
+    return {
+      typeCategory: "Pocket Keepsake",
+      typeLabel: "Double-Sided HD Keychain",
+      accentBorder: "hover:border-pink-600/50 hover:shadow-pink-950/10",
+      accentBg: "bg-gradient-to-b from-[#FFFFFF] to-[#FFF5F7]",
+      badgeBg: "bg-gradient-to-r from-pink-700 to-rose-700 text-white",
+      specs: ["Double-Sided HD", "Scratch-Proof Acrylic", "Stainless Keyring"],
+      buttonText: "Personalize Keychain",
+      unit: "",
+      highlightPill: "🔑 Double-Sided HD",
+      priceLabel: "Price"
+    };
+  }
+
   return {
     typeCategory: product.category || "Custom Gift",
     typeLabel: "Personalized Studio Gift",
