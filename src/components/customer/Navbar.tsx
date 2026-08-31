@@ -427,10 +427,11 @@ export default function Navbar() {
                 </Button>
               </DropdownMenuTrigger>
 
-              <DropdownMenuContent align="end" className="w-80 sm:w-96 rounded-3xl border border-[#EFE6DD] p-0 shadow-2xl bg-[#FFFDFB] overflow-hidden z-50">
+              <DropdownMenuContent align="end" className="w-[340px] sm:w-[410px] rounded-3xl border border-[#EFE6DD] p-0 shadow-2xl bg-[#FFFDFB] overflow-hidden z-50">
+                {/* Espresso Luxury Header */}
                 <div className="p-4 bg-[#3A2B24] text-white flex items-center justify-between border-b border-[#4E3D35]">
                   <div className="flex items-center gap-2.5">
-                    <div className="h-8 w-8 rounded-xl bg-white/10 flex items-center justify-center text-amber-300 border border-white/10">
+                    <div className="h-8 w-8 rounded-xl bg-white/10 flex items-center justify-center text-amber-300 border border-white/10 shadow-xs">
                       <Bell className="h-4 w-4" />
                     </div>
                     <div>
@@ -441,63 +442,94 @@ export default function Navbar() {
                   {unreadCount > 0 && (
                     <button 
                       onClick={handleMarkAllNotifsAsRead} 
-                      className="text-[10px] bg-white/15 hover:bg-white/25 px-2.5 py-0.5 rounded-full font-bold transition-colors cursor-pointer text-[#FFF8F2]"
+                      className="text-[10px] bg-[#FFF8F2]/15 hover:bg-[#FFF8F2]/25 text-[#FFF8F2] px-2.5 py-1 rounded-full font-bold transition-colors cursor-pointer flex items-center gap-1 border border-white/10"
                     >
-                      Mark all read
+                      <Check className="h-3 w-3 text-amber-300" />
+                      <span>Mark all read</span>
                     </button>
                   )}
                 </div>
 
-                <div className="max-h-80 overflow-y-auto divide-y divide-[#EFE6DD]">
+                {/* Notifications Card Feed */}
+                <div className="max-h-[380px] overflow-y-auto p-3 flex flex-col gap-2.5 bg-[#FAF6F0]/60">
                   {customerNotifications.length === 0 ? (
-                    <div className="p-6 text-center text-xs text-[#6C5C54]">
-                      <Bell className="h-6 w-6 text-[#D89A86]/50 mx-auto mb-1.5" />
-                      <p className="font-medium">No new notifications</p>
+                    <div className="p-8 text-center text-xs text-[#6C5C54] bg-white rounded-2xl border border-[#EFE6DD]">
+                      <Bell className="h-7 w-7 text-[#D89A86]/50 mx-auto mb-2" />
+                      <p className="font-bold text-[#3A2B24]">No New Notifications</p>
+                      <p className="text-[11px] text-[#6C5C54] mt-0.5">You're all caught up with studio updates.</p>
                     </div>
                   ) : (
                     customerNotifications.map((notif) => (
                       <div 
                         key={notif.id}
                         onClick={() => handleMarkNotifAsRead(notif.id)}
-                        className={`p-4 hover:bg-[#FFF8F2] transition-colors cursor-pointer flex items-start gap-3 ${!notif.read ? 'bg-[#FFF8F2]/70' : ''}`}
+                        className={`p-3.5 rounded-2xl border transition-all cursor-pointer shadow-2xs hover:shadow-xs ${
+                          !notif.read 
+                            ? 'bg-white border-[#D89A86]/50 ring-1 ring-[#D89A86]/20' 
+                            : 'bg-white/90 border-[#EFE6DD] hover:border-[#D89A86]/30'
+                        }`}
                       >
-                        <div className="h-8 w-8 rounded-full bg-[#FFF8F2] border border-[#EFE6DD] text-[#D89A86] flex items-center justify-center flex-shrink-0 mt-0.5 shadow-2xs">
-                          {notif.type === "reply" ? <MessageSquareQuote className="h-4 w-4 text-[#D89A86]" /> : <Sparkles className="h-4 w-4 text-amber-600" />}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center justify-between gap-1 mb-0.5">
-                            <span className="font-bold text-xs text-[#3A2B24] truncate">{notif.title}</span>
-                            <span className="text-[10px] text-[#6C5C54] whitespace-nowrap">{notif.time}</span>
+                        {/* Card Header */}
+                        <div className="flex items-center justify-between gap-2 mb-1.5">
+                          <div className="flex items-center gap-1.5">
+                            {notif.type === "reply" ? (
+                              <Badge className="bg-[#FFF8F2] text-[#D89A86] border border-[#D89A86]/40 font-extrabold text-[10px] px-2 py-0.2 rounded-full flex items-center gap-1">
+                                <Sparkles className="h-3 w-3 text-[#D89A86]" />
+                                <span>Official Reply</span>
+                              </Badge>
+                            ) : (
+                              <Badge className="bg-emerald-50 text-emerald-800 border border-emerald-200 font-extrabold text-[10px] px-2 py-0.2 rounded-full">
+                                Notice
+                              </Badge>
+                            )}
+                            {!notif.read && (
+                              <span className="h-2 w-2 rounded-full bg-[#D89A86] animate-pulse" />
+                            )}
                           </div>
-                          {notif.adminReply ? (
-                            <div className="mt-1.5 p-2.5 bg-white rounded-xl border border-[#EFE6DD] shadow-2xs">
-                              <p className="text-xs text-[#3A2B24] font-medium italic line-clamp-3 leading-relaxed">
-                                “{notif.adminReply}”
-                              </p>
-                              <span className="text-[10px] text-[#D89A86] font-bold block text-right mt-1">— Pixello Craftsman</span>
-                            </div>
-                          ) : (
-                            <p className="text-xs text-[#6C5C54] mt-0.5 line-clamp-2">{notif.desc}</p>
-                          )}
-                          {notif.productName && (
-                            <span className="text-[10px] text-[#6C5C54] font-semibold block mt-1.5">Item: <strong className="text-[#3A2B24]">{notif.productName}</strong></span>
-                          )}
+                          <span className="text-[10px] font-semibold text-[#6C5C54]">{notif.time}</span>
                         </div>
+
+                        {/* Title & Product Info */}
+                        {notif.productName && (
+                          <div className="text-[11px] font-bold text-[#3A2B24] truncate mb-1">
+                            {notif.productName} {notif.orderId ? `(Order #${notif.orderId})` : ""}
+                          </div>
+                        )}
+
+                        {/* Content */}
+                        {notif.adminReply ? (
+                          <div className="p-2.5 bg-[#FFF8F2] border-l-3 border-[#D89A86] rounded-r-xl rounded-l-xs mt-1 shadow-2xs">
+                            <p className="text-xs text-[#3A2B24] font-medium italic leading-relaxed">
+                              “{notif.adminReply}”
+                            </p>
+                            <span className="text-[10px] text-[#D89A86] font-bold block text-right mt-1">— Pixello Studio Team</span>
+                          </div>
+                        ) : (
+                          <div>
+                            <h5 className="font-bold text-xs text-[#3A2B24]">{notif.title}</h5>
+                            <p className="text-[11px] text-[#6C5C54] mt-0.5 leading-relaxed">{notif.desc}</p>
+                          </div>
+                        )}
                       </div>
                     ))
                   )}
                 </div>
 
+                {/* Footer */}
                 {customerNotifications.length > 0 && (
-                  <div className="p-3 bg-[#FFF8F2] border-t border-[#EFE6DD] flex items-center justify-between text-xs">
+                  <div className="p-3 bg-white border-t border-[#EFE6DD] flex items-center justify-between text-xs">
                     <button 
                       onClick={handleClearNotifs} 
-                      className="text-[11px] text-[#6C5C54] hover:text-red-600 font-medium flex items-center gap-1 cursor-pointer transition-colors"
+                      className="text-[11px] text-[#6C5C54] hover:text-red-600 font-bold flex items-center gap-1 cursor-pointer transition-colors px-2 py-1 rounded-lg hover:bg-red-50"
                     >
                       <Trash2 className="h-3 w-3" /> Clear all
                     </button>
-                    <Link href="/profile?tab=orders" className="text-[11px] font-bold text-[#D89A86] hover:underline">
-                      View My Orders →
+                    <Link 
+                      href="/profile?tab=orders" 
+                      className="text-[11px] font-bold text-[#D89A86] hover:text-[#3A2B24] flex items-center gap-1 transition-colors px-2 py-1 rounded-lg hover:bg-[#FFF8F2]"
+                    >
+                      <span>View Orders</span>
+                      <ArrowRight className="h-3 w-3" />
                     </Link>
                   </div>
                 )}
