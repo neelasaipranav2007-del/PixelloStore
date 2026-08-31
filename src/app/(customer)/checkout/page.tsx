@@ -1432,14 +1432,10 @@ export default function CheckoutPage() {
             </h2>
             
             <p className="text-xs text-[#6C5C54] font-medium mb-6 leading-relaxed">
-              Your order <strong className="text-[#3A2B24] font-bold">#{orderSuccessModal.orderId}</strong> has been received and dispatched to studio partners for printing & framing.
+              Your order <strong className="text-[#3A2B24] font-bold">#{orderSuccessModal.orderId}</strong> has been received and is being prepared for express delivery.
             </p>
 
             <div className="bg-[#FFF8F2] border border-[#EFE6DD] rounded-2xl p-4 text-left text-xs flex flex-col gap-2.5 mb-6">
-              <div className="flex justify-between items-center pb-2 border-b border-[#EFE6DD]">
-                <span className="text-[#6C5C54]">Dispatched To:</span>
-                <span className="font-bold text-[#3A2B24]">{orderSuccessModal.studioName}</span>
-              </div>
               <div className="flex justify-between items-center pb-2 border-b border-[#EFE6DD]">
                 <span className="text-[#6C5C54]">Estimated Delivery:</span>
                 <span className="font-bold text-emerald-700">Within 2 Hours 🚀</span>
