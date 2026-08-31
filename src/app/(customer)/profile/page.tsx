@@ -57,18 +57,17 @@ function ProfileContent() {
     }
   }, []);
 
-  const openReviewModal = (orderId: string, item: any, existingReview?: any) => {
+  const openReviewModal = (orderId: string, item: any) => {
     setReviewSuccessMsg("");
-    setReviewRating(existingReview?.rating || 5);
+    setReviewRating(5);
     setReviewHoverRating(0);
-    setReviewTitle(existingReview?.title || "");
-    setReviewComment(existingReview?.comment || "");
-    setReviewSelectedTags(existingReview?.tags || ["Crisp HD Print", "Sturdy Frame"]);
-    setReviewPhotoUrl(existingReview?.photoUrl || null);
+    setReviewTitle("");
+    setReviewComment("");
+    setReviewSelectedTags(["Crisp HD Print", "Sturdy Frame", "Vivid Colors"]);
+    setReviewPhotoUrl(null);
     setReviewModalItem({
       orderId,
       item,
-      existingReview,
     });
   };
 
@@ -84,6 +83,7 @@ function ProfileContent() {
     try {
       const reviewKey = `${reviewModalItem.orderId}_${reviewModalItem.item.name}`;
       const newReview = {
+        id: `rev-${Date.now()}`,
         orderId: reviewModalItem.orderId,
         productName: reviewModalItem.item.name,
         productSize: reviewModalItem.item.size,
@@ -105,6 +105,8 @@ function ProfileContent() {
       setUserReviews(updated);
       if (typeof window !== "undefined") {
         localStorage.setItem("pixello_customer_reviews_v1", JSON.stringify(updated));
+        localStorage.setItem("pixello_last_submitted_review", JSON.stringify(newReview));
+        window.dispatchEvent(new CustomEvent("pixello_new_review", { detail: newReview }));
       }
 
       // Sync review with Admin Portal API
@@ -118,7 +120,7 @@ function ProfileContent() {
         console.error("Failed to push review to /api/reviews:", apiErr);
       }
 
-      setReviewSuccessMsg("⭐ Thank you! Your review has been submitted to Pixello.");
+      setReviewSuccessMsg("⭐ Thank you! Your review has been submitted directly to the Pixello Admin team.");
       setTimeout(() => {
         setReviewModalItem(null);
         setReviewSuccessMsg("");
@@ -1197,58 +1199,7 @@ function ProfileContent() {
                                     </div>
                                   </div>
 
-                                  {/* Product Review & Feedback Section */}
-                                  {existingReview ? (
-                                    <div className="p-3.5 bg-amber-50/80 border border-amber-200/90 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 shadow-2xs">
-                                      <div className="flex items-start gap-2.5">
-                                        <div className="flex items-center text-amber-500 mt-0.5">
-                                          {Array.from({ length: 5 }).map((_, sI) => (
-                                            <Star
-                                              key={sI}
-                                              className={cn(
-                                                "h-4 w-4",
-                                                sI < existingReview.rating
-                                                  ? "fill-amber-400 text-amber-400"
-                                                  : "text-gray-300"
-                                              )}
-                                            />
-                                          ))}
-                                        </div>
-                                        <div>
-                                          <div className="flex items-center gap-2">
-                                            <span className="font-bold text-xs text-[#3A2B24]">
-                                              "{existingReview.title}"
-                                            </span>
-                                            <Badge className="bg-amber-100 text-amber-900 border-none text-[10px] font-extrabold px-2 py-0.2 rounded-full">
-                                              {existingReview.rating}/5 Stars
-                                            </Badge>
-                                          </div>
-                                          {existingReview.comment && (
-                                            <p className="text-[11px] text-[#6C5C54] mt-0.5 italic line-clamp-2">
-                                              "{existingReview.comment}"
-                                            </p>
-                                          )}
-                                          {existingReview.tags && existingReview.tags.length > 0 && (
-                                            <div className="flex flex-wrap gap-1 mt-1.5">
-                                              {existingReview.tags.map((t: string, tI: number) => (
-                                                <span key={tI} className="text-[10px] bg-white border border-amber-200 text-amber-900 font-semibold px-2 py-0.5 rounded-full">
-                                                  ✓ {t}
-                                                </span>
-                                              ))}
-                                            </div>
-                                          )}
-                                        </div>
-                                      </div>
-                                      <Button
-                                        size="sm"
-                                        variant="outline"
-                                        className="border-amber-300 text-amber-900 hover:bg-white font-bold text-xs rounded-full h-8 px-3.5 self-end sm:self-auto flex items-center gap-1 cursor-pointer"
-                                        onClick={() => openReviewModal(order.id, item, existingReview)}
-                                      >
-                                        <Edit2 className="h-3 w-3" /> Edit Review
-                                      </Button>
-                                    </div>
-                                  ) : (isDelivered || cleanStatus === "DELIVERED" || isPrintingStarted) ? (
+                                  {!existingReview && (isDelivered || cleanStatus === "DELIVERED" || isPrintingStarted) && (
                                     <div className="p-3 bg-white border border-amber-200/80 rounded-2xl flex items-center justify-between gap-3 shadow-2xs">
                                       <div className="flex items-center gap-2.5">
                                         <div className="h-8 w-8 rounded-full bg-amber-50 border border-amber-200 flex items-center justify-center text-amber-600 flex-shrink-0">
@@ -1256,7 +1207,7 @@ function ProfileContent() {
                                         </div>
                                         <div>
                                           <span className="text-xs font-bold text-[#3A2B24] block">How is your {item.name}?</span>
-                                          <span className="text-[10px] text-[#6C5C54] font-medium block">Share your rating & review with our craftsmen</span>
+                                          <span className="text-[10px] text-[#6C5C54] font-medium block">Share your rating & feedback directly with our studio team</span>
                                         </div>
                                       </div>
                                       <Button
@@ -1265,10 +1216,10 @@ function ProfileContent() {
                                         onClick={() => openReviewModal(order.id, item)}
                                       >
                                         <Star className="h-3.5 w-3.5 fill-white text-white" />
-                                        <span>Write Review</span>
+                                        <span>Rate Product</span>
                                       </Button>
                                     </div>
-                                  ) : null}
+                                  )}
                                 </div>
                               );
                             })}
@@ -1713,38 +1664,42 @@ function ProfileContent() {
         })()
       )}
 
-      {/* PRODUCT REVIEW & RATING MODAL */}
+      {/* PRODUCT REVIEW & RATING MODAL (NEW LUXURY MODEL) */}
       {reviewModalItem && (
         <div 
-          className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in"
+          className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in"
           onClick={() => !isSubmittingReview && setReviewModalItem(null)}
         >
           <div 
-            className="bg-white border border-[#EFE6DD] rounded-3xl p-6 sm:p-7 max-w-lg w-full shadow-2xl relative animate-in zoom-in-95 max-h-[90vh] overflow-y-auto"
+            className="bg-white border border-[#EFE6DD] rounded-3xl p-6 sm:p-8 max-w-lg w-full shadow-2xl relative animate-in zoom-in-95 max-h-[92vh] overflow-y-auto"
             onClick={e => e.stopPropagation()}
           >
             <button 
               onClick={() => !isSubmittingReview && setReviewModalItem(null)}
-              className="absolute top-4 right-4 h-9 w-9 rounded-full bg-[#FFF8F2] hover:bg-[#F2C8B5]/30 text-[#3A2B24] flex items-center justify-center font-bold text-base transition-colors cursor-pointer"
+              className="absolute top-5 right-5 h-9 w-9 rounded-full bg-[#FFF8F2] hover:bg-[#F2C8B5]/30 text-[#3A2B24] flex items-center justify-center font-bold text-base transition-colors cursor-pointer z-10"
             >
               ✕
             </button>
 
-            <Badge className="bg-amber-100 text-amber-900 border border-amber-300 mb-2 px-3 py-0.5 rounded-full text-xs font-bold flex items-center gap-1 w-fit">
-              <Star className="h-3 w-3 fill-amber-500 text-amber-500" />
-              <span>Verified Customer Review</span>
-            </Badge>
+            {/* Header Medallion */}
+            <div className="flex items-center gap-2 mb-2">
+              <Badge className="bg-amber-100 text-amber-950 border border-amber-300 px-3 py-0.5 rounded-full text-xs font-bold flex items-center gap-1.5 w-fit">
+                <Star className="h-3.5 w-3.5 fill-amber-500 text-amber-500" />
+                <span>Verified Buyer Feedback</span>
+              </Badge>
+              <span className="text-xs text-[#6C5C54] font-semibold">Order #{reviewModalItem.orderId}</span>
+            </div>
 
-            <h3 className="font-serif-brand text-2xl font-bold text-[#3A2B24] mb-1">
-              Rate & Review Your Product
+            <h3 className="font-serif-brand text-2xl sm:text-3xl font-extrabold text-[#3A2B24] tracking-tight">
+              Rate Your Experience
             </h3>
-            <p className="text-xs text-[#6C5C54] mb-4 font-medium">
-              Order #{reviewModalItem.orderId} • Your honest review helps other customers and rewards our local craftsmen!
+            <p className="text-xs text-[#6C5C54] mb-5 font-medium">
+              Your feedback is sent directly to the Pixello Admin management dashboard.
             </p>
 
-            {/* Product Item Preview */}
-            <div className="p-3 bg-[#FFF8F2] border border-[#EFE6DD] rounded-2xl flex items-center gap-3.5 mb-5">
-              <div className="h-12 w-12 rounded-xl bg-white border border-[#EFE6DD] overflow-hidden flex-shrink-0">
+            {/* Product Item Preview Banner */}
+            <div className="p-3.5 bg-[#FFF8F2] border border-[#EFE6DD] rounded-2xl flex items-center gap-3.5 mb-5 shadow-2xs">
+              <div className="h-13 w-13 rounded-xl bg-white border border-[#EFE6DD] overflow-hidden flex-shrink-0">
                 <img 
                   src={reviewModalItem.item.image || "/images/wooden_frame_main.png"} 
                   alt={reviewModalItem.item.name} 
@@ -1753,67 +1708,67 @@ function ProfileContent() {
               </div>
               <div className="min-w-0">
                 <h4 className="font-bold text-sm text-[#3A2B24] truncate">{reviewModalItem.item.name}</h4>
-                <p className="text-xs text-[#6C5C54]">Size / Spec: <span className="font-semibold text-[#D89A86]">{reviewModalItem.item.size}</span></p>
+                <p className="text-xs text-[#6C5C54]">Spec: <span className="font-semibold text-[#D89A86]">{reviewModalItem.item.size}</span></p>
               </div>
             </div>
 
             {reviewSuccessMsg ? (
-              <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-2xl text-emerald-800 text-xs font-bold flex items-center gap-2 animate-in fade-in">
-                <Check className="h-5 w-5 text-emerald-600 flex-shrink-0" />
-                <span>{reviewSuccessMsg}</span>
+              <div className="p-5 bg-emerald-50 border border-emerald-200 rounded-2xl text-emerald-900 text-xs font-bold flex items-center gap-3 animate-in fade-in">
+                <Check className="h-6 w-6 text-emerald-600 flex-shrink-0" />
+                <div>
+                  <h5 className="font-extrabold text-sm text-emerald-950">Review Received!</h5>
+                  <p className="font-medium mt-0.5">{reviewSuccessMsg}</p>
+                </div>
               </div>
             ) : (
-              <form onSubmit={handleReviewSubmit} className="flex flex-col gap-4">
-                {/* 5-Star Rating Selector */}
+              <form onSubmit={handleReviewSubmit} className="flex flex-col gap-4.5">
+                {/* 1. Mood Rating Selector */}
                 <div>
-                  <label className="text-xs font-bold text-[#3A2B24] mb-1.5 block">
-                    Overall Rating:
+                  <label className="text-xs font-bold text-[#3A2B24] mb-2 block">
+                    1. Overall Quality Rating:
                   </label>
-                  <div className="flex flex-col sm:flex-row sm:items-center gap-2">
-                    <div className="flex items-center gap-1 p-2 bg-[#FFF8F2] border border-[#EFE6DD] rounded-2xl w-fit">
-                      {[1, 2, 3, 4, 5].map((star) => (
+                  <div className="grid grid-cols-5 gap-1.5">
+                    {[
+                      { star: 1, emoji: "😞", label: "1★ Poor" },
+                      { star: 2, emoji: "😕", label: "2★ Fair" },
+                      { star: 3, emoji: "🙂", label: "3★ Good" },
+                      { star: 4, emoji: "😊", label: "4★ Great" },
+                      { star: 5, emoji: "😍", label: "5★ Loved!" }
+                    ].map((m) => {
+                      const isSelected = reviewRating === m.star;
+                      return (
                         <button
-                          key={star}
+                          key={m.star}
                           type="button"
-                          onMouseEnter={() => setReviewHoverRating(star)}
-                          onMouseLeave={() => setReviewHoverRating(0)}
-                          onClick={() => setReviewRating(star)}
-                          className="p-1 transition-transform hover:scale-115 focus:outline-hidden cursor-pointer"
+                          onClick={() => setReviewRating(m.star)}
+                          className={cn(
+                            "flex flex-col items-center justify-center p-2.5 rounded-2xl border transition-all cursor-pointer",
+                            isSelected 
+                              ? "bg-amber-100 border-amber-400 text-amber-950 font-bold shadow-2xs scale-102"
+                              : "bg-[#FFF8F2]/70 border-[#EFE6DD] text-[#6C5C54] hover:bg-white"
+                          )}
                         >
-                          <Star
-                            className={cn(
-                              "h-7 w-7 transition-colors",
-                              (reviewHoverRating || reviewRating) >= star
-                                ? "fill-amber-400 text-amber-400 drop-shadow-xs"
-                                : "text-gray-300"
-                            )}
-                          />
+                          <span className="text-xl sm:text-2xl mb-1">{m.emoji}</span>
+                          <span className="text-[10px] font-extrabold">{m.label}</span>
                         </button>
-                      ))}
-                    </div>
-                    <span className="text-xs font-bold text-[#D89A86]">
-                      {reviewRating === 5 && "⭐⭐⭐⭐⭐ Outstanding & Loved It!"}
-                      {reviewRating === 4 && "⭐⭐⭐⭐ Very Good Quality"}
-                      {reviewRating === 3 && "⭐⭐⭐ Good"}
-                      {reviewRating === 2 && "⭐⭐ Fair"}
-                      {reviewRating === 1 && "⭐ Needs Improvement"}
-                    </span>
+                      );
+                    })}
                   </div>
                 </div>
 
-                {/* Quick Compliment Tags */}
+                {/* 2. Craftsmanship Highlight Tags */}
                 <div>
                   <label className="text-xs font-bold text-[#3A2B24] mb-1.5 block">
-                    Highlights & Best Features:
+                    2. What did you love most?
                   </label>
                   <div className="flex flex-wrap gap-2">
                     {[
-                      "Crisp HD Print Clarity",
-                      "Sturdy Pine Wood Frame",
-                      "Rich & Vibrant Colors",
-                      "Express Safe Packaging",
-                      "Smooth Matt Finish",
-                      "Great Value for Money"
+                      "🎨 Vivid HD Clarity",
+                      "🪵 Solid Pine Frame",
+                      "📦 Safe Box Packaging",
+                      "✨ Smooth Matte Finish",
+                      "⚡ Express Delivery",
+                      "💎 Great Value"
                     ].map((tag) => {
                       const isSelected = reviewSelectedTags.includes(tag);
                       return (
@@ -1841,56 +1796,56 @@ function ProfileContent() {
                   </div>
                 </div>
 
-                {/* Review Title */}
+                {/* 3. Review Headline */}
                 <div>
                   <label className="text-xs font-bold text-[#3A2B24] mb-1 block">
-                    Review Headline / Summary:
+                    3. Headline / Summary:
                   </label>
                   <Input
                     type="text"
                     value={reviewTitle}
                     onChange={(e) => setReviewTitle(e.target.value)}
-                    placeholder="e.g., Absolutely loved the frame quality and crystal clear print!"
-                    className="rounded-xl border-[#EFE6DD] text-xs font-medium"
+                    placeholder="e.g., Exceeded expectations, incredible frame craftsmanship!"
+                    className="rounded-xl border-[#EFE6DD] text-xs font-medium bg-[#FFF8F2]/30"
                     required
                   />
                 </div>
 
-                {/* Review Description */}
+                {/* 4. Detailed Experience */}
                 <div>
                   <label className="text-xs font-bold text-[#3A2B24] mb-1 block">
-                    Detailed Review & Experience:
+                    4. Share Your Experience:
                   </label>
                   <textarea
                     value={reviewComment}
                     onChange={(e) => setReviewComment(e.target.value)}
-                    placeholder="Share details about print quality, framing, packaging, or how it looked on your wall/table..."
+                    placeholder="Tell us what you liked about the print clarity, colors, wooden frame finish, or doorstep packaging..."
                     rows={3}
-                    className="w-full rounded-xl border border-[#EFE6DD] p-2.5 text-xs font-medium text-[#3A2B24] focus:ring-[#D89A86] focus:border-[#D89A86] outline-none"
+                    className="w-full rounded-xl border border-[#EFE6DD] p-2.5 text-xs font-medium text-[#3A2B24] focus:ring-[#D89A86] focus:border-[#D89A86] outline-none bg-[#FFF8F2]/30"
                     required
                   />
                 </div>
 
-                {/* Optional Customer Photo Upload */}
+                {/* 5. Optional Customer Photo Attachment */}
                 <div>
                   <label className="text-xs font-bold text-[#3A2B24] mb-1 block">
-                    Attach Photo of Received Product (Optional):
+                    5. Attach Photo of Product (Optional):
                   </label>
                   {reviewPhotoUrl ? (
-                    <div className="relative w-24 h-24 rounded-xl overflow-hidden border border-amber-300">
+                    <div className="relative w-24 h-24 rounded-2xl overflow-hidden border-2 border-amber-300 shadow-2xs">
                       <img src={reviewPhotoUrl} alt="Review" className="w-full h-full object-cover" />
                       <button
                         type="button"
                         onClick={() => setReviewPhotoUrl(null)}
-                        className="absolute top-1 right-1 bg-black/70 text-white rounded-full p-1 text-[10px] cursor-pointer"
+                        className="absolute top-1 right-1 bg-black/70 hover:bg-black text-white rounded-full p-1 text-[10px] cursor-pointer"
                       >
                         ✕
                       </button>
                     </div>
                   ) : (
-                    <label className="flex items-center gap-2 p-3 bg-[#FFF8F2] border border-dashed border-[#EFE6DD] rounded-xl cursor-pointer hover:bg-[#F2C8B5]/20 transition-all text-xs text-[#6C5C54] font-medium">
+                    <label className="flex items-center gap-2.5 p-3 bg-[#FFF8F2] border border-dashed border-[#EFE6DD] rounded-2xl cursor-pointer hover:bg-amber-50/60 transition-all text-xs text-[#6C5C54] font-medium">
                       <Upload className="h-4 w-4 text-[#D89A86]" />
-                      <span>Click to upload a picture of your frame on the wall / desk</span>
+                      <span>Click to upload picture of your frame on the wall / desk</span>
                       <input
                         type="file"
                         accept="image/*"
@@ -1928,12 +1883,12 @@ function ProfileContent() {
                     {isSubmittingReview ? (
                       <>
                         <RefreshCw className="h-4 w-4 animate-spin" />
-                        <span>Submitting Review...</span>
+                        <span>Submitting to Admin...</span>
                       </>
                     ) : (
                       <>
                         <Star className="h-4 w-4 fill-white" />
-                        <span>Submit Product Review</span>
+                        <span>Submit Review</span>
                       </>
                     )}
                   </Button>

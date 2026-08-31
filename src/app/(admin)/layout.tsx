@@ -3,10 +3,11 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { LayoutDashboard, Users, Store, Package, Settings, LogOut, FileText, Bell, Sparkles, Heart, ChevronDown, ShoppingBag, ExternalLink, Ticket, Truck, CheckCheck, Check, RefreshCw, AlertTriangle, Trash2, X, Trophy, Star } from "lucide-react";
+import { LayoutDashboard, Users, Store, Package, Settings, LogOut, FileText, Bell, Sparkles, Heart, ChevronDown, ShoppingBag, ExternalLink, Ticket, Truck, CheckCheck, Check, RefreshCw, AlertTriangle, Trash2, X, Trophy, Star, ArrowUpRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
+import { cn } from "@/lib/utils";
 
 export interface AdminNotification {
   id: string;
@@ -146,6 +147,60 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     };
     window.addEventListener("pixello_orders_updated", handleOrderUpdate);
     return () => window.removeEventListener("pixello_orders_updated", handleOrderUpdate);
+  }, []);
+
+  // Live Review Popup State for Real-Time Toast in Admin Portal
+  const [liveReviewPopOver, setLiveReviewPopOver] = useState<{
+    id: string;
+    reviewerName: string;
+    productName: string;
+    rating: number;
+    title: string;
+    comment: string;
+    orderId: string;
+  } | null>(null);
+
+  useEffect(() => {
+    const handleReviewNotification = (e: any) => {
+      try {
+        const reviewData = e.detail || (typeof window !== "undefined" ? JSON.parse(localStorage.getItem("pixello_last_submitted_review") || "null") : null);
+        if (reviewData && reviewData.reviewerName) {
+          setLiveReviewPopOver(reviewData);
+
+          const liveNotif: AdminNotification = {
+            id: `notif-rev-${reviewData.id || Date.now()}`,
+            title: `⭐ New ${reviewData.rating}-Star Customer Review!`,
+            desc: `${reviewData.reviewerName} reviewed ${reviewData.productName}: "${reviewData.title}"`,
+            time: "Just now",
+            read: false,
+            type: "order",
+            link: "/admin/reviews",
+          };
+
+          setNotifications(prev => [liveNotif, ...prev.filter(n => n.id !== liveNotif.id)]);
+          if (typeof window !== "undefined") {
+            const savedNotifs = JSON.parse(localStorage.getItem("pixello_admin_notifications_v3") || "[]");
+            localStorage.setItem("pixello_admin_notifications_v3", JSON.stringify([liveNotif, ...savedNotifs.filter((n: any) => n.id !== liveNotif.id)]));
+          }
+        }
+      } catch (err) {
+        console.error(err);
+      }
+    };
+
+    window.addEventListener("pixello_new_review", handleReviewNotification);
+    window.addEventListener("storage", (e) => {
+      if (e.key === "pixello_last_submitted_review" && e.newValue) {
+        try {
+          const parsed = JSON.parse(e.newValue);
+          handleReviewNotification({ detail: parsed });
+        } catch (err) {}
+      }
+    });
+
+    return () => {
+      window.removeEventListener("pixello_new_review", handleReviewNotification);
+    };
   }, []);
 
   // Live Admin Profile State Synced from Admin Settings
@@ -646,6 +701,68 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
         {/* Scrollable Page Body */}
         <div className="flex-1 overflow-y-auto overflow-x-hidden min-w-0 w-full">{children}</div>
+
+        {/* Live Customer Review Popover Toast */}
+        {liveReviewPopOver && (
+          <div className="fixed bottom-6 right-6 z-[9999] max-w-sm sm:max-w-md w-full bg-white border-2 border-amber-400 rounded-3xl shadow-2xl p-5 animate-in slide-in-from-bottom-8 duration-300">
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-center gap-2.5">
+                <div className="h-10 w-10 rounded-2xl bg-amber-100 border border-amber-300 flex items-center justify-center text-amber-600 flex-shrink-0">
+                  <Star className="h-5 w-5 fill-amber-400 text-amber-500" />
+                </div>
+                <div>
+                  <Badge className="bg-amber-100 text-amber-950 border-amber-300 font-extrabold text-[10px] px-2 py-0.2 rounded-full flex items-center gap-1 w-fit">
+                    <Sparkles className="h-3 w-3 text-amber-600" />
+                    <span>Live Customer Review Received!</span>
+                  </Badge>
+                  <h4 className="font-bold text-sm text-[#3A2B24] mt-0.5">{liveReviewPopOver.reviewerName}</h4>
+                </div>
+              </div>
+              <button 
+                onClick={() => setLiveReviewPopOver(null)}
+                className="h-7 w-7 rounded-full bg-[#FFF8F2] hover:bg-[#F2C8B5]/30 text-[#3A2B24] flex items-center justify-center text-xs font-bold cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="mt-3 p-3 bg-[#FFF8F2] border border-[#EFE6DD] rounded-2xl">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center text-amber-400">
+                  {Array.from({ length: 5 }).map((_, i) => (
+                    <Star key={i} className={cn("h-3.5 w-3.5", i < liveReviewPopOver.rating ? "fill-amber-400 text-amber-400" : "text-gray-300")} />
+                  ))}
+                </div>
+                <span className="text-[11px] font-bold text-[#D89A86]">Order #{liveReviewPopOver.orderId}</span>
+              </div>
+              <h5 className="font-bold text-xs text-[#3A2B24] mt-1.5 truncate">"{liveReviewPopOver.title}"</h5>
+              {liveReviewPopOver.comment && (
+                <p className="text-[11px] text-[#6C5C54] mt-0.5 line-clamp-2 italic">"{liveReviewPopOver.comment}"</p>
+              )}
+              <p className="text-[10px] text-[#D89A86] font-semibold mt-1">Product: {liveReviewPopOver.productName}</p>
+            </div>
+
+            <div className="flex items-center gap-2 mt-3">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setLiveReviewPopOver(null)}
+                className="flex-1 rounded-full text-xs font-bold border-[#EFE6DD] h-8 cursor-pointer"
+              >
+                Dismiss
+              </Button>
+              <Link href="/admin/reviews" className="flex-1" onClick={() => setLiveReviewPopOver(null)}>
+                <Button
+                  size="sm"
+                  className="w-full bg-amber-500 hover:bg-amber-600 text-white rounded-full text-xs font-bold h-8 shadow-xs flex items-center justify-center gap-1 cursor-pointer"
+                >
+                  <span>Open in Reviews</span>
+                  <ArrowUpRight className="h-3.5 w-3.5" />
+                </Button>
+              </Link>
+            </div>
+          </div>
+        )}
       </main>
     </div>
   );
