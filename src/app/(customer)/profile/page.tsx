@@ -87,6 +87,7 @@ function ProfileContent() {
         orderId: reviewModalItem.orderId,
         productName: reviewModalItem.item.name,
         productSize: reviewModalItem.item.size,
+        productImage: reviewModalItem.item.image || "/images/wooden_frame_main.png",
         rating: reviewRating,
         title: reviewTitle.trim() || (reviewRating >= 4 ? "Loved the Quality!" : "Product Review"),
         comment: reviewComment.trim(),
@@ -94,6 +95,7 @@ function ProfileContent() {
         photoUrl: reviewPhotoUrl,
         date: new Date().toISOString().split("T")[0],
         reviewerName: profileData.name || "Verified Customer",
+        reviewerEmail: profileData.email || "",
       };
 
       const updated = {
@@ -105,7 +107,18 @@ function ProfileContent() {
         localStorage.setItem("pixello_customer_reviews_v1", JSON.stringify(updated));
       }
 
-      setReviewSuccessMsg("⭐ Thank you! Your review and feedback have been published.");
+      // Sync review with Admin Portal API
+      try {
+        await fetch("/api/reviews", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(newReview),
+        });
+      } catch (apiErr) {
+        console.error("Failed to push review to /api/reviews:", apiErr);
+      }
+
+      setReviewSuccessMsg("⭐ Thank you! Your review has been submitted to Pixello.");
       setTimeout(() => {
         setReviewModalItem(null);
         setReviewSuccessMsg("");
