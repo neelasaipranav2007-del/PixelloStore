@@ -178,31 +178,25 @@ export default function HomePage() {
 
       {/* AMBASSADOR CTA SECTION */}
       <section className="container mx-auto px-4 md:px-6">
-        <div className="bg-gradient-to-r from-[#3A2B24] to-[#544036] rounded-3xl p-10 md:p-16 text-white flex flex-col lg:flex-row items-center justify-between gap-10 shadow-2xl relative overflow-hidden">
-          <div className="max-w-xl">
-            <Badge className="bg-[#D89A86] text-white mb-6 border-none px-4 py-1">Campus Ambassador Program</Badge>
-            <h2 className="font-serif-brand text-4xl md:text-5xl font-bold mb-4 leading-tight">
+        <div className="bg-gradient-to-r from-[#3A2B24] to-[#544036] rounded-3xl p-10 md:p-16 text-white flex flex-col md:flex-row items-center justify-between gap-8 shadow-2xl relative overflow-hidden">
+          <div className="max-w-2xl">
+            <Badge className="bg-[#D89A86] text-white mb-5 border-none px-4 py-1 font-bold">Campus Ambassador Program</Badge>
+            <h2 className="font-serif-brand text-3xl sm:text-4xl md:text-5xl font-bold mb-4 leading-tight">
               Promote Pixello on Your College Campus.
             </h2>
-            <p className="text-slate-300 text-base mb-8 leading-relaxed">
-              Earn commissions, leaderboards rewards, and official certificates by introducing PixelloStore to your campus friends!
+            <p className="text-[#EFE6DD]/80 text-base mb-8 leading-relaxed">
+              Earn commissions, leaderboard rewards, and official certificates by introducing PixelloStore to your campus friends!
             </p>
             <div className="flex flex-col sm:flex-row gap-4">
               <a 
                 href="https://docs.google.com/forms/d/e/1FAIpQLSdlvg1_aoq6GwQM3rz8qhmvM5jxo6q-ldWZFgdqb9R5dV6Hrw/viewform?usp=publish-editor"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="btn-pixello-primary px-8 h-12 flex items-center justify-center font-bold"
+                className="btn-pixello-primary px-8 h-12 flex items-center justify-center font-bold text-sm shadow-md"
               >
                 Become Campus Ambassador <ArrowRight className="ml-2 h-4 w-4" />
               </a>
             </div>
-          </div>
-
-          <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-3xl p-8 text-center max-w-sm w-full">
-            <Award className="h-12 w-12 text-[#F2C8B5] mx-auto mb-4" />
-            <div className="text-4xl font-extrabold mb-1">₹5,000+</div>
-            <div className="text-sm text-slate-300">Average Monthly Earnings per Ambassador</div>
           </div>
         </div>
       </section>
