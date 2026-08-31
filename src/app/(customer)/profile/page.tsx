@@ -2,7 +2,7 @@
 
 import { useState, useEffect, Suspense } from "react";
 import Link from "next/link";
-import { User, Package, MapPin, Heart, Settings, LogOut, ShieldCheck, Check, Plus, Edit2, Key, Bell, CreditCard, ExternalLink, Download, Eye, EyeOff, CheckCircle2, Truck, Sparkles, Clock, PhoneCall, MessageSquare, FileText, Image as ImageIcon, X, Ticket, RefreshCw } from "lucide-react";
+import { User, Package, MapPin, Heart, Settings, LogOut, ShieldCheck, Check, Plus, Edit2, Key, Bell, CreditCard, ExternalLink, Download, Eye, EyeOff, CheckCircle2, Truck, Sparkles, Clock, PhoneCall, MessageSquare, FileText, Image as ImageIcon, X, Ticket, RefreshCw, Star, Upload, AlertTriangle, CheckCircle, MessageSquareQuote } from "lucide-react";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -27,6 +27,96 @@ function ProfileContent() {
   const [savedSuccess, setSavedSuccess] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
+
+  // Product Reviews State
+  const [userReviews, setUserReviews] = useState<Record<string, any>>({});
+  const [reviewModalItem, setReviewModalItem] = useState<{
+    orderId: string;
+    item: any;
+    existingReview?: any;
+  } | null>(null);
+  const [reviewRating, setReviewRating] = useState<number>(5);
+  const [reviewHoverRating, setReviewHoverRating] = useState<number>(0);
+  const [reviewTitle, setReviewTitle] = useState<string>("");
+  const [reviewComment, setReviewComment] = useState<string>("");
+  const [reviewSelectedTags, setReviewSelectedTags] = useState<string[]>([]);
+  const [reviewPhotoUrl, setReviewPhotoUrl] = useState<string | null>(null);
+  const [isSubmittingReview, setIsSubmittingReview] = useState<boolean>(false);
+  const [reviewSuccessMsg, setReviewSuccessMsg] = useState<string>("");
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const savedReviews = localStorage.getItem("pixello_customer_reviews_v1");
+        if (savedReviews) {
+          setUserReviews(JSON.parse(savedReviews));
+        }
+      } catch (e) {
+        console.error("Error loading saved reviews:", e);
+      }
+    }
+  }, []);
+
+  const openReviewModal = (orderId: string, item: any, existingReview?: any) => {
+    setReviewSuccessMsg("");
+    setReviewRating(existingReview?.rating || 5);
+    setReviewHoverRating(0);
+    setReviewTitle(existingReview?.title || "");
+    setReviewComment(existingReview?.comment || "");
+    setReviewSelectedTags(existingReview?.tags || ["Crisp HD Print", "Sturdy Frame"]);
+    setReviewPhotoUrl(existingReview?.photoUrl || null);
+    setReviewModalItem({
+      orderId,
+      item,
+      existingReview,
+    });
+  };
+
+  const handleReviewSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!reviewModalItem) return;
+    if (!reviewTitle.trim() && !reviewComment.trim()) {
+      alert("Please write a short review title or experience!");
+      return;
+    }
+
+    setIsSubmittingReview(true);
+    try {
+      const reviewKey = `${reviewModalItem.orderId}_${reviewModalItem.item.name}`;
+      const newReview = {
+        orderId: reviewModalItem.orderId,
+        productName: reviewModalItem.item.name,
+        productSize: reviewModalItem.item.size,
+        rating: reviewRating,
+        title: reviewTitle.trim() || (reviewRating >= 4 ? "Loved the Quality!" : "Product Review"),
+        comment: reviewComment.trim(),
+        tags: reviewSelectedTags,
+        photoUrl: reviewPhotoUrl,
+        date: new Date().toISOString().split("T")[0],
+        reviewerName: profileData.name || "Verified Customer",
+      };
+
+      const updated = {
+        ...userReviews,
+        [reviewKey]: newReview,
+      };
+      setUserReviews(updated);
+      if (typeof window !== "undefined") {
+        localStorage.setItem("pixello_customer_reviews_v1", JSON.stringify(updated));
+      }
+
+      setReviewSuccessMsg("⭐ Thank you! Your review and feedback have been published.");
+      setTimeout(() => {
+        setReviewModalItem(null);
+        setReviewSuccessMsg("");
+      }, 1600);
+    } catch (err) {
+      console.error("Error submitting review:", err);
+      alert("Failed to submit review. Please try again.");
+    } finally {
+      setIsSubmittingReview(false);
+    }
+  };
 
   // Profile Form State dynamically loaded from logged-in customer session
   const [profileData, setProfileData] = useState({
@@ -97,24 +187,33 @@ function ProfileContent() {
   const [cancelReason, setCancelReason] = useState<string>("Changed my mind");
   const [cancelSuccessMsg, setCancelSuccessMsg] = useState<string>("");
 
-  // Replacement Request Modal State
+  // Enhanced Replacement Request Modal State
   const [replacementModalOrder, setReplacementModalOrder] = useState<any | null>(null);
-  const [replacementReason, setReplacementReason] = useState<string>("Damaged / broken in transit");
-  const [replacementNotes, setReplacementNotes] = useState<string>("");
+  const [replacementCategory, setReplacementCategory] = useState<string>("TRANSIT_DAMAGE");
+  const [replacementReason, setReplacementReason] = useState<string>("Broken glass / cracked wooden frame in transit");
+  const [replacementExactIssue, setReplacementExactIssue] = useState<string>("");
+  const [replacementResolution, setReplacementResolution] = useState<string>("Re-make and ship fresh replacement (100% Free)");
+  const [replacementPhotoUrl, setReplacementPhotoUrl] = useState<string | null>(null);
   const [replacementSuccessMsg, setReplacementSuccessMsg] = useState<string>("");
   const [isSubmittingReplacement, setIsSubmittingReplacement] = useState<boolean>(false);
 
-  const handleRequestReplacementSubmit = async () => {
+  const handleRequestReplacementSubmit = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
     if (!replacementModalOrder) return;
+    if (!replacementExactIssue.trim()) {
+      alert("Please describe the exact issue with your item so our team can fix it perfectly.");
+      return;
+    }
+
     setIsSubmittingReplacement(true);
     try {
-      const fullNote = `Replacement Requested: ${replacementReason}${replacementNotes.trim() ? ` (${replacementNotes.trim()})` : ""}`;
+      const fullNote = `Replacement Requested: [${replacementReason}] - Exact Defect: ${replacementExactIssue.trim()} - Resolution: ${replacementResolution}${replacementPhotoUrl ? " (Defect Photo Attached)" : ""}`;
       await updateOrderStatus(replacementModalOrder.id, "Replacement Requested", fullNote);
-      setReplacementSuccessMsg("Replacement request registered successfully! Our master studio is processing your fresh replacement.");
+      setReplacementSuccessMsg("✓ Replacement request registered with exact reason! Our partner studio will dispatch a fresh replacement.");
       setTimeout(() => {
         setReplacementModalOrder(null);
         setReplacementSuccessMsg("");
-      }, 1600);
+      }, 2000);
     } catch (e) {
       console.error("Replacement request error:", e);
       alert("Failed to register replacement request. Please try again or reach out on WhatsApp.");
@@ -926,13 +1025,7 @@ function ProfileContent() {
                                 {isCancelled ? "Cancelled" : order.status}
                               </Badge>
                               <h3 className="font-bold text-base text-[#3A2B24]">
-                                {order.items && order.items.some((it: any) => {
-                                  const n = (it.name || "").toLowerCase();
-                                  const s = (it.size || "").toLowerCase();
-                                  return n.includes("liquid") || n.includes("timer") || n.includes("panda") || n.includes("paper weight") || n.includes("paperweight") || n.includes("forever us") || n.includes("mug") || n.includes("spotify") || s.includes("liquid") || s.includes("timer") || s.includes("panda") || s.includes("paper weight");
-                                }) || (order.assignedStudio && (order.assignedStudio.includes("Direct") || order.assignedStudio.includes("No Studio")))
-                                  ? "Dispatch: Direct Pixello Warehouse (No Studio Assignment Needed)"
-                                  : `Assigned Studio: ${order.assignedStudio}`}
+                                Pixello Handcrafted Express Delivery • Doorstep Tracking
                               </h3>
                               <p className="text-xs text-[#6C5C54] mt-0.5">Ship to: {order.deliveryAddress}</p>
                             </div>
@@ -1030,6 +1123,9 @@ function ProfileContent() {
                                 return `Uploaded Photo #${i + 1}`;
                               });
 
+                              const reviewKey = `${order.id}_${item.name}`;
+                              const existingReview = userReviews[reviewKey];
+
                               return (
                                 <div key={idx} className="p-4 rounded-2xl bg-[#FFF8F2]/60 border border-[#EFE6DD] hover:border-[#D89A86]/40 transition-all flex flex-col gap-3">
                                   <div className="flex gap-4 items-center justify-between">
@@ -1086,6 +1182,79 @@ function ProfileContent() {
                                       })}
                                     </div>
                                   </div>
+
+                                  {/* Product Review & Feedback Section */}
+                                  {existingReview ? (
+                                    <div className="p-3.5 bg-amber-50/80 border border-amber-200/90 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 shadow-2xs">
+                                      <div className="flex items-start gap-2.5">
+                                        <div className="flex items-center text-amber-500 mt-0.5">
+                                          {Array.from({ length: 5 }).map((_, sI) => (
+                                            <Star
+                                              key={sI}
+                                              className={cn(
+                                                "h-4 w-4",
+                                                sI < existingReview.rating
+                                                  ? "fill-amber-400 text-amber-400"
+                                                  : "text-gray-300"
+                                              )}
+                                            />
+                                          ))}
+                                        </div>
+                                        <div>
+                                          <div className="flex items-center gap-2">
+                                            <span className="font-bold text-xs text-[#3A2B24]">
+                                              "{existingReview.title}"
+                                            </span>
+                                            <Badge className="bg-amber-100 text-amber-900 border-none text-[10px] font-extrabold px-2 py-0.2 rounded-full">
+                                              {existingReview.rating}/5 Stars
+                                            </Badge>
+                                          </div>
+                                          {existingReview.comment && (
+                                            <p className="text-[11px] text-[#6C5C54] mt-0.5 italic line-clamp-2">
+                                              "{existingReview.comment}"
+                                            </p>
+                                          )}
+                                          {existingReview.tags && existingReview.tags.length > 0 && (
+                                            <div className="flex flex-wrap gap-1 mt-1.5">
+                                              {existingReview.tags.map((t: string, tI: number) => (
+                                                <span key={tI} className="text-[10px] bg-white border border-amber-200 text-amber-900 font-semibold px-2 py-0.5 rounded-full">
+                                                  ✓ {t}
+                                                </span>
+                                              ))}
+                                            </div>
+                                          )}
+                                        </div>
+                                      </div>
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        className="border-amber-300 text-amber-900 hover:bg-white font-bold text-xs rounded-full h-8 px-3.5 self-end sm:self-auto flex items-center gap-1 cursor-pointer"
+                                        onClick={() => openReviewModal(order.id, item, existingReview)}
+                                      >
+                                        <Edit2 className="h-3 w-3" /> Edit Review
+                                      </Button>
+                                    </div>
+                                  ) : (isDelivered || cleanStatus === "DELIVERED" || isPrintingStarted) ? (
+                                    <div className="p-3 bg-white border border-amber-200/80 rounded-2xl flex items-center justify-between gap-3 shadow-2xs">
+                                      <div className="flex items-center gap-2.5">
+                                        <div className="h-8 w-8 rounded-full bg-amber-50 border border-amber-200 flex items-center justify-center text-amber-600 flex-shrink-0">
+                                          <Star className="h-4 w-4 fill-amber-400 text-amber-500" />
+                                        </div>
+                                        <div>
+                                          <span className="text-xs font-bold text-[#3A2B24] block">How is your {item.name}?</span>
+                                          <span className="text-[10px] text-[#6C5C54] font-medium block">Share your rating & review with our craftsmen</span>
+                                        </div>
+                                      </div>
+                                      <Button
+                                        size="sm"
+                                        className="bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs rounded-full h-8 px-4 flex items-center gap-1.5 shadow-xs cursor-pointer flex-shrink-0"
+                                        onClick={() => openReviewModal(order.id, item)}
+                                      >
+                                        <Star className="h-3.5 w-3.5 fill-white text-white" />
+                                        <span>Write Review</span>
+                                      </Button>
+                                    </div>
+                                  ) : null}
                                 </div>
                               );
                             })}
@@ -1530,19 +1699,250 @@ function ProfileContent() {
         })()
       )}
 
-      {/* REPLACEMENT REQUEST MODAL DIALOG */}
+      {/* PRODUCT REVIEW & RATING MODAL */}
+      {reviewModalItem && (
+        <div 
+          className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in"
+          onClick={() => !isSubmittingReview && setReviewModalItem(null)}
+        >
+          <div 
+            className="bg-white border border-[#EFE6DD] rounded-3xl p-6 sm:p-7 max-w-lg w-full shadow-2xl relative animate-in zoom-in-95 max-h-[90vh] overflow-y-auto"
+            onClick={e => e.stopPropagation()}
+          >
+            <button 
+              onClick={() => !isSubmittingReview && setReviewModalItem(null)}
+              className="absolute top-4 right-4 h-9 w-9 rounded-full bg-[#FFF8F2] hover:bg-[#F2C8B5]/30 text-[#3A2B24] flex items-center justify-center font-bold text-base transition-colors cursor-pointer"
+            >
+              ✕
+            </button>
+
+            <Badge className="bg-amber-100 text-amber-900 border border-amber-300 mb-2 px-3 py-0.5 rounded-full text-xs font-bold flex items-center gap-1 w-fit">
+              <Star className="h-3 w-3 fill-amber-500 text-amber-500" />
+              <span>Verified Customer Review</span>
+            </Badge>
+
+            <h3 className="font-serif-brand text-2xl font-bold text-[#3A2B24] mb-1">
+              Rate & Review Your Product
+            </h3>
+            <p className="text-xs text-[#6C5C54] mb-4 font-medium">
+              Order #{reviewModalItem.orderId} • Your honest review helps other customers and rewards our local craftsmen!
+            </p>
+
+            {/* Product Item Preview */}
+            <div className="p-3 bg-[#FFF8F2] border border-[#EFE6DD] rounded-2xl flex items-center gap-3.5 mb-5">
+              <div className="h-12 w-12 rounded-xl bg-white border border-[#EFE6DD] overflow-hidden flex-shrink-0">
+                <img 
+                  src={reviewModalItem.item.image || "/images/wooden_frame_main.png"} 
+                  alt={reviewModalItem.item.name} 
+                  className="h-full w-full object-cover" 
+                />
+              </div>
+              <div className="min-w-0">
+                <h4 className="font-bold text-sm text-[#3A2B24] truncate">{reviewModalItem.item.name}</h4>
+                <p className="text-xs text-[#6C5C54]">Size / Spec: <span className="font-semibold text-[#D89A86]">{reviewModalItem.item.size}</span></p>
+              </div>
+            </div>
+
+            {reviewSuccessMsg ? (
+              <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-2xl text-emerald-800 text-xs font-bold flex items-center gap-2 animate-in fade-in">
+                <Check className="h-5 w-5 text-emerald-600 flex-shrink-0" />
+                <span>{reviewSuccessMsg}</span>
+              </div>
+            ) : (
+              <form onSubmit={handleReviewSubmit} className="flex flex-col gap-4">
+                {/* 5-Star Rating Selector */}
+                <div>
+                  <label className="text-xs font-bold text-[#3A2B24] mb-1.5 block">
+                    Overall Rating:
+                  </label>
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+                    <div className="flex items-center gap-1 p-2 bg-[#FFF8F2] border border-[#EFE6DD] rounded-2xl w-fit">
+                      {[1, 2, 3, 4, 5].map((star) => (
+                        <button
+                          key={star}
+                          type="button"
+                          onMouseEnter={() => setReviewHoverRating(star)}
+                          onMouseLeave={() => setReviewHoverRating(0)}
+                          onClick={() => setReviewRating(star)}
+                          className="p-1 transition-transform hover:scale-115 focus:outline-hidden cursor-pointer"
+                        >
+                          <Star
+                            className={cn(
+                              "h-7 w-7 transition-colors",
+                              (reviewHoverRating || reviewRating) >= star
+                                ? "fill-amber-400 text-amber-400 drop-shadow-xs"
+                                : "text-gray-300"
+                            )}
+                          />
+                        </button>
+                      ))}
+                    </div>
+                    <span className="text-xs font-bold text-[#D89A86]">
+                      {reviewRating === 5 && "⭐⭐⭐⭐⭐ Outstanding & Loved It!"}
+                      {reviewRating === 4 && "⭐⭐⭐⭐ Very Good Quality"}
+                      {reviewRating === 3 && "⭐⭐⭐ Good"}
+                      {reviewRating === 2 && "⭐⭐ Fair"}
+                      {reviewRating === 1 && "⭐ Needs Improvement"}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Quick Compliment Tags */}
+                <div>
+                  <label className="text-xs font-bold text-[#3A2B24] mb-1.5 block">
+                    Highlights & Best Features:
+                  </label>
+                  <div className="flex flex-wrap gap-2">
+                    {[
+                      "Crisp HD Print Clarity",
+                      "Sturdy Pine Wood Frame",
+                      "Rich & Vibrant Colors",
+                      "Express Safe Packaging",
+                      "Smooth Matt Finish",
+                      "Great Value for Money"
+                    ].map((tag) => {
+                      const isSelected = reviewSelectedTags.includes(tag);
+                      return (
+                        <button
+                          key={tag}
+                          type="button"
+                          onClick={() => {
+                            if (isSelected) {
+                              setReviewSelectedTags(reviewSelectedTags.filter((t) => t !== tag));
+                            } else {
+                              setReviewSelectedTags([...reviewSelectedTags, tag]);
+                            }
+                          }}
+                          className={cn(
+                            "text-xs px-3 py-1.5 rounded-full font-semibold border transition-all cursor-pointer",
+                            isSelected
+                              ? "bg-amber-500 border-amber-600 text-white shadow-2xs font-bold"
+                              : "bg-[#FFF8F2] border-[#EFE6DD] text-[#6C5C54] hover:bg-white"
+                          )}
+                        >
+                          {isSelected ? "✓ " : "+ "}{tag}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Review Title */}
+                <div>
+                  <label className="text-xs font-bold text-[#3A2B24] mb-1 block">
+                    Review Headline / Summary:
+                  </label>
+                  <Input
+                    type="text"
+                    value={reviewTitle}
+                    onChange={(e) => setReviewTitle(e.target.value)}
+                    placeholder="e.g., Absolutely loved the frame quality and crystal clear print!"
+                    className="rounded-xl border-[#EFE6DD] text-xs font-medium"
+                    required
+                  />
+                </div>
+
+                {/* Review Description */}
+                <div>
+                  <label className="text-xs font-bold text-[#3A2B24] mb-1 block">
+                    Detailed Review & Experience:
+                  </label>
+                  <textarea
+                    value={reviewComment}
+                    onChange={(e) => setReviewComment(e.target.value)}
+                    placeholder="Share details about print quality, framing, packaging, or how it looked on your wall/table..."
+                    rows={3}
+                    className="w-full rounded-xl border border-[#EFE6DD] p-2.5 text-xs font-medium text-[#3A2B24] focus:ring-[#D89A86] focus:border-[#D89A86] outline-none"
+                    required
+                  />
+                </div>
+
+                {/* Optional Customer Photo Upload */}
+                <div>
+                  <label className="text-xs font-bold text-[#3A2B24] mb-1 block">
+                    Attach Photo of Received Product (Optional):
+                  </label>
+                  {reviewPhotoUrl ? (
+                    <div className="relative w-24 h-24 rounded-xl overflow-hidden border border-amber-300">
+                      <img src={reviewPhotoUrl} alt="Review" className="w-full h-full object-cover" />
+                      <button
+                        type="button"
+                        onClick={() => setReviewPhotoUrl(null)}
+                        className="absolute top-1 right-1 bg-black/70 text-white rounded-full p-1 text-[10px] cursor-pointer"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  ) : (
+                    <label className="flex items-center gap-2 p-3 bg-[#FFF8F2] border border-dashed border-[#EFE6DD] rounded-xl cursor-pointer hover:bg-[#F2C8B5]/20 transition-all text-xs text-[#6C5C54] font-medium">
+                      <Upload className="h-4 w-4 text-[#D89A86]" />
+                      <span>Click to upload a picture of your frame on the wall / desk</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(e) => {
+                          if (e.target.files && e.target.files[0]) {
+                            const reader = new FileReader();
+                            reader.onload = (ev) => {
+                              if (ev.target?.result) setReviewPhotoUrl(ev.target.result as string);
+                            };
+                            reader.readAsDataURL(e.target.files[0]);
+                          }
+                        }}
+                      />
+                    </label>
+                  )}
+                </div>
+
+                {/* Submit Buttons */}
+                <div className="flex items-center gap-2 pt-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="flex-1 rounded-full border-[#EFE6DD] text-xs font-bold h-11 cursor-pointer"
+                    onClick={() => setReviewModalItem(null)}
+                    disabled={isSubmittingReview}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    type="submit"
+                    disabled={isSubmittingReview}
+                    className="flex-1 bg-amber-500 hover:bg-amber-600 text-white rounded-full text-xs font-bold h-11 flex items-center justify-center gap-2 shadow-md cursor-pointer"
+                  >
+                    {isSubmittingReview ? (
+                      <>
+                        <RefreshCw className="h-4 w-4 animate-spin" />
+                        <span>Submitting Review...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Star className="h-4 w-4 fill-white" />
+                        <span>Submit Product Review</span>
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </form>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ENHANCED REPLACEMENT REQUEST MODAL DIALOG */}
       {replacementModalOrder && (
         <div 
           className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in"
           onClick={() => !isSubmittingReplacement && setReplacementModalOrder(null)}
         >
           <div 
-            className="bg-white border border-[#EFE6DD] rounded-3xl p-6 sm:p-7 max-w-md w-full shadow-2xl relative animate-in zoom-in-95"
+            className="bg-white border border-[#EFE6DD] rounded-3xl p-6 sm:p-7 max-w-lg w-full shadow-2xl relative animate-in zoom-in-95 max-h-[90vh] overflow-y-auto"
             onClick={e => e.stopPropagation()}
           >
             <button 
               onClick={() => !isSubmittingReplacement && setReplacementModalOrder(null)}
-              className="absolute top-4 right-4 h-9 w-9 rounded-full bg-[#FFF8F2] hover:bg-[#F2C8B5]/30 text-[#3A2B24] flex items-center justify-center font-bold text-base transition-colors"
+              className="absolute top-4 right-4 h-9 w-9 rounded-full bg-[#FFF8F2] hover:bg-[#F2C8B5]/30 text-[#3A2B24] flex items-center justify-center font-bold text-base transition-colors cursor-pointer"
             >
               ✕
             </button>
@@ -1556,7 +1956,7 @@ function ProfileContent() {
               Request Order Replacement
             </h3>
             <p className="text-xs text-[#6C5C54] mb-4 font-medium">
-              Order #{replacementModalOrder.id} • Please let us know the issue and our partner studio will dispatch a fresh replacement.
+              Order #{replacementModalOrder.id} • Please select the exact issue and explain what needs to be fixed so our partner studio crafts your replacement with 100% precision.
             </p>
 
             {replacementSuccessMsg ? (
@@ -1565,53 +1965,147 @@ function ProfileContent() {
                 <span>{replacementSuccessMsg}</span>
               </div>
             ) : (
-              <div className="flex flex-col gap-4">
-                {/* Reason Selector */}
+              <form onSubmit={handleRequestReplacementSubmit} className="flex flex-col gap-4">
+                {/* Categorized Reason Selector */}
                 <div>
-                  <label className="text-xs font-bold text-[#3A2B24] mb-2 block">
-                    Reason for Replacement:
+                  <label className="text-xs font-bold text-[#3A2B24] mb-1.5 block">
+                    1. Select Specific Issue Category:
                   </label>
                   <div className="flex flex-col gap-2">
                     {[
-                      "Damaged / broken in transit",
-                      "Print quality issue / color defect",
-                      "Wrong frame size or color received",
-                      "Defective / damaged gift item",
-                      "Other defect"
-                    ].map((r) => (
+                      {
+                        label: "Broken glass / cracked wooden frame in transit",
+                        desc: "Physical damage to the glass panel or wooden frame during courier transit."
+                      },
+                      {
+                        label: "Print quality issue (Blurry, low resolution, or color defect)",
+                        desc: "Print appears pixelated, overly dark, or colors do not match original photo."
+                      },
+                      {
+                        label: "Wrong frame size or frame color delivered",
+                        desc: "Received a different frame color or dimensions than what was ordered."
+                      },
+                      {
+                        label: "Photo cut off or misaligned during framing",
+                        desc: "Key subject or faces in the photo are cropped out or mounted unevenly."
+                      },
+                      {
+                        label: "Defective hardware / missing wall hook or loose stand",
+                        desc: "Tabletop easel stand or hanging hook is missing, loose, or broken."
+                      },
+                      {
+                        label: "Defective gift item (Magic Mug, LED Lamp, Keepsake)",
+                        desc: "Heat reveal not functioning, LED base not lighting up, or item chipped."
+                      },
+                      {
+                        label: "Other manufacturing defect",
+                        desc: "Any other defect with your customized order."
+                      }
+                    ].map((item) => (
                       <label 
-                        key={r} 
-                        className={`flex items-center gap-2.5 p-2.5 rounded-xl border text-xs font-semibold cursor-pointer transition-all ${
-                          replacementReason === r 
-                            ? "bg-purple-50/80 border-purple-400 text-purple-950 font-bold shadow-2xs" 
+                        key={item.label} 
+                        className={cn(
+                          "flex items-start gap-3 p-3 rounded-2xl border text-xs cursor-pointer transition-all",
+                          replacementReason === item.label 
+                            ? "bg-purple-50 border-purple-400 text-purple-950 font-bold shadow-2xs" 
                             : "bg-[#FFF8F2]/60 border-[#EFE6DD] text-[#6C5C54] hover:bg-[#FFF8F2]"
-                        }`}
+                        )}
                       >
                         <input 
                           type="radio" 
                           name="replacementReason" 
-                          checked={replacementReason === r} 
-                          onChange={() => setReplacementReason(r)}
-                          className="text-purple-600 focus:ring-purple-500" 
+                          checked={replacementReason === item.label} 
+                          onChange={() => setReplacementReason(item.label)}
+                          className="mt-0.5 text-purple-600 focus:ring-purple-500" 
                         />
-                        <span>{r}</span>
+                        <div>
+                          <span className="block font-bold">{item.label}</span>
+                          <span className="block text-[11px] font-normal text-[#6C5C54] mt-0.5">{item.desc}</span>
+                        </div>
                       </label>
                     ))}
                   </div>
                 </div>
 
-                {/* Additional Note */}
+                {/* Exact Issue Description */}
                 <div>
                   <label className="text-xs font-bold text-[#3A2B24] mb-1 block">
-                    Additional Details / Feedback:
+                    2. Describe the Exact Issue in Detail (Required):
                   </label>
                   <textarea 
-                    value={replacementNotes}
-                    onChange={e => setReplacementNotes(e.target.value)}
-                    placeholder="Describe what needs to be fixed for your replacement..."
-                    rows={2}
+                    value={replacementExactIssue}
+                    onChange={e => setReplacementExactIssue(e.target.value)}
+                    placeholder="e.g., Glass cracked on top-right corner, colors are overly dark, wrong black frame received instead of brown..."
+                    rows={3}
                     className="w-full rounded-xl border border-[#EFE6DD] p-2.5 text-xs font-medium text-[#3A2B24] focus:ring-[#D89A86] focus:border-[#D89A86] outline-none"
+                    required
                   />
+                </div>
+
+                {/* Upload Defect Photo */}
+                <div>
+                  <label className="text-xs font-bold text-[#3A2B24] mb-1 block">
+                    3. Attach Photo of the Defect / Damaged Item (Recommended):
+                  </label>
+                  {replacementPhotoUrl ? (
+                    <div className="relative w-28 h-28 rounded-xl overflow-hidden border border-purple-300">
+                      <img src={replacementPhotoUrl} alt="Defect" className="w-full h-full object-cover" />
+                      <button
+                        type="button"
+                        onClick={() => setReplacementPhotoUrl(null)}
+                        className="absolute top-1 right-1 bg-black/70 text-white rounded-full p-1 text-[10px] cursor-pointer"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  ) : (
+                    <label className="flex items-center gap-2 p-3 bg-[#FFF8F2] border border-dashed border-[#EFE6DD] rounded-xl cursor-pointer hover:bg-purple-50/50 transition-all text-xs text-[#6C5C54] font-medium">
+                      <Upload className="h-4 w-4 text-purple-600" />
+                      <span>Click to upload photo of the broken/damaged item</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(e) => {
+                          if (e.target.files && e.target.files[0]) {
+                            const reader = new FileReader();
+                            reader.onload = (ev) => {
+                              if (ev.target?.result) setReplacementPhotoUrl(ev.target.result as string);
+                            };
+                            reader.readAsDataURL(e.target.files[0]);
+                          }
+                        }}
+                      />
+                    </label>
+                  )}
+                </div>
+
+                {/* Preferred Resolution */}
+                <div>
+                  <label className="text-xs font-bold text-[#3A2B24] mb-1.5 block">
+                    4. Preferred Resolution:
+                  </label>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {[
+                      "Re-make and ship fresh replacement (100% Free)",
+                      "Change frame color / size for replacement",
+                      "Re-print with new higher-res photo"
+                    ].map((res) => (
+                      <button
+                        key={res}
+                        type="button"
+                        onClick={() => setReplacementResolution(res)}
+                        className={cn(
+                          "text-left p-2.5 rounded-xl border text-xs transition-all cursor-pointer",
+                          replacementResolution === res
+                            ? "bg-purple-100 border-purple-400 font-bold text-purple-950"
+                            : "bg-[#FFF8F2] border-[#EFE6DD] text-[#6C5C54] hover:bg-white"
+                        )}
+                      >
+                        {replacementResolution === res ? "✓ " : "• "}{res}
+                      </button>
+                    ))}
+                  </div>
                 </div>
 
                 {/* Submit Buttons */}
@@ -1619,32 +2113,31 @@ function ProfileContent() {
                   <Button
                     type="button"
                     variant="outline"
-                    className="flex-1 rounded-full border-[#EFE6DD] text-xs font-bold h-11"
+                    className="flex-1 rounded-full border-[#EFE6DD] text-xs font-bold h-11 cursor-pointer"
                     onClick={() => setReplacementModalOrder(null)}
                     disabled={isSubmittingReplacement}
                   >
                     Cancel
                   </Button>
                   <Button
-                    type="button"
-                    onClick={handleRequestReplacementSubmit}
+                    type="submit"
                     disabled={isSubmittingReplacement}
-                    className="flex-1 btn-pixello-primary rounded-full text-xs font-bold h-11 flex items-center justify-center gap-2"
+                    className="flex-1 bg-purple-700 hover:bg-purple-800 text-white rounded-full text-xs font-bold h-11 flex items-center justify-center gap-2 shadow-md cursor-pointer"
                   >
                     {isSubmittingReplacement ? (
                       <>
                         <RefreshCw className="h-4 w-4 animate-spin" />
-                        <span>Submitting...</span>
+                        <span>Submitting Request...</span>
                       </>
                     ) : (
                       <>
                         <RefreshCw className="h-4 w-4" />
-                        <span>Confirm Replacement</span>
+                        <span>Confirm Replacement Request</span>
                       </>
                     )}
                   </Button>
                 </div>
-              </div>
+              </form>
             )}
           </div>
         </div>
