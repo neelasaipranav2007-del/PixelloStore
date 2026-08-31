@@ -2,14 +2,28 @@
 
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
-import { Search, ShoppingCart, Heart, User, Menu, Sparkles, LogIn, LogOut, X, Phone, Camera, ArrowRight } from "lucide-react";
+import { Search, ShoppingCart, Heart, User, Menu, Sparkles, LogIn, LogOut, X, Phone, Camera, ArrowRight, Bell, MessageSquareQuote, Check, CheckCheck, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { useCart } from "@/context/CartContext";
 import { useWishlist } from "@/context/WishlistContext";
 import { useRouter } from "next/navigation";
 import { usePixelloTransition } from "@/components/customer/PixelloPageTransition";
 import { motion } from "framer-motion";
+
+export interface CustomerNotification {
+  id: string;
+  title: string;
+  desc: string;
+  time: string;
+  read: boolean;
+  type: "reply" | "order" | "promo";
+  adminReply?: string;
+  productName?: string;
+  orderId?: string;
+}
 
 const MOCK_SEARCH_PRODUCTS = [
   { id: "1", name: "Premium Wooden Frame", category: "Frames", price: 499, image: "/images/wooden_frame_main.png" },
@@ -65,6 +79,119 @@ export default function Navbar() {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
   const searchContainerRef = useRef<HTMLDivElement>(null);
+
+  // Customer Notifications State
+  const [customerNotifications, setCustomerNotifications] = useState<CustomerNotification[]>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const saved = localStorage.getItem("pixello_customer_notifications_v1");
+        if (saved) return JSON.parse(saved);
+      } catch (e) {}
+    }
+    return [
+      {
+        id: "notif-welcome",
+        title: "Welcome to Pixello!",
+        desc: "Handcrafted personalized frames and polaroids delivered right to your doorstep.",
+        time: "1d ago",
+        read: true,
+        type: "promo",
+      }
+    ];
+  });
+
+  const [liveReplyPopOver, setLiveReplyPopOver] = useState<CustomerNotification | null>(null);
+
+  const unreadCount = customerNotifications.filter((n) => !n.read).length;
+
+  const handleMarkAllNotifsAsRead = () => {
+    const updated = customerNotifications.map((n) => ({ ...n, read: true }));
+    setCustomerNotifications(updated);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("pixello_customer_notifications_v1", JSON.stringify(updated));
+    }
+  };
+
+  const handleMarkNotifAsRead = (id: string) => {
+    const updated = customerNotifications.map((n) => (n.id === id ? { ...n, read: true } : n));
+    setCustomerNotifications(updated);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("pixello_customer_notifications_v1", JSON.stringify(updated));
+    }
+  };
+
+  const handleClearNotifs = () => {
+    setCustomerNotifications([]);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("pixello_customer_notifications_v1", JSON.stringify([]));
+    }
+  };
+
+  // Sync official studio responses from /api/reviews
+  useEffect(() => {
+    const syncStudioReplies = async () => {
+      try {
+        const res = await fetch("/api/reviews");
+        const data = await res.json();
+        if (data.success && Array.isArray(data.reviews)) {
+          const repliedReviews = data.reviews.filter((r: any) => r.adminReply && r.adminReply.trim().length > 0);
+          
+          if (repliedReviews.length > 0) {
+            setCustomerNotifications((prev) => {
+              const existingIds = new Set(prev.map((n) => n.id));
+              const newNotifs: CustomerNotification[] = [];
+
+              repliedReviews.forEach((r: any) => {
+                const notifId = `reply-rev-${r.id}`;
+                if (!existingIds.has(notifId)) {
+                  const itemNotif: CustomerNotification = {
+                    id: notifId,
+                    title: `Official Store Response from Pixello`,
+                    desc: r.adminReply,
+                    time: "Just now",
+                    read: false,
+                    type: "reply",
+                    adminReply: r.adminReply,
+                    productName: r.productName,
+                    orderId: r.orderId,
+                  };
+                  newNotifs.push(itemNotif);
+
+                  // Trigger live popover toast
+                  const seenPopovers = JSON.parse(sessionStorage.getItem("pixello_seen_reply_popovers") || "[]");
+                  if (!seenPopovers.includes(notifId)) {
+                    setLiveReplyPopOver(itemNotif);
+                    sessionStorage.setItem("pixello_seen_reply_popovers", JSON.stringify([...seenPopovers, notifId]));
+                  }
+                }
+              });
+
+              if (newNotifs.length > 0) {
+                const combined = [...newNotifs, ...prev];
+                if (typeof window !== "undefined") {
+                  localStorage.setItem("pixello_customer_notifications_v1", JSON.stringify(combined));
+                }
+                return combined;
+              }
+              return prev;
+            });
+          }
+        }
+      } catch (err) {
+        console.error("Error syncing customer notifications:", err);
+      }
+    };
+
+    syncStudioReplies();
+    window.addEventListener("pixello_admin_reviews_updated", syncStudioReplies);
+    window.addEventListener("storage", syncStudioReplies);
+    const interval = setInterval(syncStudioReplies, 10000);
+    return () => {
+      window.removeEventListener("pixello_admin_reviews_updated", syncStudioReplies);
+      window.removeEventListener("storage", syncStudioReplies);
+      clearInterval(interval);
+    };
+  }, []);
 
   useEffect(() => {
     setMounted(true);
@@ -281,6 +408,98 @@ export default function Navbar() {
           </div>
 
           <div className="flex items-center gap-1.5 sm:gap-3 flex-shrink-0">
+            {/* Customer Notifications Dropdown Bell */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  aria-label="Notifications" 
+                  className="relative hover:bg-[#FFF8F2] text-[#3A2B24] rounded-full h-9 w-9 sm:h-10 sm:w-10 cursor-pointer"
+                >
+                  <Bell className="h-4 w-4 sm:h-5 sm:w-5 text-[#3A2B24]" />
+                  {mounted && unreadCount > 0 && (
+                    <span className="absolute top-1 right-1 flex h-4 w-4 items-center justify-center rounded-full bg-purple-600 text-[10px] font-extrabold text-white shadow-xs animate-pulse">
+                      {unreadCount}
+                    </span>
+                  )}
+                </Button>
+              </DropdownMenuTrigger>
+
+              <DropdownMenuContent align="end" className="w-80 sm:w-96 rounded-3xl border border-[#EFE6DD] p-0 shadow-2xl bg-white overflow-hidden z-50">
+                <div className="p-3.5 bg-[#3A2B24] text-white flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="h-7 w-7 rounded-lg bg-white/10 flex items-center justify-center text-amber-300">
+                      <Bell className="h-3.5 w-3.5" />
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-xs">Customer Notifications</h4>
+                      <p className="text-[10px] text-[#EFE6DD]/80">Official responses & order updates</p>
+                    </div>
+                  </div>
+                  {unreadCount > 0 && (
+                    <button 
+                      onClick={handleMarkAllNotifsAsRead} 
+                      className="text-[10px] bg-white/15 hover:bg-white/25 px-2 py-0.5 rounded-full font-bold transition-colors cursor-pointer"
+                    >
+                      Mark read
+                    </button>
+                  )}
+                </div>
+
+                <div className="max-h-80 overflow-y-auto divide-y divide-[#EFE6DD]">
+                  {customerNotifications.length === 0 ? (
+                    <div className="p-6 text-center text-xs text-[#6C5C54]">
+                      <Bell className="h-6 w-6 text-[#D89A86]/50 mx-auto mb-1.5" />
+                      <p className="font-medium">No new notifications</p>
+                    </div>
+                  ) : (
+                    customerNotifications.map((notif) => (
+                      <div 
+                        key={notif.id}
+                        onClick={() => handleMarkNotifAsRead(notif.id)}
+                        className={`p-3.5 hover:bg-[#FFF8F2]/60 transition-colors cursor-pointer flex items-start gap-3 ${!notif.read ? 'bg-purple-50/40' : ''}`}
+                      >
+                        <div className="h-8 w-8 rounded-full bg-purple-100 border border-purple-300 text-purple-700 flex items-center justify-center flex-shrink-0 mt-0.5 shadow-2xs">
+                          {notif.type === "reply" ? <MessageSquareQuote className="h-4 w-4" /> : <Sparkles className="h-4 w-4 text-amber-600" />}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between gap-1 mb-0.5">
+                            <span className="font-bold text-xs text-[#3A2B24] truncate">{notif.title}</span>
+                            <span className="text-[10px] text-[#6C5C54] whitespace-nowrap">{notif.time}</span>
+                          </div>
+                          {notif.adminReply ? (
+                            <p className="text-xs text-purple-900 font-medium italic mt-1 line-clamp-3 bg-purple-50/80 p-2 rounded-xl border border-purple-200/70">
+                              "{notif.adminReply}"
+                            </p>
+                          ) : (
+                            <p className="text-xs text-[#6C5C54] mt-0.5 line-clamp-2">{notif.desc}</p>
+                          )}
+                          {notif.productName && (
+                            <span className="text-[10px] text-[#D89A86] font-semibold block mt-1">Product: {notif.productName}</span>
+                          )}
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+
+                {customerNotifications.length > 0 && (
+                  <div className="p-2.5 bg-[#FFF8F2] border-t border-[#EFE6DD] flex items-center justify-between text-xs">
+                    <button 
+                      onClick={handleClearNotifs} 
+                      className="text-[11px] text-[#6C5C54] hover:text-red-600 font-medium flex items-center gap-1 cursor-pointer transition-colors"
+                    >
+                      <Trash2 className="h-3 w-3" /> Clear all
+                    </button>
+                    <Link href="/profile?tab=orders" className="text-[11px] font-bold text-[#D89A86] hover:underline">
+                      View My Orders →
+                    </Link>
+                  </div>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+
             <Link href="/profile?tab=wishlist">
               <Button variant="ghost" size="icon" aria-label="Wishlist" className="relative hover:bg-[#FFF8F2] text-[#3A2B24] rounded-full h-9 w-9 sm:h-10 sm:w-10">
                 <Heart className="h-4 w-4 sm:h-5 sm:w-5 text-[#3A2B24] hover:text-[#F48A8A] transition-colors" />
@@ -371,6 +590,65 @@ export default function Navbar() {
                 Yes, Sign Out
               </Button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* LIVE CUSTOMER REVIEW REPLY POPOVER TOAST */}
+      {liveReplyPopOver && (
+        <div className="fixed bottom-6 right-6 z-[9999] max-w-sm sm:max-w-md w-full bg-white border-2 border-purple-400 rounded-3xl shadow-2xl p-5 animate-in slide-in-from-bottom-8 duration-300">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex items-center gap-2.5">
+              <div className="h-10 w-10 rounded-2xl bg-purple-100 border border-purple-300 flex items-center justify-center text-purple-700 flex-shrink-0 shadow-2xs">
+                <MessageSquareQuote className="h-5 w-5" />
+              </div>
+              <div>
+                <Badge className="bg-purple-100 text-purple-950 border-purple-300 font-extrabold text-[10px] px-2 py-0.2 rounded-full flex items-center gap-1 w-fit">
+                  <Sparkles className="h-3 w-3 text-purple-700" />
+                  <span>Verified Studio Reply</span>
+                </Badge>
+                <h4 className="font-bold text-sm text-[#3A2B24] mt-0.5">Pixello Studio Replied!</h4>
+              </div>
+            </div>
+            <button 
+              onClick={() => setLiveReplyPopOver(null)}
+              className="h-7 w-7 rounded-full bg-[#FFF8F2] hover:bg-[#F2C8B5]/30 text-[#3A2B24] flex items-center justify-center text-xs font-bold cursor-pointer"
+            >
+              ✕
+            </button>
+          </div>
+
+          <div className="mt-3 p-3 bg-gradient-to-r from-purple-50/90 via-[#FFF8F2] to-purple-50/70 border border-purple-200/90 rounded-2xl">
+            {liveReplyPopOver.productName && (
+              <span className="text-[10px] font-bold text-[#D89A86] block mb-1">
+                For: {liveReplyPopOver.productName} {liveReplyPopOver.orderId ? `(Order #${liveReplyPopOver.orderId})` : ""}
+              </span>
+            )}
+            <p className="text-xs text-purple-950 font-medium italic leading-relaxed">
+              "{liveReplyPopOver.adminReply || liveReplyPopOver.desc}"
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2 mt-3">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setLiveReplyPopOver(null)}
+              className="flex-1 rounded-full text-xs font-bold border-[#EFE6DD] h-8 cursor-pointer"
+            >
+              Dismiss
+            </Button>
+            <Button
+              size="sm"
+              onClick={() => {
+                handleMarkAllNotifsAsRead();
+                setLiveReplyPopOver(null);
+              }}
+              className="flex-1 bg-purple-700 hover:bg-purple-800 text-white rounded-full text-xs font-bold h-8 shadow-xs flex items-center justify-center gap-1 cursor-pointer"
+            >
+              <Check className="h-3.5 w-3.5" />
+              <span>Mark as Read</span>
+            </Button>
           </div>
         </div>
       )}

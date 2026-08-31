@@ -1229,26 +1229,6 @@ function ProfileContent() {
                                     </div>
                                   </div>
 
-                                  {/* Official Store Response from Pixello Team (when admin has replied to review) */}
-                                  {existingReview?.adminReply && (
-                                    <div className="p-3.5 bg-gradient-to-r from-purple-50/95 via-[#FFF8F2] to-purple-50/80 border border-purple-200/90 rounded-2xl flex items-start gap-3 shadow-2xs animate-in fade-in">
-                                      <div className="h-8 w-8 rounded-full bg-purple-100 border border-purple-300 flex items-center justify-center text-purple-700 flex-shrink-0 mt-0.5 shadow-2xs">
-                                        <MessageSquareQuote className="h-4 w-4" />
-                                      </div>
-                                      <div className="min-w-0 flex-1">
-                                        <div className="flex items-center gap-2 mb-1 flex-wrap">
-                                          <span className="text-xs font-bold text-purple-950">Official Response from Pixello:</span>
-                                          <Badge className="bg-purple-200/90 text-purple-950 border-purple-300 text-[10px] font-extrabold px-2 py-0.2 rounded-full">
-                                            Verified Studio Reply
-                                          </Badge>
-                                        </div>
-                                        <p className="text-xs text-purple-900 font-medium italic leading-relaxed">
-                                          "{existingReview.adminReply}"
-                                        </p>
-                                      </div>
-                                    </div>
-                                  )}
-
                                   {!existingReview && (isDelivered || cleanStatus === "DELIVERED" || isPrintingStarted) && (
                                     <div className="p-3 bg-white border border-amber-200/80 rounded-2xl flex items-center justify-between gap-3 shadow-2xs">
                                       <div className="flex items-center gap-2.5">
@@ -2828,17 +2808,6 @@ function ProfileContent() {
                               ₹{(item.price * item.quantity).toFixed(2)}
                             </span>
                           </div>
-
-                          {/* Official Studio Response (if admin replied) */}
-                          {existingRev?.adminReply && (
-                            <div className="p-2.5 bg-purple-50 border border-purple-200 rounded-xl flex items-start gap-2 text-xs">
-                              <MessageSquareQuote className="h-3.5 w-3.5 text-purple-700 flex-shrink-0 mt-0.5" />
-                              <div>
-                                <span className="font-bold text-[11px] text-purple-950 block">Official Response from Pixello Team:</span>
-                                <p className="text-purple-900 italic mt-0.5">"{existingRev.adminReply}"</p>
-                              </div>
-                            </div>
-                          )}
                         </div>
                       );
                     })}
