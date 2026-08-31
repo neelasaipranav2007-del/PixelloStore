@@ -3,8 +3,8 @@ import crypto from "crypto";
 
 export function getRazorpayKeys() {
   return {
-    keyId: process.env.RAZORPAY_KEY_ID || "rzp_test_TVuohjd1Lm1aty",
-    keySecret: process.env.RAZORPAY_KEY_SECRET || "aU7UqF4Y9S8dJ6k2XBr58j2K",
+    keyId: process.env.RAZORPAY_KEY_ID || "rzp_test_TWKiX46zL1CxcL",
+    keySecret: process.env.RAZORPAY_KEY_SECRET || "LvhbZ47ODOPobs82zYc5FnuV",
     webhookSecret: process.env.RAZORPAY_WEBHOOK_SECRET || "pixello_webhook_secret_2026",
   };
 }

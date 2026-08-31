@@ -725,7 +725,7 @@ export default function CheckoutPage() {
 
       if (isLoaded && (window as any).Razorpay) {
         const rzpOptions: any = {
-          key: keyId,
+          key: keyId || process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || "rzp_test_TWKiX46zL1CxcL",
           amount: amount,
           currency: currency || "INR",
           name: "Pixello Store",
