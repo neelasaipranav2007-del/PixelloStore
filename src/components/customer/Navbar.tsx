@@ -427,87 +427,104 @@ export default function Navbar() {
                 </Button>
               </DropdownMenuTrigger>
 
-              <DropdownMenuContent align="end" className="w-[340px] sm:w-[410px] rounded-3xl border border-[#EFE6DD] p-0 shadow-2xl bg-[#FFFDFB] overflow-hidden z-50">
-                {/* Espresso Luxury Header */}
-                <div className="p-4 bg-[#3A2B24] text-white flex items-center justify-between border-b border-[#4E3D35]">
-                  <div className="flex items-center gap-2.5">
-                    <div className="h-8 w-8 rounded-xl bg-white/10 flex items-center justify-center text-amber-300 border border-white/10 shadow-xs">
-                      <Bell className="h-4 w-4" />
+              <DropdownMenuContent align="end" className="w-[360px] sm:w-[440px] rounded-3xl border border-[#EFE6DD] p-0 shadow-2xl bg-[#FFFDFB] overflow-hidden z-50">
+                {/* Espresso Luxury Header with Breathing Space */}
+                <div className="px-5 py-4 bg-[#3A2B24] text-white flex items-center justify-between border-b border-[#4E3D35]">
+                  <div className="flex items-center gap-3">
+                    <div className="h-9 w-9 rounded-2xl bg-white/10 flex items-center justify-center text-amber-300 border border-white/10 shadow-xs">
+                      <Bell className="h-4.5 w-4.5" />
                     </div>
                     <div>
-                      <h4 className="font-bold text-xs font-serif-brand">Studio Notifications</h4>
-                      <p className="text-[10px] text-[#EFE6DD]/80">Official responses & order updates</p>
+                      <h4 className="font-bold text-sm font-serif-brand tracking-tight">Studio Inbox</h4>
+                      <p className="text-[11px] text-[#EFE6DD]/80">Official responses & order alerts</p>
                     </div>
                   </div>
                   {unreadCount > 0 && (
                     <button 
                       onClick={handleMarkAllNotifsAsRead} 
-                      className="text-[10px] bg-[#FFF8F2]/15 hover:bg-[#FFF8F2]/25 text-[#FFF8F2] px-2.5 py-1 rounded-full font-bold transition-colors cursor-pointer flex items-center gap-1 border border-white/10"
+                      className="text-[11px] bg-[#FFF8F2]/15 hover:bg-[#FFF8F2]/25 text-[#FFF8F2] px-3 py-1.5 rounded-full font-bold transition-colors cursor-pointer flex items-center gap-1.5 border border-white/10 shadow-2xs"
                     >
-                      <Check className="h-3 w-3 text-amber-300" />
+                      <Check className="h-3.5 w-3.5 text-amber-300" />
                       <span>Mark all read</span>
                     </button>
                   )}
                 </div>
 
-                {/* Notifications Card Feed */}
-                <div className="max-h-[380px] overflow-y-auto p-3 flex flex-col gap-2.5 bg-[#FAF6F0]/60">
+                {/* Notifications Card Feed with generous padding */}
+                <div className="max-h-[420px] overflow-y-auto p-4 sm:p-5 flex flex-col gap-3.5 bg-[#FAF6F0]/70">
                   {customerNotifications.length === 0 ? (
-                    <div className="p-8 text-center text-xs text-[#6C5C54] bg-white rounded-2xl border border-[#EFE6DD]">
-                      <Bell className="h-7 w-7 text-[#D89A86]/50 mx-auto mb-2" />
-                      <p className="font-bold text-[#3A2B24]">No New Notifications</p>
-                      <p className="text-[11px] text-[#6C5C54] mt-0.5">You're all caught up with studio updates.</p>
+                    <div className="p-10 text-center text-xs text-[#6C5C54] bg-white rounded-3xl border border-[#EFE6DD] shadow-2xs">
+                      <div className="h-12 w-12 rounded-full bg-[#FFF8F2] border border-[#EFE6DD] flex items-center justify-center mx-auto mb-3 text-[#D89A86]">
+                        <Bell className="h-6 w-6" />
+                      </div>
+                      <p className="font-bold text-sm text-[#3A2B24]">No New Notifications</p>
+                      <p className="text-xs text-[#6C5C54] mt-1">You're all caught up with official studio responses.</p>
                     </div>
                   ) : (
                     customerNotifications.map((notif) => (
                       <div 
                         key={notif.id}
                         onClick={() => handleMarkNotifAsRead(notif.id)}
-                        className={`p-3.5 rounded-2xl border transition-all cursor-pointer shadow-2xs hover:shadow-xs ${
+                        className={`p-4 sm:p-4.5 rounded-3xl border transition-all cursor-pointer shadow-xs hover:shadow-md ${
                           !notif.read 
-                            ? 'bg-white border-[#D89A86]/50 ring-1 ring-[#D89A86]/20' 
-                            : 'bg-white/90 border-[#EFE6DD] hover:border-[#D89A86]/30'
+                            ? 'bg-white border-[#D89A86]/60 ring-2 ring-[#D89A86]/15' 
+                            : 'bg-white/95 border-[#EFE6DD] hover:border-[#D89A86]/40'
                         }`}
                       >
-                        {/* Card Header */}
-                        <div className="flex items-center justify-between gap-2 mb-1.5">
-                          <div className="flex items-center gap-1.5">
-                            {notif.type === "reply" ? (
-                              <Badge className="bg-[#FFF8F2] text-[#D89A86] border border-[#D89A86]/40 font-extrabold text-[10px] px-2 py-0.2 rounded-full flex items-center gap-1">
-                                <Sparkles className="h-3 w-3 text-[#D89A86]" />
-                                <span>Official Reply</span>
-                              </Badge>
-                            ) : (
-                              <Badge className="bg-emerald-50 text-emerald-800 border border-emerald-200 font-extrabold text-[10px] px-2 py-0.2 rounded-full">
-                                Notice
-                              </Badge>
-                            )}
-                            {!notif.read && (
-                              <span className="h-2 w-2 rounded-full bg-[#D89A86] animate-pulse" />
-                            )}
-                          </div>
-                          <span className="text-[10px] font-semibold text-[#6C5C54]">{notif.time}</span>
-                        </div>
+                        {notif.type === "reply" ? (
+                          /* DISTINCT STUDIO DIALOGUE MODEL */
+                          <div className="space-y-3">
+                            {/* Studio Header Row */}
+                            <div className="flex items-start justify-between gap-2.5 pb-2.5 border-b border-[#EFE6DD]/70">
+                              <div className="flex items-center gap-2.5">
+                                <div className="h-9 w-9 rounded-xl bg-[#3A2B24] border border-[#4E3D35] flex items-center justify-center text-white flex-shrink-0 shadow-2xs">
+                                  <img src="/images/pixello_logo.png" alt="Pixello" className="h-5.5 w-5.5 rounded-full object-cover" />
+                                </div>
+                                <div>
+                                  <div className="flex items-center gap-1.5">
+                                    <span className="font-bold text-xs text-[#3A2B24]">Pixello Studio Team</span>
+                                    <Badge className="bg-emerald-50 text-emerald-800 border-emerald-200 text-[9px] font-extrabold px-1.5 py-0.2 rounded-full">
+                                      Verified
+                                    </Badge>
+                                  </div>
+                                  <span className="text-[10px] text-[#6C5C54] font-medium block">
+                                    {notif.productName || "Order Feedback"} {notif.orderId ? `• #${notif.orderId}` : ""}
+                                  </span>
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-1.5 flex-shrink-0 mt-0.5">
+                                <span className="text-[10px] font-semibold text-[#6C5C54]">{notif.time}</span>
+                                {!notif.read && (
+                                  <span className="h-2.5 w-2.5 rounded-full bg-[#D89A86] animate-pulse" />
+                                )}
+                              </div>
+                            </div>
 
-                        {/* Title & Product Info */}
-                        {notif.productName && (
-                          <div className="text-[11px] font-bold text-[#3A2B24] truncate mb-1">
-                            {notif.productName} {notif.orderId ? `(Order #${notif.orderId})` : ""}
-                          </div>
-                        )}
-
-                        {/* Content */}
-                        {notif.adminReply ? (
-                          <div className="p-2.5 bg-[#FFF8F2] border-l-3 border-[#D89A86] rounded-r-xl rounded-l-xs mt-1 shadow-2xs">
-                            <p className="text-xs text-[#3A2B24] font-medium italic leading-relaxed">
-                              “{notif.adminReply}”
-                            </p>
-                            <span className="text-[10px] text-[#D89A86] font-bold block text-right mt-1">— Pixello Studio Team</span>
+                            {/* Reply Speech Callout Bubble */}
+                            <div className="p-3.5 bg-gradient-to-br from-[#FFF8F2] via-white to-[#FFF8F2] border border-[#EFE6DD] rounded-2xl relative shadow-2xs">
+                              <span className="text-xl font-serif text-[#D89A86]/40 leading-none absolute top-2 left-2.5 select-none">“</span>
+                              <p className="text-xs text-[#3A2B24] font-medium italic leading-relaxed pl-3.5 pr-1">
+                                {notif.adminReply || notif.desc}
+                              </p>
+                              <div className="flex items-center justify-between mt-2 pt-2 border-t border-[#EFE6DD]/50 text-[10px]">
+                                <span className="font-bold text-[#D89A86]">Studio Response</span>
+                                <span className="text-[#6C5C54] font-semibold">Handcrafted with care</span>
+                              </div>
+                            </div>
                           </div>
                         ) : (
-                          <div>
-                            <h5 className="font-bold text-xs text-[#3A2B24]">{notif.title}</h5>
-                            <p className="text-[11px] text-[#6C5C54] mt-0.5 leading-relaxed">{notif.desc}</p>
+                          /* DISTINCT SYSTEM NOTICE MODEL */
+                          <div className="flex items-start gap-3">
+                            <div className="h-9 w-9 rounded-2xl bg-amber-50 border border-amber-200 text-amber-700 flex items-center justify-center flex-shrink-0 mt-0.5 shadow-2xs">
+                              <Sparkles className="h-4.5 w-4.5" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center justify-between gap-1 mb-1">
+                                <h5 className="font-bold text-xs text-[#3A2B24] truncate">{notif.title}</h5>
+                                <span className="text-[10px] font-semibold text-[#6C5C54] whitespace-nowrap">{notif.time}</span>
+                              </div>
+                              <p className="text-xs text-[#6C5C54] leading-relaxed">{notif.desc}</p>
+                            </div>
                           </div>
                         )}
                       </div>
@@ -515,21 +532,21 @@ export default function Navbar() {
                   )}
                 </div>
 
-                {/* Footer */}
+                {/* Footer with generous padding */}
                 {customerNotifications.length > 0 && (
-                  <div className="p-3 bg-white border-t border-[#EFE6DD] flex items-center justify-between text-xs">
+                  <div className="p-4 bg-white border-t border-[#EFE6DD] flex items-center justify-between text-xs">
                     <button 
                       onClick={handleClearNotifs} 
-                      className="text-[11px] text-[#6C5C54] hover:text-red-600 font-bold flex items-center gap-1 cursor-pointer transition-colors px-2 py-1 rounded-lg hover:bg-red-50"
+                      className="text-xs text-[#6C5C54] hover:text-red-600 font-bold flex items-center gap-1.5 cursor-pointer transition-colors px-3 py-1.5 rounded-xl hover:bg-red-50"
                     >
-                      <Trash2 className="h-3 w-3" /> Clear all
+                      <Trash2 className="h-3.5 w-3.5" /> Clear all
                     </button>
                     <Link 
                       href="/profile?tab=orders" 
-                      className="text-[11px] font-bold text-[#D89A86] hover:text-[#3A2B24] flex items-center gap-1 transition-colors px-2 py-1 rounded-lg hover:bg-[#FFF8F2]"
+                      className="text-xs font-bold text-[#3A2B24] hover:text-[#D89A86] flex items-center gap-1.5 transition-colors px-3 py-1.5 rounded-xl hover:bg-[#FFF8F2] border border-[#EFE6DD]"
                     >
                       <span>View Orders</span>
-                      <ArrowRight className="h-3 w-3" />
+                      <ArrowRight className="h-3.5 w-3.5 text-[#D89A86]" />
                     </Link>
                   </div>
                 )}
