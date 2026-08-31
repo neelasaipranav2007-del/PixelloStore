@@ -44,9 +44,10 @@ export async function GET() {
           (cleanMob && o.customerPhone && o.customerPhone.replace(/\D/g, "").slice(-10) === cleanMob)
       );
       const totalSpent = matchedOrders.reduce((sum, o) => sum + o.totalAmount, 0);
-      const status = statusMap[c.id] || (cleanMob ? statusMap[cleanMob] : null) || "Active";
+      const displayId = `CUST-${c.id.slice(-4)}`;
       return {
         id: c.id,
+        displayId,
         name: c.name || "Customer",
         email: c.email || `${cleanMob}@pixello.store`,
         phone: c.phone || `+91 ${cleanMob}`,
