@@ -81,6 +81,8 @@ export default function DeliveryDashboard() {
   const [userCoords, setUserCoords] = useState<{ lat: number; lng: number }>({ lat: 19.1176, lng: 72.9060 });
   const [isFetchingGPS, setIsFetchingGPS] = useState(false);
   const [mapMode, setMapMode] = useState<"ROUTE" | "OSM" | "SATELLITE">("ROUTE");
+  const [queueFilter, setQueueFilter] = useState<"ALL" | "READY" | "TRANSIT" | "DELIVERED">("ALL");
+  const [queueSearch, setQueueSearch] = useState("");
 
   const getStudioCoords = (pickupName?: string, dropoffAddr?: string) => {
     const lower = `${pickupName || ""} ${dropoffAddr || ""}`.toLowerCase();
@@ -212,50 +214,73 @@ export default function DeliveryDashboard() {
     }
   };
 
+  // Auto-sync active order from live database if none selected
+  useEffect(() => {
+    if (orders.length > 0 && !activeOrder) {
+      const firstActive = orders.find(
+        (o) => o.status !== "Delivered" && o.status !== "Cancelled"
+      ) || orders[0];
+
+      if (firstActive) {
+        const dropAddress = firstActive.deliveryAddress || "Powai, Mumbai";
+        const newActive = {
+          id: firstActive.id,
+          customerName: firstActive.customerName || "Customer",
+          customerPhone: firstActive.customerPhone || "+91 8074589949",
+          pickup: firstActive.assignedStudio || "Studio Alpha (Central Powai Branch)",
+          dropoff: dropAddress,
+          earnings: "₹85.00",
+          rawEarningsNum: 85,
+          status: firstActive.status === "Delivered" ? "DELIVERED" : (firstActive.status === "Out for Delivery" ? "OUT_FOR_DELIVERY" : "ASSIGNED"),
+          totalAmount: firstActive.totalAmount || 899,
+          itemsCount: firstActive.items?.length || 1,
+          waybill: firstActive.waybill,
+          trackingUrl: firstActive.trackingUrl,
+        };
+        setActiveOrder(newActive);
+        const resolved = resolveAddressCoords(dropAddress);
+        setUserCoords({ lat: resolved.lat, lng: resolved.lng });
+        setGpsStatus(`📍 Navigating to Customer: ${resolved.locationName}`);
+      }
+    }
+  }, [orders, activeOrder]);
+
+  const handleSelectActiveOrder = (order: any) => {
+    const dropAddress = order.deliveryAddress || order.address || "Powai, Mumbai";
+    const newActive = {
+      id: order.id,
+      customerName: order.customerName || "Customer",
+      customerPhone: order.customerPhone || "+91 8074589949",
+      pickup: order.assignedStudio || "Studio Alpha (Central Powai Branch)",
+      dropoff: dropAddress,
+      earnings: "₹85.00",
+      rawEarningsNum: 85,
+      status: order.status === "Delivered" ? "DELIVERED" : (order.status === "Out for Delivery" ? "OUT_FOR_DELIVERY" : "ASSIGNED"),
+      totalAmount: order.totalAmount || 899,
+      itemsCount: order.items?.length || 1,
+      waybill: order.waybill,
+      trackingUrl: order.trackingUrl,
+    };
+    setActiveOrder(newActive);
+    const resolved = resolveAddressCoords(dropAddress);
+    setUserCoords({ lat: resolved.lat, lng: resolved.lng });
+    setGpsStatus(`📍 Routing to Customer: ${resolved.locationName}`);
+    setDeliverySuccessMsg(`📍 Set Active GPS Route: Order #${order.id}`);
+    setTimeout(() => setDeliverySuccessMsg(""), 3500);
+  };
+
   const findNextOrder = () => {
-    // Filter out current active order, dismissed orders, and completed/cancelled orders
-    const eligibleOrders = orders.filter(o => 
-      o.id !== activeOrder?.id &&
-      !dismissedOrderIds.includes(o.id) &&
-      o.status !== "Delivered" &&
-      o.status !== "Cancelled"
+    const eligibleOrders = orders.filter(
+      (o) => o.id !== activeOrder?.id && o.status !== "Delivered" && o.status !== "Cancelled"
     );
 
     if (eligibleOrders.length > 0) {
-      // Randomize index so rider gets a different order every time
       const randomIndex = Math.floor(Math.random() * eligibleOrders.length);
-      const pendingOrder = eligibleOrders[randomIndex];
-
-      const rawAddr = pendingOrder.deliveryAddress || "";
-      const dropAddress = (rawAddr.trim() !== "" && rawAddr.trim() !== "-")
-        ? rawAddr
-        : "Flat 302, Lake View Apartments, Hiranandani Powai, Mumbai - 400076";
-
-      const newActive = {
-        id: pendingOrder.id,
-        customerName: pendingOrder.customerName || "Sai Pranav",
-        customerPhone: pendingOrder.customerPhone || "+91 8074589949",
-        pickup: pendingOrder.assignedStudio || "Studio Alpha (Central Powai Branch)",
-        dropoff: dropAddress,
-        earnings: `₹${Math.floor(Math.random() * 40 + 60)}`,
-        rawEarningsNum: Math.floor(Math.random() * 40 + 60),
-        status: "ASSIGNED",
-        totalAmount: pendingOrder.totalAmount || 899,
-        itemsCount: pendingOrder.items?.length || 1
-      };
-      setActiveOrder(newActive);
-      localStorage.setItem("pixello_rider_active_order", JSON.stringify(newActive));
-
-      // Resolve and set GPS coordinates
-      const resolved = resolveAddressCoords(dropAddress);
-      setUserCoords({ lat: resolved.lat, lng: resolved.lng });
-      setGpsStatus(`📍 Customer Location Fixed: ${resolved.locationName}`);
+      handleSelectActiveOrder(eligibleOrders[randomIndex]);
+    } else if (orders.length > 0) {
+      handleSelectActiveOrder(orders[0]);
     } else {
-      setActiveOrder(null);
-      if (typeof window !== "undefined") {
-        localStorage.removeItem("pixello_rider_active_order");
-      }
-      setDeliverySuccessMsg("✓ All assigned deliveries have been completed! Waiting for next orders to be ready for pickup.");
+      setDeliverySuccessMsg("✓ Waiting for new customer orders from studios.");
     }
   };
 
@@ -819,7 +844,242 @@ export default function DeliveryDashboard() {
         </div>
       </div>
 
-      {/* Delhivery Live Tracking Modal Dialog */}
+      {/* Live Delhivery & Studio Dispatch Queue Section */}
+      <Card className="border border-[#EFE6DD] bg-white rounded-3xl shadow-xs overflow-hidden">
+        <CardHeader className="bg-[#FFF8F2] border-b border-[#EFE6DD] p-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div>
+            <div className="flex items-center gap-2.5">
+              <div className="h-9 w-9 rounded-2xl bg-[#3A2B24] text-white flex items-center justify-center font-bold">
+                <Package className="h-4 w-4 text-[#D89A86]" />
+              </div>
+              <div>
+                <CardTitle className="font-serif-brand text-xl font-bold text-[#3A2B24]">
+                  Live Delhivery & Studio Dispatch Queue ({orders.length})
+                </CardTitle>
+                <p className="text-xs text-[#6C5C54]">All customer orders synchronized live with central database & Delhivery carrier network</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Filter Pills */}
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="flex bg-white p-1 rounded-2xl border border-[#EFE6DD] text-xs font-bold shadow-2xs">
+              <button
+                onClick={() => setQueueFilter("ALL")}
+                className={`px-3.5 py-1.5 rounded-xl transition-all cursor-pointer ${
+                  queueFilter === "ALL" ? "bg-[#3A2B24] text-white shadow-xs" : "text-[#6C5C54] hover:text-[#3A2B24]"
+                }`}
+              >
+                All Orders ({orders.length})
+              </button>
+              <button
+                onClick={() => setQueueFilter("READY")}
+                className={`px-3.5 py-1.5 rounded-xl transition-all cursor-pointer ${
+                  queueFilter === "READY" ? "bg-[#3A2B24] text-white shadow-xs" : "text-[#6C5C54] hover:text-[#3A2B24]"
+                }`}
+              >
+                Ready for Pickup ({orders.filter((o) => o.status === "Packed" || o.status === "Printing" || o.status === "Processing").length})
+              </button>
+              <button
+                onClick={() => setQueueFilter("TRANSIT")}
+                className={`px-3.5 py-1.5 rounded-xl transition-all cursor-pointer ${
+                  queueFilter === "TRANSIT" ? "bg-[#3A2B24] text-white shadow-xs" : "text-[#6C5C54] hover:text-[#3A2B24]"
+                }`}
+              >
+                In Transit ({orders.filter((o) => o.status === "Out for Delivery" || o.status === "Delivery Picked Up").length})
+              </button>
+              <button
+                onClick={() => setQueueFilter("DELIVERED")}
+                className={`px-3.5 py-1.5 rounded-xl transition-all cursor-pointer ${
+                  queueFilter === "DELIVERED" ? "bg-[#3A2B24] text-white shadow-xs" : "text-[#6C5C54] hover:text-[#3A2B24]"
+                }`}
+              >
+                Delivered ({orders.filter((o) => o.status === "Delivered").length})
+              </button>
+            </div>
+          </div>
+        </CardHeader>
+
+        <CardContent className="p-6 space-y-4">
+          {/* Search bar */}
+          <div className="relative">
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-[#6C5C54]" />
+            <Input
+              placeholder="Search by Order ID, Customer Name, Phone, Address, or Delhivery AWB..."
+              value={queueSearch}
+              onChange={(e) => setQueueSearch(e.target.value)}
+              className="pl-10 rounded-2xl bg-[#FFF8F2] border-[#EFE6DD] text-xs h-11"
+            />
+          </div>
+
+          {/* Orders Grid */}
+          {(() => {
+            let filtered = orders;
+            if (queueFilter === "READY") {
+              filtered = orders.filter((o) => o.status === "Packed" || o.status === "Printing" || o.status === "Processing");
+            } else if (queueFilter === "TRANSIT") {
+              filtered = orders.filter((o) => o.status === "Out for Delivery" || o.status === "Delivery Picked Up");
+            } else if (queueFilter === "DELIVERED") {
+              filtered = orders.filter((o) => o.status === "Delivered");
+            }
+
+            if (queueSearch.trim()) {
+              const q = queueSearch.toLowerCase();
+              filtered = filtered.filter(
+                (o) =>
+                  o.id.toLowerCase().includes(q) ||
+                  (o.customerName || "").toLowerCase().includes(q) ||
+                  (o.customerPhone || "").toLowerCase().includes(q) ||
+                  (o.deliveryAddress || "").toLowerCase().includes(q) ||
+                  (o.waybill || "").toLowerCase().includes(q) ||
+                  (o.assignedStudio || "").toLowerCase().includes(q)
+              );
+            }
+
+            if (filtered.length === 0) {
+              return (
+                <div className="p-12 text-center text-[#6C5C54] space-y-2 bg-[#FFF8F2]/50 rounded-2xl border border-dashed border-[#EFE6DD]">
+                  <Package className="h-10 w-10 mx-auto text-[#D89A86] opacity-60" />
+                  <p className="font-bold text-sm text-[#3A2B24]">No orders matching your criteria</p>
+                  <p className="text-xs">Orders placed on the customer store will appear here in real time.</p>
+                </div>
+              );
+            }
+
+            return (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                {filtered.map((order) => {
+                  const isCurrentActive = activeOrder?.id === order.id;
+                  const hasWaybill = !!order.waybill;
+
+                  return (
+                    <div
+                      key={order.id}
+                      className={`p-5 rounded-3xl border transition-all flex flex-col justify-between space-y-4 ${
+                        isCurrentActive
+                          ? "bg-blue-50/70 border-blue-300 ring-2 ring-blue-300 shadow-md"
+                          : "bg-white border-[#EFE6DD] hover:border-[#D89A86]/60 shadow-2xs hover:shadow-xs"
+                      }`}
+                    >
+                      <div className="space-y-3">
+                        <div className="flex items-start justify-between gap-2 border-b border-[#EFE6DD] pb-3">
+                          <div>
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <Badge
+                                className={`border-none px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
+                                  order.status === "Delivered"
+                                    ? "bg-emerald-100 text-emerald-800"
+                                    : order.status === "Out for Delivery" || order.status === "Delivery Picked Up"
+                                    ? "bg-blue-100 text-blue-800"
+                                    : "bg-amber-100 text-amber-900 border border-amber-300"
+                                }`}
+                              >
+                                {order.status}
+                              </Badge>
+
+                              {isCurrentActive && (
+                                <Badge className="bg-blue-600 text-white border-none text-[9px] font-black px-2 py-0.5 rounded-full">
+                                  ● ACTIVE GPS TARGET
+                                </Badge>
+                              )}
+                            </div>
+
+                            <h4 className="font-bold text-base text-[#3A2B24] mt-1">{order.id}</h4>
+                            <p className="text-[11px] text-[#6C5C54]">Placed {order.date}</p>
+                          </div>
+
+                          <div className="text-right">
+                            <span className="font-black text-emerald-600 text-base">₹85.00</span>
+                            <span className="text-[10px] text-[#6C5C54] block">Payout</span>
+                          </div>
+                        </div>
+
+                        {/* Customer & Studio Details */}
+                        <div className="p-3 bg-[#FFF8F2]/70 border border-[#EFE6DD] rounded-2xl text-xs space-y-2">
+                          <div>
+                            <span className="text-[10px] font-bold text-blue-900 uppercase block">Pickup Studio</span>
+                            <span className="font-semibold text-[#3A2B24]">{order.assignedStudio || "Studio Alpha (Central Powai Branch)"}</span>
+                          </div>
+                          <div>
+                            <span className="text-[10px] font-bold text-rose-900 uppercase block">Customer & Dropoff</span>
+                            <p className="font-semibold text-[#3A2B24]">{order.customerName} ({order.customerPhone})</p>
+                            <p className="text-[11px] text-[#6C5C54] line-clamp-2 mt-0.5">{order.deliveryAddress || "Powai, Mumbai"}</p>
+                          </div>
+                        </div>
+
+                        {/* Delhivery AWB Section */}
+                        {hasWaybill ? (
+                          <div className="p-3 bg-blue-50 border border-blue-200 rounded-2xl flex items-center justify-between text-xs">
+                            <div>
+                              <span className="text-[10px] font-extrabold uppercase text-blue-900 block">Delhivery Waybill</span>
+                              <span className="font-mono font-bold text-blue-800 text-xs">{order.waybill}</span>
+                            </div>
+                            <div className="flex gap-1.5">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleOpenTrackingModal(order.waybill!)}
+                                className="h-7 text-[11px] font-bold rounded-full border-blue-300 text-blue-800 bg-white hover:bg-blue-100 cursor-pointer"
+                              >
+                                Live Scans
+                              </Button>
+                              <a
+                                href={`https://www.delhivery.com/track/package/${order.waybill}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="h-7 px-2.5 rounded-full text-[11px] font-bold bg-blue-600 text-white flex items-center gap-1 hover:bg-blue-700 shadow-2xs"
+                              >
+                                Track <ExternalLink className="h-3 w-3" />
+                              </a>
+                            </div>
+                          </div>
+                        ) : (
+                          <Button
+                            size="sm"
+                            disabled={isBookingDelhivery}
+                            onClick={() => handleBookDelhiveryShipment(order.id)}
+                            className="w-full h-9 rounded-2xl bg-blue-700 hover:bg-blue-800 text-white font-bold text-xs shadow-xs cursor-pointer flex items-center justify-center gap-1.5"
+                          >
+                            <Truck className="h-3.5 w-3.5 text-blue-200" />
+                            <span>⚡ Book with Delhivery One</span>
+                          </Button>
+                        )}
+                      </div>
+
+                      {/* Action Bar */}
+                      <div className="pt-2 border-t border-[#EFE6DD] flex items-center gap-2">
+                        <Button
+                          size="sm"
+                          variant={isCurrentActive ? "default" : "outline"}
+                          onClick={() => handleSelectActiveOrder(order)}
+                          className={`flex-1 rounded-2xl text-xs font-bold h-9 cursor-pointer ${
+                            isCurrentActive
+                              ? "bg-blue-700 hover:bg-blue-800 text-white"
+                              : "border-[#EFE6DD] text-[#3A2B24] hover:bg-[#FFF8F2]"
+                          }`}
+                        >
+                          <Navigation className="h-3.5 w-3.5 mr-1" />
+                          <span>{isCurrentActive ? "Active on GPS" : "Set GPS Route"}</span>
+                        </Button>
+
+                        {order.status !== "Delivered" && (
+                          <Button
+                            size="sm"
+                            onClick={() => updateOrderStatus(order.id, "Delivered")}
+                            className="rounded-2xl text-xs font-bold h-9 px-3 bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer shadow-xs"
+                          >
+                            <CheckCircle2 className="h-3.5 w-3.5" />
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            );
+          })()}
+        </CardContent>
+      </Card>
       {trackingModalData && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in">
           <div className="bg-white rounded-3xl border border-[#EFE6DD] shadow-2xl max-w-lg w-full overflow-hidden flex flex-col max-h-[85vh]">

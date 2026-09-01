@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useOrders } from "@/context/OrderContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -22,6 +23,8 @@ const DEFAULT_WITHDRAWAL_LOGS: WithdrawalRecord[] = [
 ];
 
 export default function DeliveryEarningsPage() {
+  const { orders } = useOrders();
+  const deliveredCount = orders.filter((o) => o.status === "Delivered").length;
   const [totalEarnings, setTotalEarnings] = useState(1377);
   const [withdrawalLogs, setWithdrawalLogs] = useState<WithdrawalRecord[]>([]);
   const [payoutSuccessMsg, setPayoutSuccessMsg] = useState<string | null>(null);
@@ -35,7 +38,9 @@ export default function DeliveryEarningsPage() {
       if (saved) {
         setTotalEarnings(parseFloat(saved));
       } else {
-        localStorage.setItem("pixello_rider_earnings", "1377");
+        const calculated = deliveredCount * 85 + 782;
+        setTotalEarnings(calculated);
+        localStorage.setItem("pixello_rider_earnings", String(calculated));
       }
 
       const savedLogs = localStorage.getItem("pixello_rider_withdrawals");

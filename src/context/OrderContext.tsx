@@ -60,6 +60,10 @@ export interface Order {
   invoiceUrl?: string;
   shippingLabelUrl?: string;
   trackingAwb?: string;
+  waybill?: string;
+  trackingUrl?: string;
+  pickupTime?: string | null;
+  deliveryTime?: string | null;
   deliveryType?: "Direct Delivery" | "Shipping";
   history?: OrderStatusHistoryItem[];
 }
