@@ -62,6 +62,10 @@ export interface Order {
   trackingAwb?: string;
   waybill?: string;
   trackingUrl?: string;
+  shipmentId?: string | null;
+  pickupLocation?: string | null;
+  currentStatus?: string | null;
+  estimatedDelivery?: string | null;
   pickupTime?: string | null;
   deliveryTime?: string | null;
   deliveryType?: "Direct Delivery" | "Shipping";

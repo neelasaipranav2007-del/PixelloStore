@@ -2777,6 +2777,35 @@ function ProfileContent() {
                   </div>
                 </div>
 
+                {/* Delhivery Express Tracking Banner */}
+                {orderDetailsModal.waybill && (
+                  <div className="p-4 bg-blue-50/90 border border-blue-200 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <Badge className="bg-blue-600 text-white border-none font-bold text-[10px] px-2.5 py-0.5 rounded-full">
+                          DELHIVERY EXPRESS B2C
+                        </Badge>
+                        <span className="text-[11px] font-bold text-blue-900">2-Day Guaranteed Surface</span>
+                      </div>
+                      <p className="font-mono font-bold text-blue-950 text-sm mt-1">
+                        AWB: {orderDetailsModal.waybill}
+                      </p>
+                      <p className="text-[11px] text-[#6C5C54] mt-0.5">
+                        Track live courier scans, hub dispatches, and delivery rider route directly on Delhivery.
+                      </p>
+                    </div>
+
+                    <a
+                      href={`https://www.delhivery.com/track/package/${orderDetailsModal.waybill}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-full font-bold text-xs flex items-center justify-center gap-1.5 shadow-xs flex-shrink-0"
+                    >
+                      Track on Delhivery.com <ExternalLink className="h-3.5 w-3.5" />
+                    </a>
+                  </div>
+                )}
+
                 {/* Items List */}
                 <div>
                   <h4 className="font-bold text-xs uppercase tracking-wider text-[#3A2B24] mb-3">

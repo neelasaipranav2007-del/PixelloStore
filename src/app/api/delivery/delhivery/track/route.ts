@@ -1,5 +1,5 @@
-﻿import { NextResponse } from "next/server";
-import { trackDelhiveryShipment } from "@/lib/delhivery";
+import { NextResponse } from "next/server";
+import { syncDelhiveryTracking } from "@/lib/delhivery";
 
 export const dynamic = "force-dynamic";
 
@@ -12,7 +12,7 @@ export async function GET(req: Request) {
       return NextResponse.json({ success: false, error: "Missing waybill or orderId parameter" }, { status: 400 });
     }
 
-    const tracking = await trackDelhiveryShipment(waybill);
+    const tracking = await syncDelhiveryTracking(waybill);
     return NextResponse.json({ success: true, tracking });
   } catch (error: any) {
     console.error("Delhivery tracking error:", error);

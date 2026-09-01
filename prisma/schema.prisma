@@ -348,17 +348,31 @@ model OrderItem {
 }
 
 model DeliveryInfo {
-  id                String          @id @default(cuid())
-  orderId           String          @unique
-  order             Order           @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  id                  String           @id @default(cuid())
+  orderId             String           @unique
+  order               Order            @relation(fields: [orderId], references: [id], onDelete: Cascade)
   
-  deliveryProfileId String?
-  deliveryProfile   DeliveryProfile? @relation(fields: [deliveryProfileId], references: [id])
+  deliveryProfileId   String?
+  deliveryProfile     DeliveryProfile? @relation(fields: [deliveryProfileId], references: [id])
   
-  deliveryPartnerName String?
+  deliveryPartnerName String?          @default("Delhivery One Express")
+  waybill             String?
+  shipmentId          String?
+  pickupLocation      String?
+  deliveryAddress     String?
+  trackingStatus      String?
+  currentStatus       String?
+  pickupStatus        String?
+  estimatedDelivery   String?
+  labelUrl            String?
+  lastSyncedAt        DateTime?
+  trackingEvents      String?
+  apiError            String?
   pickupTime          DateTime?
   deliveryTime        DateTime?
   trackingUrl         String?
+  createdAt           DateTime?        @default(now())
+  updatedAt           DateTime?        @default(now()) @updatedAt
 }
 
 model Commission {

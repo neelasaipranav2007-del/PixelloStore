@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, Suspense } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
@@ -32,7 +32,7 @@ const PRESET_AMBASSADORS = [
   { name: "Vyshu", phone: "9059448213", pin: "1234", college: "Sreenidhii Engg", promo: "VYSHU10" },
 ];
 
-export default function AmbassadorLoginPage() {
+function AmbassadorLoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const redirectParam = searchParams.get("redirect");
@@ -341,5 +341,13 @@ export default function AmbassadorLoginPage() {
         Pixello Store &bull; Campus Ambassador Network &bull; Secure Authentication
       </footer>
     </div>
+  );
+}
+
+export default function AmbassadorLoginPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-[#3A2B24] flex items-center justify-center text-xs text-stone-300 font-bold">Loading Ambassador Portal...</div>}>
+      <AmbassadorLoginForm />
+    </Suspense>
   );
 }

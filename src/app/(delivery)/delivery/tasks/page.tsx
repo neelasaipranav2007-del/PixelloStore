@@ -81,35 +81,84 @@ export default function DeliveryTasksPage() {
     }
   };
 
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [syncStatusMsg, setSyncStatusMsg] = useState("");
+
+  const handleSyncAll = async () => {
+    setIsSyncing(true);
+    try {
+      const res = await fetch("/api/delivery/delhivery/sync", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setSyncStatusMsg(`✓ Delhivery synced successfully (${data.syncedCount || 0} active orders updated)`);
+        window.dispatchEvent(new CustomEvent("pixello_orders_updated"));
+        setTimeout(() => setSyncStatusMsg(""), 4000);
+      } else {
+        alert("✕ Synchronization failed: " + (data.error || "Please try again"));
+      }
+    } catch (err: any) {
+      alert("✕ Unable to synchronize with Delhivery. " + err.message);
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
+      {syncStatusMsg && (
+        <div className="p-4 bg-emerald-600 text-white rounded-2xl font-bold text-xs shadow-md flex items-center justify-between animate-in fade-in">
+          <span>{syncStatusMsg}</span>
+          <CheckCircle2 className="h-5 w-5" />
+        </div>
+      )}
+
       {/* Header & Controls */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-6 rounded-3xl border border-[#EFE6DD] shadow-xs">
         <div>
-          <h1 className="font-serif-brand text-2xl font-bold text-[#3A2B24]">Delivery Tasks & Queue</h1>
+          <div className="flex items-center gap-2">
+            <h1 className="font-serif-brand text-2xl font-bold text-[#3A2B24]">Delivery Tasks & Queue</h1>
+            <Badge className="bg-blue-100 text-blue-800 border-none font-bold text-[10px] px-2.5 py-0.5 rounded-full">
+              DELHIVERY SYNCED
+            </Badge>
+          </div>
           <p className="text-xs text-[#6C5C54] mt-0.5">Track active doorstep dispatches, Delhivery express shipments & completed orders.</p>
         </div>
 
-        {/* Filter Pills */}
-        <div className="flex bg-[#FFF8F2] p-1.5 rounded-2xl border border-[#EFE6DD] text-xs font-bold w-full sm:w-auto">
-          <button 
-            onClick={() => setFilter("ALL")} 
-            className={`px-4 py-2 rounded-xl transition-all cursor-pointer ${filter === "ALL" ? "bg-[#3A2B24] text-white shadow-xs" : "text-[#6C5C54] hover:text-[#3A2B24]"}`}
+        <div className="flex items-center gap-3 w-full sm:w-auto flex-wrap">
+          <Button
+            onClick={handleSyncAll}
+            disabled={isSyncing}
+            className="rounded-2xl text-xs font-bold bg-[#3A2B24] hover:bg-[#4A3B34] text-white h-10 px-4 shadow-xs cursor-pointer flex items-center gap-1.5"
           >
-            All Tasks ({orders.length})
-          </button>
-          <button 
-            onClick={() => setFilter("ACTIVE")} 
-            className={`px-4 py-2 rounded-xl transition-all cursor-pointer ${filter === "ACTIVE" ? "bg-[#3A2B24] text-white shadow-xs" : "text-[#6C5C54] hover:text-[#3A2B24]"}`}
-          >
-            Active ({activeDeliveries.length})
-          </button>
-          <button 
-            onClick={() => setFilter("COMPLETED")} 
-            className={`px-4 py-2 rounded-xl transition-all cursor-pointer ${filter === "COMPLETED" ? "bg-[#3A2B24] text-white shadow-xs" : "text-[#6C5C54] hover:text-[#3A2B24]"}`}
-          >
-            Completed ({completedDeliveries.length})
-          </button>
+            <RefreshCw className={`h-3.5 w-3.5 text-[#D89A86] ${isSyncing ? "animate-spin" : ""}`} />
+            <span>{isSyncing ? "Syncing..." : "Sync Delhivery"}</span>
+          </Button>
+
+          {/* Filter Pills */}
+          <div className="flex bg-[#FFF8F2] p-1.5 rounded-2xl border border-[#EFE6DD] text-xs font-bold w-full sm:w-auto">
+            <button 
+              onClick={() => setFilter("ALL")} 
+              className={`px-4 py-2 rounded-xl transition-all cursor-pointer ${filter === "ALL" ? "bg-[#3A2B24] text-white shadow-xs" : "text-[#6C5C54] hover:text-[#3A2B24]"}`}
+            >
+              All Tasks ({orders.length})
+            </button>
+            <button 
+              onClick={() => setFilter("ACTIVE")} 
+              className={`px-4 py-2 rounded-xl transition-all cursor-pointer ${filter === "ACTIVE" ? "bg-[#3A2B24] text-white shadow-xs" : "text-[#6C5C54] hover:text-[#3A2B24]"}`}
+            >
+              Active ({activeDeliveries.length})
+            </button>
+            <button 
+              onClick={() => setFilter("COMPLETED")} 
+              className={`px-4 py-2 rounded-xl transition-all cursor-pointer ${filter === "COMPLETED" ? "bg-[#3A2B24] text-white shadow-xs" : "text-[#6C5C54] hover:text-[#3A2B24]"}`}
+            >
+              Completed ({completedDeliveries.length})
+            </button>
+          </div>
         </div>
       </div>
 

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { portalEvents } from "@/lib/events";
 import { mapUiStatusToDb } from "@/lib/orderStatus";
+import { createDelhiveryShipment } from "@/lib/delhivery";
 
 export const dynamic = "force-dynamic";
 
@@ -28,6 +29,7 @@ export async function PATCH(
       // 1. Find Order by exact ID or flexible match
       let targetOrder = await tx.order.findUnique({
         where: { id: orderId },
+        include: { deliveryInfo: true },
       });
 
       if (!targetOrder) {
@@ -39,6 +41,7 @@ export async function PATCH(
               { id: { contains: orderId } },
             ],
           },
+          include: { deliveryInfo: true },
         });
       }
 
@@ -68,13 +71,13 @@ export async function PATCH(
         await tx.deliveryInfo.upsert({
           where: { orderId: order.id },
           update: {
-            deliveryPartnerName: "Ramesh Kumar",
+            deliveryPartnerName: "Delhivery One Express",
             ...(dbStatus === "PICKED_UP" ? { pickupTime: new Date() } : {}),
             ...(dbStatus === "DELIVERED" ? { deliveryTime: new Date() } : {}),
           },
           create: {
             orderId: order.id,
-            deliveryPartnerName: "Ramesh Kumar",
+            deliveryPartnerName: "Delhivery One Express",
             ...(dbStatus === "PICKED_UP" ? { pickupTime: new Date() } : {}),
             ...(dbStatus === "DELIVERED" ? { deliveryTime: new Date() } : {}),
           },
@@ -112,7 +115,7 @@ export async function PATCH(
         });
       } else if (dbStatus === "OUT_FOR_DELIVERY" || dbStatus === "PICKED_UP") {
         statusTitle = "Out for Delivery";
-        customerMsg = `Order #${order.id} is on the way with delivery partner Ramesh Kumar! 🚀`;
+        customerMsg = `Order #${order.id} is on the way with Delhivery Express! 🚀`;
         adminMsg = `Order #${order.id} is out for doorstep delivery.`;
       } else if (dbStatus === "DELIVERED") {
         statusTitle = "Order Delivered 🎉";
@@ -164,6 +167,15 @@ export async function PATCH(
         { success: false, error: `Order #${orderId} not found in database` },
         { status: 404 }
       );
+    }
+
+    // Auto-create Delhivery Shipment if reaching READY_FOR_PICKUP and no AWB yet
+    if (dbStatus === "READY_FOR_PICKUP") {
+      try {
+        await createDelhiveryShipment(updatedOrder.id);
+      } catch (err: any) {
+        console.warn("Delhivery auto-dispatch notice:", err.message);
+      }
     }
 
     // Broadcast real-time update to all listeners

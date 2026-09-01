@@ -75,6 +75,8 @@ export default function DeliveryDashboard() {
   const [pincodeCheckInput, setPincodeCheckInput] = useState("");
   const [pincodeResult, setPincodeResult] = useState<any | null>(null);
   const [isCheckingPincode, setIsCheckingPincode] = useState(false);
+  const [isSyncingDelhivery, setIsSyncingDelhivery] = useState(false);
+  const [lastSyncTimestamp, setLastSyncTimestamp] = useState<string>("Just now");
 
   const [dismissedOrderIds, setDismissedOrderIds] = useState<string[]>([]);
   const [gpsStatus, setGpsStatus] = useState("🛰️ Live Satellite Active");
@@ -126,6 +128,30 @@ export default function DeliveryDashboard() {
       console.error(err);
     } finally {
       setIsCheckingPincode(false);
+    }
+  };
+
+  const handleSyncDelhivery = async () => {
+    setIsSyncingDelhivery(true);
+    try {
+      const res = await fetch("/api/delivery/delhivery/sync", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setLastSyncTimestamp(data.timestamp || new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }));
+        setDeliverySuccessMsg(`✓ Synced successfully with Delhivery One (${data.syncedCount || 0} shipments updated)`);
+        window.dispatchEvent(new CustomEvent("pixello_orders_updated"));
+        setTimeout(() => setDeliverySuccessMsg(""), 4000);
+      } else {
+        alert("✕ Synchronization failed: " + (data.error || "Please try again"));
+      }
+    } catch (err: any) {
+      alert("✕ Unable to synchronize with Delhivery. " + err.message);
+    } finally {
+      setIsSyncingDelhivery(false);
     }
   };
 
@@ -362,6 +388,35 @@ export default function DeliveryDashboard() {
 
   return (
     <div className="space-y-6">
+      {/* Delhivery Live Sync Action Bar */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-white p-4 px-6 rounded-3xl border border-[#EFE6DD] shadow-xs">
+        <div className="flex items-center gap-3">
+          <div className="h-10 w-10 rounded-2xl bg-blue-50 border border-blue-200 flex items-center justify-center text-blue-700">
+            <Truck className="h-5 w-5" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <h3 className="font-serif-brand font-bold text-sm text-[#3A2B24]">Delhivery One Carrier Network</h3>
+              <Badge className="bg-emerald-100 text-emerald-800 border-none font-bold text-[10px] px-2.5 py-0.5 rounded-full">
+                ● LIVE SYNCED
+              </Badge>
+            </div>
+            <p className="text-xs text-[#6C5C54]">
+              Last synchronized: <strong className="text-[#3A2B24]">{lastSyncTimestamp}</strong> • Token: <code className="font-mono text-blue-900">{delhiveryConfig.maskedToken}</code>
+            </p>
+          </div>
+        </div>
+
+        <Button
+          onClick={handleSyncDelhivery}
+          disabled={isSyncingDelhivery}
+          className="rounded-2xl text-xs font-bold bg-[#3A2B24] hover:bg-[#4A3B34] text-white h-10 px-5 shadow-xs cursor-pointer flex items-center gap-2"
+        >
+          <RefreshCw className={`h-4 w-4 text-[#D89A86] ${isSyncingDelhivery ? "animate-spin" : ""}`} />
+          <span>{isSyncingDelhivery ? "Synchronizing with Delhivery..." : "Sync Delhivery"}</span>
+        </Button>
+      </div>
+
       {/* Top Banner Stats Grid for PC */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <Card className="border border-[#EFE6DD] bg-white rounded-3xl p-5 shadow-xs flex items-center justify-between">

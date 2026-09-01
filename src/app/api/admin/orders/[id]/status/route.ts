@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { portalEvents } from "@/lib/events";
 import { getAuthenticatedAdmin } from "@/lib/session";
 import { mapUiStatusToDb } from "@/lib/orderStatus";
+import { createDelhiveryShipment } from "@/lib/delhivery";
 
 export const dynamic = "force-dynamic";
 
@@ -37,6 +38,7 @@ export async function PATCH(
       // 1. Find Order by exact ID or case-insensitive match
       let targetOrder = await tx.order.findUnique({
         where: { id: orderId },
+        include: { deliveryInfo: true },
       });
 
       if (!targetOrder) {
@@ -48,6 +50,7 @@ export async function PATCH(
               { id: { contains: orderId } },
             ],
           },
+          include: { deliveryInfo: true },
         });
       }
 
@@ -73,7 +76,7 @@ export async function PATCH(
       });
 
       // 4. Update Delivery partner assignment if applicable
-      const riderName = deliveryPartnerName || "Ramesh Kumar";
+      const riderName = deliveryPartnerName || "Delhivery One Express";
       if (dbStatus === "PICKED_UP" || dbStatus === "OUT_FOR_DELIVERY" || dbStatus === "DELIVERED") {
         await tx.deliveryInfo.upsert({
           where: { orderId: order.id },
@@ -101,13 +104,23 @@ export async function PATCH(
       );
     }
 
-    // Broadcast real-time update to all listeners
+    // Auto-create Delhivery shipment if reaching READY_FOR_PICKUP
+    if (dbStatus === "READY_FOR_PICKUP") {
+      try {
+        await createDelhiveryShipment(updatedOrder.id);
+      } catch (err: any) {
+        console.warn("Delhivery auto-dispatch notice:", err.message);
+      }
+    }
+
+    // Broadcast real-time update to all portals
     portalEvents.emit("order_change", { action: "STATUS_UPDATE", orderId: updatedOrder.id, status: dbStatus });
     portalEvents.emit("order_update", { action: "STATUS_UPDATE", orderId: updatedOrder.id, status: dbStatus });
+    portalEvents.emit("notification_change", { action: "CREATE", orderId: updatedOrder.id, status: dbStatus });
 
     return NextResponse.json({ success: true, order: updatedOrder });
   } catch (error: any) {
-    console.error("Admin order status update error:", error);
+    console.error("Error updating order status by admin:", error);
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });
   }
 }
