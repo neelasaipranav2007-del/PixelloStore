@@ -99,14 +99,27 @@ export default function DeliveryTasksPage() {
                     </p>
                   </div>
                 </div>
+
+                <div className="flex items-center justify-between text-[11px] pt-1">
+                  <span className="text-stone-500 font-medium">Carrier: <strong className="text-blue-900">Delhivery Express</strong></span>
+                  <span className="text-emerald-700 font-bold">2-Day Guaranteed</span>
+                </div>
               </CardContent>
 
-              <div className="p-4 bg-[#FFF8F2] border-t border-[#EFE6DD]">
-                <Link href="/delivery">
+              <div className="p-4 bg-[#FFF8F2] border-t border-[#EFE6DD] flex gap-2">
+                <Link href="/delivery" className="flex-1">
                   <Button variant="outline" className="w-full rounded-2xl text-xs font-bold border-[#EFE6DD] hover:bg-white text-[#3A2B24] h-10">
-                    Open Navigation <ChevronRight className="h-4 w-4 ml-1 text-[#D89A86]" />
+                    Live Route <ChevronRight className="h-4 w-4 ml-1 text-[#D89A86]" />
                   </Button>
                 </Link>
+                <a
+                  href={`https://www.delhivery.com/track/package/DLV${order.id.replace(/\D/g, "").slice(-4)}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-3 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl text-xs font-bold h-10 flex items-center justify-center shadow-2xs"
+                >
+                  Delhivery
+                </a>
               </div>
             </Card>
           ))
