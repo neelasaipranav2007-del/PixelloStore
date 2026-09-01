@@ -55,29 +55,6 @@ export default function DeliveryDashboard() {
   const [completedCount, setCompletedCount] = useState(12);
   const [deliverySuccessMsg, setDeliverySuccessMsg] = useState("");
 
-  // Delhivery One Integration State
-  const [delhiveryConfig, setDelhiveryConfig] = useState<{
-    configured: boolean;
-    maskedToken: string;
-    carrierName: string;
-    status: string;
-    message: string;
-  }>({
-    configured: false,
-    maskedToken: "PENDING",
-    carrierName: "Delhivery One B2C Express",
-    status: "CHECKING",
-    message: "Verifying server environment configuration...",
-  });
-  const [isBookingDelhivery, setIsBookingDelhivery] = useState(false);
-  const [trackingModalData, setTrackingModalData] = useState<any | null>(null);
-  const [isTrackingLoading, setIsTrackingLoading] = useState(false);
-  const [pincodeCheckInput, setPincodeCheckInput] = useState("");
-  const [pincodeResult, setPincodeResult] = useState<any | null>(null);
-  const [isCheckingPincode, setIsCheckingPincode] = useState(false);
-  const [isSyncingDelhivery, setIsSyncingDelhivery] = useState(false);
-  const [lastSyncTimestamp, setLastSyncTimestamp] = useState<string>("Just now");
-
   const [dismissedOrderIds, setDismissedOrderIds] = useState<string[]>([]);
   const [gpsStatus, setGpsStatus] = useState("🛰️ Live Satellite Active");
   const [userCoords, setUserCoords] = useState<{ lat: number; lng: number }>({ lat: 19.1176, lng: 72.9060 });
@@ -92,119 +69,6 @@ export default function DeliveryDashboard() {
       return { lat: 17.3551, lng: 78.5300, name: "Pixello Studio (Hastinapuram Branch)", shortName: "Studio Hastinapuram" };
     }
     return { lat: 19.1176, lng: 72.9060, name: "Studio Alpha (Powai Central Branch)", shortName: "Studio Powai" };
-  };
-
-  // Fetch Delhivery Status
-  useEffect(() => {
-    fetch("/api/delivery/delhivery/status")
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.success) {
-          setDelhiveryConfig({
-            configured: data.configured,
-            maskedToken: data.maskedToken,
-            carrierName: data.carrierName,
-            status: data.status,
-            message: data.message,
-          });
-        }
-      })
-      .catch(() => {});
-  }, []);
-
-  const handleCheckPincodeService = async (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
-    const pin = pincodeCheckInput.replace(/\D/g, "").slice(0, 6);
-    if (pin.length !== 6) return;
-
-    setIsCheckingPincode(true);
-    try {
-      const res = await fetch(`/api/delivery/delhivery/pincode?pincode=${pin}`);
-      const data = await res.json();
-      if (data.success) {
-        setPincodeResult(data.result);
-      }
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setIsCheckingPincode(false);
-    }
-  };
-
-  const handleSyncDelhivery = async () => {
-    setIsSyncingDelhivery(true);
-    try {
-      const res = await fetch("/api/delivery/delhivery/sync", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({}),
-      });
-      const data = await res.json();
-      if (data.success) {
-        setLastSyncTimestamp(data.timestamp || new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }));
-        setDeliverySuccessMsg(`✓ Synced successfully with Delhivery One (${data.syncedCount || 0} shipments updated)`);
-        window.dispatchEvent(new CustomEvent("pixello_orders_updated"));
-        setTimeout(() => setDeliverySuccessMsg(""), 4000);
-      } else {
-        alert("✕ Synchronization failed: " + (data.error || "Please try again"));
-      }
-    } catch (err: any) {
-      alert("✕ Unable to synchronize with Delhivery. " + err.message);
-    } finally {
-      setIsSyncingDelhivery(false);
-    }
-  };
-
-  const handleBookDelhiveryShipment = async (orderId: string) => {
-    setIsBookingDelhivery(true);
-    try {
-      const res = await fetch("/api/delivery/delhivery/shipment", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ orderId }),
-      });
-      const data = await res.json();
-      if (data.success && data.shipment) {
-        setDeliverySuccessMsg(`✓ Delhivery AWB Created: ${data.shipment.waybill} • Shipped with Express`);
-        if (activeOrder && activeOrder.id === orderId) {
-          setActiveOrder({
-            ...activeOrder,
-            status: "OUT_FOR_DELIVERY",
-            waybill: data.shipment.waybill,
-            trackingUrl: data.shipment.trackingUrl,
-          });
-        }
-        setTimeout(() => setDeliverySuccessMsg(""), 5000);
-      } else {
-        alert(data.error || "Failed to create Delhivery shipment");
-      }
-    } catch (err: any) {
-      alert("Delhivery booking error: " + err.message);
-    } finally {
-      setIsBookingDelhivery(false);
-    }
-  };
-
-  const handleOpenTrackingModal = async (waybillOrOrderId: string) => {
-    setIsTrackingLoading(true);
-    setTrackingModalData({
-      waybill: waybillOrOrderId,
-      orderId: waybillOrOrderId,
-      currentStatus: "Querying Delhivery Network...",
-      scans: [],
-    });
-
-    try {
-      const res = await fetch(`/api/delivery/delhivery/track?waybill=${encodeURIComponent(waybillOrOrderId)}`);
-      const data = await res.json();
-      if (data.success && data.tracking) {
-        setTrackingModalData(data.tracking);
-      }
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setIsTrackingLoading(false);
-    }
   };
 
   // Sync GPS Map Location whenever activeOrder changes
@@ -388,35 +252,6 @@ export default function DeliveryDashboard() {
 
   return (
     <div className="space-y-6">
-      {/* Delhivery Live Sync Action Bar */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-white p-4 px-6 rounded-3xl border border-[#EFE6DD] shadow-xs">
-        <div className="flex items-center gap-3">
-          <div className="h-10 w-10 rounded-2xl bg-blue-50 border border-blue-200 flex items-center justify-center text-blue-700">
-            <Truck className="h-5 w-5" />
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h3 className="font-serif-brand font-bold text-sm text-[#3A2B24]">Delhivery One Carrier Network</h3>
-              <Badge className="bg-emerald-100 text-emerald-800 border-none font-bold text-[10px] px-2.5 py-0.5 rounded-full">
-                ● LIVE SYNCED
-              </Badge>
-            </div>
-            <p className="text-xs text-[#6C5C54]">
-              Last synchronized: <strong className="text-[#3A2B24]">{lastSyncTimestamp}</strong> • Token: <code className="font-mono text-blue-900">{delhiveryConfig.maskedToken}</code>
-            </p>
-          </div>
-        </div>
-
-        <Button
-          onClick={handleSyncDelhivery}
-          disabled={isSyncingDelhivery}
-          className="rounded-2xl text-xs font-bold bg-[#3A2B24] hover:bg-[#4A3B34] text-white h-10 px-5 shadow-xs cursor-pointer flex items-center gap-2"
-        >
-          <RefreshCw className={`h-4 w-4 text-[#D89A86] ${isSyncingDelhivery ? "animate-spin" : ""}`} />
-          <span>{isSyncingDelhivery ? "Synchronizing with Delhivery..." : "Sync Delhivery"}</span>
-        </Button>
-      </div>
-
       {/* Top Banner Stats Grid for PC */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <Card className="border border-[#EFE6DD] bg-white rounded-3xl p-5 shadow-xs flex items-center justify-between">
@@ -563,31 +398,16 @@ export default function DeliveryDashboard() {
                     </a>
                   </div>
 
-                  {/* Delhivery One Waybill Badge if dispatched */}
+                  {/* Internal Delivery Tracking Code if available */}
                   {activeOrder.waybill && (
-                    <div className="p-3 bg-blue-50 border border-blue-200 rounded-2xl flex items-center justify-between text-xs">
+                    <div className="p-3 bg-[#FFF8F2] border border-[#EFE6DD] rounded-2xl flex items-center justify-between text-xs">
                       <div>
-                        <span className="text-[10px] font-extrabold uppercase text-blue-900 block">Delhivery Waybill (AWB)</span>
-                        <span className="font-mono font-bold text-blue-700 text-sm">{activeOrder.waybill}</span>
+                        <span className="text-[10px] font-extrabold uppercase text-[#6C5C54] block">Internal Dispatch Ref</span>
+                        <span className="font-mono font-bold text-[#3A2B24] text-sm">{activeOrder.waybill}</span>
                       </div>
-                      <div className="flex items-center gap-1.5">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleOpenTrackingModal(activeOrder.waybill)}
-                          className="h-8 rounded-full text-xs font-bold border-blue-300 text-blue-800 bg-white hover:bg-blue-100/80 cursor-pointer"
-                        >
-                          Live Scans
-                        </Button>
-                        <a
-                          href={`https://www.delhivery.com/track/package/${activeOrder.waybill}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="h-8 px-3 rounded-full text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white flex items-center gap-1 shadow-2xs"
-                        >
-                          Track <ExternalLink className="h-3 w-3" />
-                        </a>
-                      </div>
+                      <Badge className="bg-[#3A2B24] text-white border-none font-bold text-[10px] px-2.5 py-0.5 rounded-full">
+                        PIXELLO EXPRESS
+                      </Badge>
                     </div>
                   )}
 
@@ -609,16 +429,6 @@ export default function DeliveryDashboard() {
                           Accept Task <ArrowRight className="h-4 w-4" />
                         </Button>
                       </div>
-
-                      {/* Delhivery One Express Dispatch Button */}
-                      <Button
-                        onClick={() => handleBookDelhiveryShipment(activeOrder.id)}
-                        disabled={isBookingDelhivery}
-                        className="w-full h-11 rounded-2xl bg-blue-700 hover:bg-blue-800 text-white font-bold text-xs shadow-md cursor-pointer flex items-center justify-center gap-2 transition-all"
-                      >
-                        <Truck className="h-4 w-4 text-blue-200" />
-                        {isBookingDelhivery ? "Booking with Delhivery..." : "⚡ Book with Delhivery One (Generate AWB)"}
-                      </Button>
                     </div>
                   )}
 
@@ -637,7 +447,7 @@ export default function DeliveryDashboard() {
             </CardContent>
           </Card>
 
-          {/* Delhivery One Carrier & Pincode Serviceability Card */}
+          {/* Pixello Express Fleet & Studio Logistics Overview Card */}
           <Card className="border border-[#EFE6DD] bg-white rounded-3xl shadow-xs overflow-hidden">
             <CardHeader className="bg-[#FFF8F2] border-b border-[#EFE6DD] p-4 flex flex-row items-center justify-between">
               <div className="flex items-center gap-2">
@@ -645,68 +455,36 @@ export default function DeliveryDashboard() {
                   <Truck className="h-4 w-4 text-[#D89A86]" />
                 </div>
                 <div>
-                  <CardTitle className="font-serif-brand text-base font-bold text-[#3A2B24]">Delhivery One Integration</CardTitle>
-                  <p className="text-[11px] text-[#6C5C54]">B2C Express & Surface Shipping Engine</p>
+                  <CardTitle className="font-serif-brand text-base font-bold text-[#3A2B24]">Pixello Fleet & Dispatch</CardTitle>
+                  <p className="text-[11px] text-[#6C5C54]">Studio Direct & Doorstep Logistics</p>
                 </div>
               </div>
-              <Badge className={`text-[10px] font-extrabold px-2.5 py-0.5 rounded-full border ${
-                delhiveryConfig.configured
-                  ? "bg-emerald-100 text-emerald-800 border-emerald-300"
-                  : "bg-amber-100 text-amber-900 border-amber-300"
-              }`}>
-                {delhiveryConfig.configured ? "● CONNECTED" : "● READY FOR TOKEN"}
+              <Badge className="bg-emerald-100 text-emerald-800 border border-emerald-300 text-[10px] font-extrabold px-2.5 py-0.5 rounded-full">
+                ● FLEET ONLINE
               </Badge>
             </CardHeader>
 
-            <CardContent className="p-4 space-y-4 text-xs">
-              <div className="p-3 bg-[#FFF8F2]/70 border border-[#EFE6DD] rounded-2xl space-y-1.5">
-                <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-bold text-[#6C5C54] uppercase">API Auth Token Status</span>
-                  <span className="font-mono text-xs font-bold text-[#3A2B24]">{delhiveryConfig.maskedToken}</span>
+            <CardContent className="p-4 space-y-3 text-xs">
+              <div className="grid grid-cols-2 gap-2.5">
+                <div className="p-3 bg-[#FFF8F2]/70 border border-[#EFE6DD] rounded-2xl">
+                  <span className="text-[10px] font-bold text-[#6C5C54] uppercase block">Assigned Hub</span>
+                  <span className="font-bold text-[#3A2B24] text-xs">Powai Central Hub</span>
                 </div>
-                <p className="text-[11px] text-[#6C5C54]">
-                  {delhiveryConfig.configured
-                    ? "Token is active on server (process.env.DELHIVERY_API_TOKEN). Live shipments & tracking active."
-                    : "Add your real token to .env.local as DELHIVERY_API_TOKEN. Preview generator active."}
-                </p>
+                <div className="p-3 bg-[#FFF8F2]/70 border border-[#EFE6DD] rounded-2xl">
+                  <span className="text-[10px] font-bold text-[#6C5C54] uppercase block">Delivery SLA</span>
+                  <span className="font-bold text-emerald-700 text-xs">Same-Day Priority</span>
+                </div>
               </div>
 
-              {/* Pincode Serviceability Lookup */}
-              <div className="space-y-2">
-                <label className="text-[11px] font-bold text-[#3A2B24] uppercase tracking-wider block">
-                  Check Pincode Serviceability
-                </label>
-                <form onSubmit={handleCheckPincodeService} className="flex gap-2">
-                  <Input
-                    type="text"
-                    placeholder="Enter 6-digit Pincode (e.g. 500070)"
-                    value={pincodeCheckInput}
-                    onChange={(e) => setPincodeCheckInput(e.target.value)}
-                    maxLength={6}
-                    className="rounded-full text-xs font-semibold border-[#EFE6DD] bg-[#FFF8F2] h-9"
-                  />
-                  <Button
-                    type="submit"
-                    disabled={isCheckingPincode || pincodeCheckInput.length !== 6}
-                    className="btn-pixello-primary text-xs font-bold rounded-full h-9 px-4 cursor-pointer"
-                  >
-                    {isCheckingPincode ? "Checking..." : "Verify"}
-                  </Button>
-                </form>
-
-                {pincodeResult && (
-                  <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-2xl animate-in fade-in duration-200">
-                    <div className="flex items-center gap-1.5 text-emerald-800 font-bold text-xs">
-                      <Check className="h-3.5 w-3.5 text-emerald-600" />
-                      <span>{pincodeResult.pincode} — {pincodeResult.city}, {pincodeResult.state}</span>
-                    </div>
-                    <div className="flex gap-3 text-[11px] text-emerald-700 mt-1 font-medium">
-                      <span>• Express Delivery: <strong>2 Days</strong></span>
-                      <span>• COD: <strong>{pincodeResult.codAvailable ? "Available" : "No"}</strong></span>
-                      <span>• Prepaid: <strong>Available</strong></span>
-                    </div>
-                  </div>
-                )}
+              <div className="p-3 bg-[#FFF8F2]/50 border border-[#EFE6DD] rounded-2xl space-y-1">
+                <div className="flex items-center justify-between text-[11px]">
+                  <span className="text-[#6C5C54]">Fulfillment Mode</span>
+                  <span className="font-bold text-[#3A2B24]">Studio Pickup ➔ Customer</span>
+                </div>
+                <div className="flex items-center justify-between text-[11px]">
+                  <span className="text-[#6C5C54]">Doorstep Verification</span>
+                  <span className="font-bold text-emerald-600">OTP / Customer Sign</span>
+                </div>
               </div>
             </CardContent>
           </Card>
@@ -899,7 +677,7 @@ export default function DeliveryDashboard() {
         </div>
       </div>
 
-      {/* Live Delhivery & Studio Dispatch Queue Section */}
+      {/* Live Studio Dispatch Queue Section */}
       <Card className="border border-[#EFE6DD] bg-white rounded-3xl shadow-xs overflow-hidden">
         <CardHeader className="bg-[#FFF8F2] border-b border-[#EFE6DD] p-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
@@ -909,9 +687,9 @@ export default function DeliveryDashboard() {
               </div>
               <div>
                 <CardTitle className="font-serif-brand text-xl font-bold text-[#3A2B24]">
-                  Live Delhivery & Studio Dispatch Queue ({orders.length})
+                  Live Studio Dispatch Queue ({orders.length})
                 </CardTitle>
-                <p className="text-xs text-[#6C5C54]">All customer orders synchronized live with central database & Delhivery carrier network</p>
+                <p className="text-xs text-[#6C5C54]">All customer orders synchronized live with central database & studio fulfillment network</p>
               </div>
             </div>
           </div>
@@ -960,7 +738,7 @@ export default function DeliveryDashboard() {
           <div className="relative">
             <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-[#6C5C54]" />
             <Input
-              placeholder="Search by Order ID, Customer Name, Phone, Address, or Delhivery AWB..."
+              placeholder="Search by Order ID, Customer Name, Phone, Address, or Studio..."
               value={queueSearch}
               onChange={(e) => setQueueSearch(e.target.value)}
               className="pl-10 rounded-2xl bg-[#FFF8F2] border-[#EFE6DD] text-xs h-11"
@@ -986,7 +764,6 @@ export default function DeliveryDashboard() {
                   (o.customerName || "").toLowerCase().includes(q) ||
                   (o.customerPhone || "").toLowerCase().includes(q) ||
                   (o.deliveryAddress || "").toLowerCase().includes(q) ||
-                  (o.waybill || "").toLowerCase().includes(q) ||
                   (o.assignedStudio || "").toLowerCase().includes(q)
               );
             }
@@ -1005,7 +782,6 @@ export default function DeliveryDashboard() {
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
                 {filtered.map((order) => {
                   const isCurrentActive = activeOrder?.id === order.id;
-                  const hasWaybill = !!order.waybill;
 
                   return (
                     <div
@@ -1061,44 +837,6 @@ export default function DeliveryDashboard() {
                             <p className="text-[11px] text-[#6C5C54] line-clamp-2 mt-0.5">{order.deliveryAddress || "Powai, Mumbai"}</p>
                           </div>
                         </div>
-
-                        {/* Delhivery AWB Section */}
-                        {hasWaybill ? (
-                          <div className="p-3 bg-blue-50 border border-blue-200 rounded-2xl flex items-center justify-between text-xs">
-                            <div>
-                              <span className="text-[10px] font-extrabold uppercase text-blue-900 block">Delhivery Waybill</span>
-                              <span className="font-mono font-bold text-blue-800 text-xs">{order.waybill}</span>
-                            </div>
-                            <div className="flex gap-1.5">
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => handleOpenTrackingModal(order.waybill!)}
-                                className="h-7 text-[11px] font-bold rounded-full border-blue-300 text-blue-800 bg-white hover:bg-blue-100 cursor-pointer"
-                              >
-                                Live Scans
-                              </Button>
-                              <a
-                                href={`https://www.delhivery.com/track/package/${order.waybill}`}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="h-7 px-2.5 rounded-full text-[11px] font-bold bg-blue-600 text-white flex items-center gap-1 hover:bg-blue-700 shadow-2xs"
-                              >
-                                Track <ExternalLink className="h-3 w-3" />
-                              </a>
-                            </div>
-                          </div>
-                        ) : (
-                          <Button
-                            size="sm"
-                            disabled={isBookingDelhivery}
-                            onClick={() => handleBookDelhiveryShipment(order.id)}
-                            className="w-full h-9 rounded-2xl bg-blue-700 hover:bg-blue-800 text-white font-bold text-xs shadow-xs cursor-pointer flex items-center justify-center gap-1.5"
-                          >
-                            <Truck className="h-3.5 w-3.5 text-blue-200" />
-                            <span>⚡ Book with Delhivery One</span>
-                          </Button>
-                        )}
                       </div>
 
                       {/* Action Bar */}
@@ -1135,99 +873,6 @@ export default function DeliveryDashboard() {
           })()}
         </CardContent>
       </Card>
-      {trackingModalData && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in">
-          <div className="bg-white rounded-3xl border border-[#EFE6DD] shadow-2xl max-w-lg w-full overflow-hidden flex flex-col max-h-[85vh]">
-            <div className="p-5 bg-[#3A2B24] text-white flex items-center justify-between">
-              <div className="flex items-center gap-2.5">
-                <Truck className="h-5 w-5 text-[#D89A86]" />
-                <div>
-                  <h3 className="font-serif-brand font-bold text-base">Delhivery One Live Carrier Tracking</h3>
-                  <p className="text-[11px] text-stone-300 font-mono">AWB / Waybill: {trackingModalData.waybill}</p>
-                </div>
-              </div>
-              <button
-                onClick={() => setTrackingModalData(null)}
-                className="h-8 w-8 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center cursor-pointer transition-colors"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-
-            <div className="p-5 space-y-4 overflow-y-auto flex-1 text-xs">
-              <div className="p-3.5 bg-blue-50 border border-blue-200 rounded-2xl flex items-center justify-between">
-                <div>
-                  <span className="text-[10px] font-extrabold uppercase text-blue-900 block">Current Express Status</span>
-                  <span className="font-bold text-sm text-blue-900">{trackingModalData.currentStatus || "In Transit"}</span>
-                </div>
-                <Badge className="bg-blue-600 text-white border-none font-bold text-[10px] px-2.5 py-0.5 rounded-full">
-                  DELHIVERY B2C
-                </Badge>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3 text-[11px]">
-                <div className="p-3 bg-[#FFF8F2] border border-[#EFE6DD] rounded-xl">
-                  <span className="text-[10px] font-bold text-[#6C5C54] uppercase block">Origin Studio Hub</span>
-                  <p className="font-semibold text-[#3A2B24] mt-0.5">{trackingModalData.origin || "Powai Central Studio"}</p>
-                </div>
-                <div className="p-3 bg-[#FFF8F2] border border-[#EFE6DD] rounded-xl">
-                  <span className="text-[10px] font-bold text-[#6C5C54] uppercase block">Est. Delivery Date</span>
-                  <p className="font-semibold text-[#3A2B24] mt-0.5">{trackingModalData.estimatedDelivery || "Within 48 Hours"}</p>
-                </div>
-              </div>
-
-              {/* Scans Timeline */}
-              <div className="space-y-3 pt-2">
-                <h4 className="font-bold text-xs uppercase tracking-wider text-[#3A2B24]">Real-Time Transit Scans</h4>
-                {isTrackingLoading ? (
-                  <div className="p-6 text-center text-[#6C5C54]">
-                    <RefreshCw className="h-5 w-5 animate-spin mx-auto text-[#D89A86] mb-2" />
-                    <span>Connecting to Delhivery API...</span>
-                  </div>
-                ) : trackingModalData.scans && trackingModalData.scans.length > 0 ? (
-                  <div className="space-y-3 relative pl-4 before:absolute before:left-1.5 before:top-2 before:bottom-2 before:w-0.5 before:bg-blue-200">
-                    {trackingModalData.scans.map((scan: any, idx: number) => (
-                      <div key={idx} className="relative pl-3 space-y-0.5">
-                        <div className={`absolute -left-[19px] top-1 h-3 w-3 rounded-full border-2 border-white ${idx === 0 ? "bg-blue-600 ring-2 ring-blue-200" : "bg-slate-300"}`} />
-                        <div className="flex items-center justify-between">
-                          <span className="font-bold text-[#3A2B24] text-xs">{scan.status}</span>
-                          <span className="text-[10px] text-[#6C5C54] font-medium">{scan.time}</span>
-                        </div>
-                        <p className="text-[11px] text-[#6C5C54]">{scan.location}</p>
-                        {scan.instructions && (
-                          <p className="text-[10px] text-blue-700 italic">{scan.instructions}</p>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="p-4 bg-stone-50 rounded-xl text-center text-xs text-[#6C5C54]">
-                    Shipment manifested. Waiting for initial carrier pickup scan at partner studio.
-                  </div>
-                )}
-              </div>
-            </div>
-
-            <div className="p-4 bg-[#FFF8F2] border-t border-[#EFE6DD] flex gap-2">
-              <a
-                href={trackingModalData.trackingUrl || `https://www.delhivery.com/track/package/${trackingModalData.waybill}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex-1 btn-pixello-primary text-xs font-bold rounded-2xl h-10 flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
-              >
-                Track on Delhivery.com <ExternalLink className="h-3.5 w-3.5" />
-              </a>
-              <Button
-                variant="outline"
-                onClick={() => setTrackingModalData(null)}
-                className="rounded-2xl text-xs font-bold border-[#EFE6DD] h-10 px-5"
-              >
-                Close
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

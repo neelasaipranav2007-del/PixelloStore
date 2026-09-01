@@ -672,7 +672,7 @@ export default function AdminSettingsPage() {
                 </div>
                 <div>
                   <h3 className="font-serif-brand text-xl font-bold text-[#3A2B24]">Platform &amp; Commission Settings</h3>
-                  <p className="text-xs text-[#6C5C54] mt-0.5 font-medium">Default studio revenue share &amp; ambassador commission rates.</p>
+                  <p className="text-xs text-[#6C5C54] mt-0.5 font-medium">Default production allocation &amp; ambassador commission rates.</p>
                 </div>
               </div>
               <Badge className="bg-[#FFF8F2] text-[#3A2B24] border-[#EFE6DD] text-xs font-bold px-3 py-1 rounded-full">
@@ -691,7 +691,7 @@ export default function AdminSettingsPage() {
               </div>
 
               <div>
-                <label className="text-xs font-bold text-[#3A2B24] mb-1.5 block">Studio Payout Pct (%)</label>
+                <label className="text-xs font-bold text-[#3A2B24] mb-1.5 block">Production Payout Pct (%)</label>
                 <Input 
                   value={adminProfile.studioCommission} 
                   onChange={(e) => setAdminProfile({ ...adminProfile, studioCommission: e.target.value })}

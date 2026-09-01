@@ -210,7 +210,7 @@ export default function AdminOrdersPage() {
     
     let note = `Status updated to ${newStatus}`;
     if (isRep) {
-      if (newStatus === "Processing") note = "Replacement in Production / Re-Printing in Studio";
+      if (newStatus === "Processing") note = "Replacement in Production & Precision Crafting";
       else if (newStatus === "Packed") note = "Replacement Quality Check Passed & Protective Packed";
       else if (newStatus === "Out for Delivery") note = "Replacement Out for Doorstep Handover";
       else if (newStatus === "Delivered") note = "Replacement Delivered Successfully to Customer";
@@ -288,7 +288,7 @@ export default function AdminOrdersPage() {
       "Payment Status",
       "Delivery Mode",
       "Order Status",
-      "Assigned Studio / Dispatch",
+      "Fulfillment Hub / Dispatch",
       "Shipping Address",
       "Ambassador Code",
       "Ambassador Partner",
@@ -322,7 +322,7 @@ export default function AdminOrdersPage() {
         o.paymentStatus || "SUCCESS",
         getDeliveryType(o),
         statusLabel,
-        o.assignedStudio || "Studio Alpha (Central Powai Branch)",
+        o.assignedStudio || "Pixello Central Fulfillment Hub",
         (o.deliveryAddress || "").replace(/(\r\n|\n|\r)/gm, " "),
         o.referralCode || "None",
         o.ambassadorName || "None",
@@ -951,7 +951,7 @@ export default function AdminOrdersPage() {
                   <div className="flex flex-col gap-1">
                     <label className="text-[11px] font-bold text-[#6C5C54]">Courier Partner &amp; Tracking AWB #</label>
                     <Input
-                      placeholder="e.g. Delhivery Express - AWB 123456789"
+                      placeholder="e.g. Express Delivery - Tracking #123456789"
                       value={order.trackingAwb || ""}
                       onChange={(e) => updateOrderDetails(order.id, { trackingAwb: e.target.value })}
                       className="rounded-xl border-[#EFE6DD] bg-white text-xs font-medium text-[#3A2B24] focus-visible:ring-[#D89A86] h-9"
@@ -994,7 +994,7 @@ export default function AdminOrdersPage() {
                   <div className="p-3 bg-[#FAF7F4] border border-[#EFE6DD] rounded-2xl flex flex-col justify-between gap-1 shadow-2xs">
                     <div>
                       <div className="flex items-center gap-1.5 text-[10px] font-extrabold text-[#6C5C54] uppercase tracking-wider mb-0.5">
-                        <Store className="h-3.5 w-3.5 text-[#D89A86]" /> Studio &amp; Date
+                        <Store className="h-3.5 w-3.5 text-[#D89A86]" /> Fulfillment Hub &amp; Date
                       </div>
                       <div className="text-xs text-[#3A2B24] font-bold truncate">
                         {order.assignedStudio}
@@ -1099,7 +1099,7 @@ export default function AdminOrdersPage() {
               )}
 
               <p className="text-xs font-semibold text-[#6C5C54] mt-3">
-                Assigned Dispatch Studio: <span className="font-bold text-[#D89A86]">{previewModal.assignedStudio}</span>
+                Fulfillment Hub: <span className="font-bold text-[#D89A86]">{previewModal.assignedStudio}</span>
               </p>
             </div>
 

@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { IndianRupee, Users, Store, Package, ArrowUpRight, Clock, ChevronDown, Search, X, Download, CheckCircle, XCircle, Eye, ShieldCheck, Mail, Phone, GraduationCap, MapPin, ExternalLink, CheckCircle2, RefreshCw, Truck } from "lucide-react";
+import { IndianRupee, Users, Store, Package, ArrowUpRight, Clock, ChevronDown, Search, X, Download, CheckCircle, XCircle, Eye, ShieldCheck, Mail, Phone, GraduationCap, MapPin, ExternalLink, CheckCircle2 } from "lucide-react";
 import { useOrders, OrderStatus } from "@/context/OrderContext";
 import { OrderStatusBadge } from "@/components/ui/status-badge";
 
@@ -245,30 +245,6 @@ export default function AdminDashboardPage() {
     document.body.removeChild(link);
   };
 
-  const [isSyncingDelhivery, setIsSyncingDelhivery] = useState(false);
-
-  const handleSyncDelhivery = async () => {
-    setIsSyncingDelhivery(true);
-    try {
-      const res = await fetch("/api/delivery/delhivery/sync", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({}),
-      });
-      const data = await res.json();
-      if (data.success) {
-        showToast(`✓ Delhivery synced successfully (${data.syncedCount || 0} active shipments updated)`);
-        window.dispatchEvent(new CustomEvent("pixello_orders_updated"));
-      } else {
-        showToast(`✕ Delhivery sync failed: ${data.error || "Please try again"}`);
-      }
-    } catch (e: any) {
-      showToast(`✕ Unable to sync with Delhivery: ${e.message}`);
-    } finally {
-      setIsSyncingDelhivery(false);
-    }
-  };
-
   return (
     <div className="flex flex-col gap-8 p-6 bg-[#F8F3EE] min-h-full w-full max-w-full overflow-x-hidden box-border relative">
       {/* Toast Banner */}
@@ -290,17 +266,7 @@ export default function AdminDashboardPage() {
           </div>
           <p className="text-xs text-[#6C5C54] mt-1">Pixello Ecosystem • Live Order Engine & Studio Network Overview</p>
         </div>
-        <div className="flex items-center gap-2.5 flex-wrap">
-          <Button
-            onClick={handleSyncDelhivery}
-            disabled={isSyncingDelhivery}
-            variant="outline"
-            className="rounded-full text-xs font-bold border-[#EFE6DD] bg-white hover:bg-[#FFF8F2] text-[#3A2B24] h-11 px-5 shadow-xs cursor-pointer flex items-center gap-2"
-          >
-            <RefreshCw className={`h-4 w-4 text-[#D89A86] ${isSyncingDelhivery ? "animate-spin" : ""}`} />
-            <span>{isSyncingDelhivery ? "Syncing..." : "Sync Delhivery"}</span>
-          </Button>
-
+        <div className="flex gap-2">
           <Button 
             onClick={handleDownloadAnalyticsReport}
             className="btn-pixello-primary text-xs font-bold rounded-full px-5 h-11 shadow-md flex items-center gap-2 cursor-pointer transition-all duration-200"

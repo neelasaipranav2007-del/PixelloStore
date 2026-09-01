@@ -46,7 +46,7 @@ export default async function CategoryPage({ params }: { params: Promise<{ name:
       <div className="mb-8 flex flex-col gap-2 bg-gradient-to-r from-blue-50 to-indigo-50 p-8 rounded-2xl border border-blue-100">
         <Badge className="w-fit bg-primary text-primary-foreground">Category</Badge>
         <h1 className="text-4xl font-extrabold tracking-tight">{categoryTitle}</h1>
-        <p className="text-muted-foreground">Explore our top-rated personalized {categoryTitle.toLowerCase()} delivered from verified local photo studios.</p>
+        <p className="text-muted-foreground">Explore our top-rated personalized {categoryTitle.toLowerCase()} handcrafted and delivered with express tracking.</p>
       </div>
 
       {/* Product Grid */}

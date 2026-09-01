@@ -458,7 +458,7 @@ export default function CartPage() {
                 </Link>
 
                 <p className="text-xs text-center text-[#6C5C54] mt-4 flex items-center justify-center gap-1">
-                   <ShieldCheck className="h-3.5 w-3.5 text-[#5AAE7F]" /> Instant production at nearest photo studio
+                   <ShieldCheck className="h-3.5 w-3.5 text-[#5AAE7F]" /> Instant handcrafted production & express tracked dispatch
                 </p>
               </CardContent>
             </Card>

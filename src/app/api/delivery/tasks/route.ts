@@ -15,7 +15,7 @@ export async function GET() {
     });
 
     const tasks = orders.map((o) => {
-      const waybill = o.deliveryInfo?.waybill || o.deliveryInfo?.trackingUrl?.split("/").pop() || null;
+      const waybill = o.deliveryInfo?.trackingUrl?.match(/DLV\w+/)?.[0] || null;
       return {
         id: o.id,
         orderId: o.id,
@@ -28,14 +28,10 @@ export async function GET() {
         status: mapDbStatusToUi(o.status),
         rawDbStatus: o.status,
         assignedStudio: o.assignedStudio || "Studio Alpha (Central Powai Branch)",
-        assignedPartner: o.deliveryInfo?.deliveryPartnerName || "Delhivery One Express",
-        deliveryPartner: o.deliveryInfo?.deliveryPartnerName || "Delhivery One Express",
+        assignedPartner: o.deliveryInfo?.deliveryPartnerName || "Pixello Express",
+        deliveryPartner: o.deliveryInfo?.deliveryPartnerName || "Pixello Express",
         trackingUrl: o.deliveryInfo?.trackingUrl || null,
         waybill: waybill,
-        shipmentId: o.deliveryInfo?.shipmentId || null,
-        pickupLocation: o.deliveryInfo?.pickupLocation || o.assignedStudio || "Pixello Central Studio",
-        currentStatus: o.deliveryInfo?.currentStatus || null,
-        estimatedDelivery: o.deliveryInfo?.estimatedDelivery || null,
         pickupTime: o.deliveryInfo?.pickupTime ? o.deliveryInfo.pickupTime.toISOString() : null,
         deliveryTime: o.deliveryInfo?.deliveryTime ? o.deliveryInfo.deliveryTime.toISOString() : null,
         items: o.items.map((it) => ({

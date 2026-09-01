@@ -15,7 +15,7 @@ export default function CategoriesPage() {
     <div className="container mx-auto px-4 md:px-6 py-8">
       <div className="mb-8 flex flex-col gap-2">
         <h1 className="text-4xl font-extrabold tracking-tight">All Categories</h1>
-        <p className="text-muted-foreground">Browse all product categories available for custom local studio printing.</p>
+        <p className="text-muted-foreground">Browse all product categories available for custom handcrafted framing & polaroids.</p>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">

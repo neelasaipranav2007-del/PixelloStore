@@ -346,7 +346,7 @@ function AmbassadorLoginForm() {
 
 export default function AmbassadorLoginPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-[#3A2B24] flex items-center justify-center text-xs text-stone-300 font-bold">Loading Ambassador Portal...</div>}>
+    <Suspense fallback={<div className="min-h-screen bg-[#2E201A] flex items-center justify-center text-stone-300 text-xs">Loading Ambassador Portal...</div>}>
       <AmbassadorLoginForm />
     </Suspense>
   );

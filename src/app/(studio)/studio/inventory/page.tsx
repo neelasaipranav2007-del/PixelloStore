@@ -1,135 +1,55 @@
 "use client";
 
-import React, { useState } from "react";
-import { useProducts } from "@/context/ProductContext";
-import { Badge } from "@/components/ui/badge";
+import React, { useEffect } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { Store, ArrowRight, ShoppingBag } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Package, Search, Plus, Edit2, AlertTriangle, CheckCircle2 } from "lucide-react";
 
-export default function StudioInventoryPage() {
-  const { products, updateProduct } = useProducts();
-  const [searchQuery, setSearchQuery] = useState("");
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [newStockVal, setNewStockVal] = useState<number>(0);
+export default function StudioRetiredPage() {
+  const router = useRouter();
 
-  const filteredProducts = products.filter((p) => {
-    const q = searchQuery.toLowerCase().trim();
-    if (!q) return true;
-    return p.name.toLowerCase().includes(q) || p.category.toLowerCase().includes(q) || p.id.toLowerCase().includes(q);
-  });
-
-  const handleSaveStock = (id: string) => {
-    const autoStatus = newStockVal <= 0 ? "Out of Stock" : (newStockVal <= 5 ? "Low Stock" : "Active");
-    updateProduct(id, { stock: newStockVal, status: autoStatus as any });
-    setEditingId(null);
-  };
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      router.replace("/admin");
+    }, 4000);
+    return () => clearTimeout(timer);
+  }, [router]);
 
   return (
-    <div className="flex flex-col gap-6 p-6 bg-[#F8F3EE] min-h-screen">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="font-serif-brand text-3xl font-bold text-[#3A2B24]">Studio Local Inventory & Materials</h1>
-          <p className="text-xs text-[#6C5C54] mt-1">Track photo frame stock, acrylic sheets, mugs, and printing paper levels.</p>
-        </div>
-        <Badge className="bg-[#FFF8F2] text-[#D89A86] border border-[#D89A86]/30 px-3.5 py-1 text-xs font-bold rounded-full">
-          {products.length} Products Tracked
-        </Badge>
+    <div className="max-w-md w-full bg-white border border-[#EFE6DD] rounded-3xl p-8 shadow-xl text-center space-y-6 animate-in fade-in zoom-in-95">
+      <div className="h-16 w-16 rounded-full bg-[#FFF8F2] border border-[#EFE6DD] flex items-center justify-center mx-auto text-[#D89A86] shadow-inner">
+        <Store className="h-8 w-8 text-[#D89A86]" />
       </div>
 
-      <Card className="border border-[#EFE6DD] bg-white rounded-3xl shadow-xs overflow-hidden">
-        <CardHeader className="border-b border-[#EFE6DD] bg-[#FFF8F2] p-6">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div>
-              <CardTitle className="font-serif-brand text-xl font-bold text-[#3A2B24]">Material & Frame Stock Levels</CardTitle>
-              <CardDescription className="text-xs text-[#6C5C54]">Update stock quantities directly to reflect studio inventory.</CardDescription>
-            </div>
-            <div className="relative w-full sm:w-72">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#6C5C54]" />
-              <Input
-                type="text"
-                placeholder="Search products or frames..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9 rounded-full border-[#EFE6DD] bg-white text-xs font-medium"
-              />
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent className="p-6">
-          <div className="overflow-x-auto border border-[#EFE6DD] rounded-2xl">
-            <table className="w-full text-sm text-left">
-              <thead className="text-[11px] font-bold text-[#6C5C54] uppercase tracking-wider bg-[#FFF8F2] border-b border-[#EFE6DD]">
-                <tr>
-                  <th className="px-4 py-3.5">Product ID</th>
-                  <th className="px-4 py-3.5">Product Item</th>
-                  <th className="px-4 py-3.5">Category</th>
-                  <th className="px-4 py-3.5">Price</th>
-                  <th className="px-4 py-3.5">Studio Stock</th>
-                  <th className="px-4 py-3.5">Stock Status</th>
-                  <th className="px-4 py-3.5 text-right">Quick Edit</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[#EFE6DD]">
-                {filteredProducts.map((product) => (
-                  <tr key={product.id} className="hover:bg-[#FFF8F2]/50 transition-colors">
-                    <td className="px-4 py-4 font-bold text-[#3A2B24] whitespace-nowrap">{product.id}</td>
-                    <td className="px-4 py-4">
-                      <div className="flex items-center gap-3">
-                        <img src={product.image} alt={product.name} className="h-10 w-10 rounded-lg object-cover border border-[#EFE6DD]" />
-                        <span className="font-bold text-[#3A2B24]">{product.name}</span>
-                      </div>
-                    </td>
-                    <td className="px-4 py-4 text-xs font-medium text-[#6C5C54]">{product.category}</td>
-                    <td className="px-4 py-4 font-extrabold text-[#D89A86]">₹{product.price}</td>
-                    <td className="px-4 py-4 font-bold text-[#3A2B24]">
-                      {editingId === product.id ? (
-                        <Input
-                          type="number"
-                          value={newStockVal}
-                          onChange={(e) => setNewStockVal(parseInt(e.target.value) || 0)}
-                          className="w-20 h-8 text-xs rounded-lg border-[#D89A86]"
-                        />
-                      ) : (
-                        <span>{product.stock ?? 0} units</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-4">
-                      <Badge className={
-                        product.status === "Out of Stock" ? "bg-red-100 text-red-800 border-none text-xs" :
-                        product.status === "Low Stock" ? "bg-amber-100 text-amber-800 border-none text-xs" :
-                        "bg-emerald-100 text-emerald-800 border-none text-xs"
-                      }>
-                        {product.status}
-                      </Badge>
-                    </td>
-                    <td className="px-4 py-4 text-right">
-                      {editingId === product.id ? (
-                        <Button size="sm" onClick={() => handleSaveStock(product.id)} className="btn-pixello-primary text-xs h-8 rounded-full font-bold px-3">
-                          Save
-                        </Button>
-                      ) : (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => {
-                            setEditingId(product.id);
-                            setNewStockVal(product.stock ?? 0);
-                          }}
-                          className="text-xs h-8 rounded-full border-[#EFE6DD] hover:bg-[#FFF8F2]"
-                        >
-                          Update
-                        </Button>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </CardContent>
-      </Card>
+      <div className="space-y-2">
+        <span className="text-[11px] font-extrabold uppercase tracking-widest text-[#D89A86] bg-[#FFF8F2] px-3 py-1 rounded-full border border-[#D89A86]/20">
+          Portal Retired
+        </span>
+        <h2 className="font-serif-brand text-2xl font-bold text-[#3A2B24]">
+          Photo Studio Portal Has Been Retired
+        </h2>
+        <p className="text-xs text-[#6C5C54] leading-relaxed">
+          All custom print production, order management, and carrier dispatches are now managed centrally through the Pixello Admin Portal.
+        </p>
+      </div>
+
+      <div className="p-3 bg-[#FFF8F2]/80 border border-[#EFE6DD] rounded-2xl text-[11px] text-[#6C5C54] font-medium">
+        Redirecting you to Admin Portal in <strong className="text-[#3A2B24]">4 seconds...</strong>
+      </div>
+
+      <div className="flex flex-col gap-2.5 pt-2">
+        <Link href="/admin">
+          <Button className="w-full btn-pixello-primary rounded-full text-xs font-bold h-11 flex items-center justify-center gap-2 shadow-xs cursor-pointer">
+            Go to Admin Central <ArrowRight className="h-4 w-4" />
+          </Button>
+        </Link>
+        <Link href="/">
+          <Button variant="outline" className="w-full rounded-full border-[#EFE6DD] text-xs font-bold h-10 text-[#3A2B24] hover:bg-[#FFF8F2] cursor-pointer">
+            <ShoppingBag className="h-4 w-4 mr-1.5 text-[#D89A86]" /> Go to Storefront
+          </Button>
+        </Link>
+      </div>
     </div>
   );
 }

@@ -203,14 +203,14 @@ function getProductTypeMeta(product: {
 
   return {
     typeCategory: product.category || "Custom Gift",
-    typeLabel: "Personalized Studio Gift",
+    typeLabel: "Personalized Handcrafted Gift",
     accentBorder: "hover:border-[#D89A86]/50 hover:shadow-stone-900/10",
     accentBg: "bg-white",
     badgeBg: "bg-[#3A2B24] text-white",
-    specs: ["Premium Craftsmanship", "Studio Quality", "Custom Photo Print"],
+    specs: ["Premium Craftsmanship", "Premium Quality", "Custom Photo Print"],
     buttonText: "Customize",
     unit: "",
-    highlightPill: "✨ Studio Crafted",
+    highlightPill: "✨ Master Crafted",
     priceLabel: "Price"
   };
 }
