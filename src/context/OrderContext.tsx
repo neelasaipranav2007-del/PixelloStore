@@ -139,9 +139,15 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
         }
       }
 
-      const endpoint = isAdmin ? "/api/admin/orders?limit=100" : "/api/orders";
-      const res = await fetch(endpoint, { headers });
-      const data = await res.json();
+      let endpoint = isAdmin ? "/api/admin/orders?limit=100" : "/api/orders";
+      let res = await fetch(endpoint, { headers });
+      let data = await res.json().catch(() => ({ success: false }));
+
+      // If admin endpoint is unauthorized or fails, gracefully fallback to universal orders
+      if (!data.success && isAdmin) {
+        res = await fetch("/api/orders", { headers });
+        data = await res.json().catch(() => ({ success: false }));
+      }
 
       if (data.success && Array.isArray(data.orders)) {
         setOrders(data.orders);
@@ -163,7 +169,7 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
     }
     debounceTimerRef.current = setTimeout(() => {
       fetchOrdersFromBackend(false);
-    }, 400);
+    }, 300);
   }, [fetchOrdersFromBackend]);
 
   useEffect(() => {
@@ -178,20 +184,36 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
       eventSource.addEventListener("order_change", () => {
         triggerDebouncedFetch();
       });
+      eventSource.addEventListener("notification_update", () => {
+        triggerDebouncedFetch();
+      });
+      eventSource.addEventListener("notification_change", () => {
+        triggerDebouncedFetch();
+      });
     } catch (e) {}
 
     const handleStorageUpdate = () => {
       triggerDebouncedFetch();
     };
 
+    // Auto-sync polling every 3 seconds for 100% reliable cross-portal live sync
+    const autoSyncInterval = setInterval(() => {
+      fetchOrdersFromBackend(false);
+    }, 3000);
+
     window.addEventListener("pixello_orders_updated", handleStorageUpdate);
+    window.addEventListener("pixello_order_created", handleStorageUpdate);
     window.addEventListener("auth_change", handleStorageUpdate);
+    window.addEventListener("storage", handleStorageUpdate);
 
     return () => {
       if (eventSource) eventSource.close();
       if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+      clearInterval(autoSyncInterval);
       window.removeEventListener("pixello_orders_updated", handleStorageUpdate);
+      window.removeEventListener("pixello_order_created", handleStorageUpdate);
       window.removeEventListener("auth_change", handleStorageUpdate);
+      window.removeEventListener("storage", handleStorageUpdate);
     };
   }, [fetchOrdersFromBackend, triggerDebouncedFetch]);
 

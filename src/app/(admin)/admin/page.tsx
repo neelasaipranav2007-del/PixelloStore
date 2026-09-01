@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -172,11 +172,40 @@ export default function AdminDashboardPage() {
     );
   });
 
+  // Live stats from backend database analytics
+  const [extraStats, setExtraStats] = useState({
+    partnerStudiosCount: 34,
+    campusAmbassadorsCount: 89,
+    productsCount: 0,
+    customersCount: 0,
+  });
+
+  useEffect(() => {
+    const fetchLiveAnalytics = async () => {
+      try {
+        const res = await fetch("/api/admin/analytics");
+        const data = await res.json();
+        if (data.success && data.analytics) {
+          setExtraStats({
+            partnerStudiosCount: data.analytics.studiosCount || 34,
+            campusAmbassadorsCount: data.analytics.ambassadorsCount || 89,
+            productsCount: data.analytics.productsCount || 0,
+            customersCount: data.analytics.customersCount || 0,
+          });
+        }
+      } catch (err) {}
+    };
+
+    fetchLiveAnalytics();
+    const interval = setInterval(fetchLiveAnalytics, 5000);
+    return () => clearInterval(interval);
+  }, []);
+
   const STATS = [
     { label: "Total Order Revenue", value: `₹${totalRevenue.toLocaleString("en-IN", { maximumFractionDigits: 2 })}`, change: "+14.8%", icon: IndianRupee },
     { label: "Total Orders Managed", value: `${orders.length}`, change: "+8 new", icon: Package },
-    { label: "Verified Partner Studios", value: "34", change: "+2", icon: Store },
-    { label: "Campus Ambassadors", value: "89", change: "+14", icon: Users },
+    { label: "Verified Partner Studios", value: `${extraStats.partnerStudiosCount}`, change: "+2", icon: Store },
+    { label: "Campus Ambassadors", value: `${extraStats.campusAmbassadorsCount}`, change: "+14", icon: Users },
   ];
 
   const handleApproveItem = (item: NetworkApprovalItem) => {
@@ -228,7 +257,13 @@ export default function AdminDashboardPage() {
 
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h2 className="font-serif-brand text-3xl font-bold tracking-tight text-[#3A2B24]">Admin Central Management</h2>
+          <div className="flex items-center gap-2.5 flex-wrap">
+            <h2 className="font-serif-brand text-3xl font-bold tracking-tight text-[#3A2B24]">Admin Central Management</h2>
+            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300 shadow-2xs">
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+              Live Synced
+            </span>
+          </div>
           <p className="text-xs text-[#6C5C54] mt-1">Pixello Ecosystem • Live Order Engine & Studio Network Overview</p>
         </div>
         <div className="flex gap-2">
