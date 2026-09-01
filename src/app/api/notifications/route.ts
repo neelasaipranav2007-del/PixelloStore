@@ -1,4 +1,4 @@
-﻿import { NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { createDatabaseNotification, getDatabaseNotifications } from "@/lib/notifications";
 import { portalEvents } from "@/lib/events";
@@ -53,8 +53,14 @@ export async function PATCH(req: Request) {
 
     if (markAll) {
       const where: any = {};
-      if (role && role !== "ALL") where.role = role.toUpperCase();
-      if (userId) where.userId = userId;
+      if (userId) {
+        where.OR = [
+          { userId },
+          { role: role && role !== "ALL" ? role.toUpperCase() : "CUSTOMER", userId: null },
+        ];
+      } else if (role && role !== "ALL") {
+        where.role = role.toUpperCase();
+      }
 
       await prisma.notification.updateMany({
         where: {
@@ -99,8 +105,14 @@ export async function DELETE(req: Request) {
     }
 
     const where: any = {};
-    if (role && role !== "ALL") where.role = role.toUpperCase();
-    if (userId) where.userId = userId;
+    if (userId) {
+      where.OR = [
+        { userId },
+        { role: role && role !== "ALL" ? role.toUpperCase() : "CUSTOMER", userId: null },
+      ];
+    } else if (role && role !== "ALL") {
+      where.role = role.toUpperCase();
+    }
 
     await prisma.notification.deleteMany({ where }).catch(() => {});
     portalEvents.emit("notification_change", { action: "CLEAR", role, userId });

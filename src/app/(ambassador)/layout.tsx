@@ -58,6 +58,7 @@ export default function AmbassadorLayout({ children }: { children: React.ReactNo
     markAsRead,
     markAllAsRead,
     clearAll,
+    deleteNotification,
   } = useMobileNotifications("AMBASSADOR");
 
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(() => {
@@ -285,8 +286,9 @@ export default function AmbassadorLayout({ children }: { children: React.ReactNo
               onMarkRead={markAsRead}
               onMarkAllRead={markAllAsRead}
               onClearAll={clearAll}
-              onNavigateOrder={() => {
-                router.push("/ambassador/orders");
+              onDeleteSingle={deleteNotification}
+              onNavigateOrder={(orderId) => {
+                router.push("/ambassador/referrals");
               }}
             />
 

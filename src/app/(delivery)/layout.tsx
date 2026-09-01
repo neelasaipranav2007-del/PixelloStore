@@ -27,6 +27,7 @@ export default function DeliveryLayout({ children }: { children: React.ReactNode
     markAsRead,
     markAllAsRead,
     clearAll,
+    deleteNotification,
   } = useMobileNotifications("DELIVERY");
 
   useEffect(() => {
@@ -110,6 +111,7 @@ export default function DeliveryLayout({ children }: { children: React.ReactNode
               onMarkRead={markAsRead}
               onMarkAllRead={markAllAsRead}
               onClearAll={clearAll}
+              onDeleteSingle={deleteNotification}
               onNavigateOrder={() => {
                 router.push("/delivery/tasks");
               }}

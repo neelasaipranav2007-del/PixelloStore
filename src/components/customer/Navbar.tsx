@@ -97,6 +97,7 @@ export default function Navbar() {
     markAsRead,
     markAllAsRead,
     clearAll,
+    deleteNotification,
   } = useMobileNotifications("CUSTOMER", currentUser?.id);
 
   useEffect(() => {
@@ -320,8 +321,13 @@ export default function Navbar() {
               onMarkRead={markAsRead}
               onMarkAllRead={markAllAsRead}
               onClearAll={clearAll}
-              onNavigateOrder={() => {
-                window.location.href = "/profile?tab=orders";
+              onDeleteSingle={deleteNotification}
+              onNavigateOrder={(orderId) => {
+                if (orderId) {
+                  router.push(`/profile?tab=orders&highlight=${encodeURIComponent(orderId)}`);
+                } else {
+                  router.push("/profile?tab=orders");
+                }
               }}
             />
 

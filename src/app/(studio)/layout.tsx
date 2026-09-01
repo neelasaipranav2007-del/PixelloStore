@@ -30,6 +30,7 @@ export default function StudioLayout({ children }: { children: React.ReactNode }
     markAsRead,
     markAllAsRead,
     clearAll,
+    deleteNotification,
   } = useMobileNotifications("STUDIO");
 
   useEffect(() => {
@@ -185,8 +186,13 @@ export default function StudioLayout({ children }: { children: React.ReactNode }
               onMarkRead={markAsRead}
               onMarkAllRead={markAllAsRead}
               onClearAll={clearAll}
+              onDeleteSingle={deleteNotification}
               onNavigateOrder={(orderId) => {
-                router.push("/studio/orders");
+                if (orderId) {
+                  router.push(`/studio/orders?search=${encodeURIComponent(orderId)}`);
+                } else {
+                  router.push("/studio/orders");
+                }
               }}
             />
           </div>

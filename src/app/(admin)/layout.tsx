@@ -52,6 +52,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     markAsRead,
     markAllAsRead,
     clearAll,
+    deleteNotification,
   } = useMobileNotifications("ADMIN");
 
   // Live Admin Profile State Synced from Admin Settings
@@ -283,8 +284,13 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               onMarkRead={markAsRead}
               onMarkAllRead={markAllAsRead}
               onClearAll={clearAll}
+              onDeleteSingle={deleteNotification}
               onNavigateOrder={(orderId) => {
-                router.push("/admin/orders");
+                if (orderId) {
+                  router.push(`/admin/orders?search=${encodeURIComponent(orderId)}`);
+                } else {
+                  router.push("/admin/orders");
+                }
               }}
             />
 
