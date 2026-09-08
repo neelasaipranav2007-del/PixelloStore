@@ -268,6 +268,27 @@ export default function ProductDetailsPage({ params }: { params: Promise<any> })
   const router = useRouter();
   const [addedToast, setAddedToast] = useState<{ size: string; quantity: number } | null>(null);
 
+  // Custom Pixello Modals & Toasts (Replaces native browser alert popups)
+  const [photoAlertModal, setPhotoAlertModal] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    uploadedCount: number;
+    requiredCount: number;
+    actionType: "cart" | "checkout";
+  } | null>(null);
+
+  const [generalAlertModal, setGeneralAlertModal] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+  } | null>(null);
+
+  const [wishlistToast, setWishlistToast] = useState<{
+    message: string;
+    isAdded: boolean;
+  } | null>(null);
+
   const { cartItems, addToCart, cartCount } = useCart();
   const { toggleWishlist, isInWishlist } = useWishlist();
   const { products } = useProducts();
@@ -987,7 +1008,9 @@ export default function ProductDetailsPage({ params }: { params: Promise<any> })
                   price: unitPrice,
                   image: product.images[mainImageIndex]
                 });
-                alert(added ? `❤️ Saved "${product.name}" to your Wishlist!` : `Removed "${product.name}" from your Wishlist.`);
+                const msg = added ? `❤️ Saved "${product.name}" to your Wishlist!` : `Removed "${product.name}" from your Wishlist.`;
+                setWishlistToast({ message: msg, isAdded: added });
+                setTimeout(() => setWishlistToast(null), 3200);
               }}
               className="absolute top-4 right-4 bg-white/90 hover:bg-white rounded-full backdrop-blur-sm shadow-md transition-all cursor-pointer"
             >
@@ -1648,7 +1671,7 @@ export default function ProductDetailsPage({ params }: { params: Promise<any> })
 
             {/* Photo Upload Section (STRICTLY ONLY for Frames & Polaroids) */}
             {isPhotoUploadProduct && (
-              <div>
+              <div id="pixello-photo-upload-section">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-3 gap-2">
                   <div className="flex items-center gap-2">
                     <h3 className="font-semibold text-sm text-[#3A2B24] flex items-center gap-1.5">
@@ -1818,7 +1841,11 @@ export default function ProductDetailsPage({ params }: { params: Promise<any> })
                     className="rounded-full h-8 w-8 text-[#3A2B24]"
                     onClick={() => {
                       if (quantity <= minOrderQty) {
-                        alert(`Minimum order quantity for ${product.name} is ${minOrderQty} ${unitLabel}.`);
+                        setGeneralAlertModal({
+                          isOpen: true,
+                          title: "Minimum Order Quantity",
+                          message: `Minimum order quantity for ${product.name} is ${minOrderQty} ${unitLabel}.`
+                        });
                         return;
                       }
                       setQuantity(quantity - 1);
@@ -1888,7 +1915,14 @@ export default function ProductDetailsPage({ params }: { params: Promise<any> })
                 className="flex-1 h-14 text-lg rounded-full btn-pixello-primary cursor-pointer"
                 onClick={() => {
                   if (!isComplete && !isPhotoOptional) {
-                    alert(`⚠️ Photo upload is compulsory! Please upload all ${totalRequiredPhotos} photo(s) before adding to cart (${uploadedCount}/${totalRequiredPhotos} uploaded).`);
+                    setPhotoAlertModal({
+                      isOpen: true,
+                      title: "Photo Upload Required",
+                      message: `Photo upload is compulsory! Please upload all ${totalRequiredPhotos} photo(s) before adding to cart (${uploadedCount}/${totalRequiredPhotos} uploaded).`,
+                      uploadedCount,
+                      requiredCount: totalRequiredPhotos,
+                      actionType: "cart",
+                    });
                     return;
                   }
                   const chosenSize = selectedAdminVariant
@@ -1935,7 +1969,14 @@ export default function ProductDetailsPage({ params }: { params: Promise<any> })
               className="flex-1 h-14 text-lg rounded-full bg-[#3A2B24] text-white hover:bg-[#544036] cursor-pointer"
               onClick={() => {
                 if (!isComplete && !isPhotoOptional) {
-                  alert(`⚠️ Photo upload is compulsory! Please upload all ${totalRequiredPhotos} photo(s) before checkout (${uploadedCount}/${totalRequiredPhotos} uploaded).`);
+                  setPhotoAlertModal({
+                    isOpen: true,
+                    title: "Photo Upload Required",
+                    message: `Photo upload is compulsory! Please upload all ${totalRequiredPhotos} photo(s) before checkout (${uploadedCount}/${totalRequiredPhotos} uploaded).`,
+                    uploadedCount,
+                    requiredCount: totalRequiredPhotos,
+                    actionType: "checkout",
+                  });
                   return;
                 }
                 const chosenSize = selectedAdminVariant
@@ -2041,6 +2082,129 @@ export default function ProductDetailsPage({ params }: { params: Promise<any> })
           </div>
         </div>
       )}
+
+      {/* ========================================================================= */}
+      {/* CUSTOM PIXELLO PHOTO UPLOAD REQUIRED WARNING MODAL */}
+      {/* ========================================================================= */}
+      {photoAlertModal?.isOpen && (
+        <div 
+          className="fixed inset-0 z-[9999] bg-black/75 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-200"
+          onClick={() => setPhotoAlertModal(null)}
+        >
+          <div 
+            className="bg-white border border-[#EFE6DD] rounded-[2.5rem] p-6 sm:p-8 max-w-md w-full shadow-2xl relative text-center flex flex-col items-center animate-in zoom-in-95 duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Close X Button */}
+            <button 
+              onClick={() => setPhotoAlertModal(null)}
+              className="absolute top-5 right-5 h-9 w-9 rounded-full bg-[#FFF8F2] hover:bg-[#F2C8B5]/40 text-[#3A2B24] flex items-center justify-center font-bold text-base transition-colors cursor-pointer"
+            >
+              <X className="h-4 w-4" />
+            </button>
+
+            {/* Warning Icon Badge */}
+            <div className="h-20 w-20 rounded-3xl bg-amber-50 border-2 border-amber-200 text-amber-600 flex items-center justify-center mb-4 shadow-xs relative">
+              <Camera className="h-10 w-10 text-amber-600" />
+              <span className="absolute -bottom-1 -right-1 bg-amber-500 text-white rounded-full p-1.5 shadow-sm">
+                <ShieldAlert className="h-4 w-4" />
+              </span>
+            </div>
+
+            {/* Title & Message */}
+            <h3 className="font-serif-brand text-2xl font-bold text-[#3A2B24] mb-2">
+              Photo Upload Required
+            </h3>
+            <p className="text-xs text-[#6C5C54] font-medium mb-5 leading-relaxed max-w-xs">
+              Photo upload is compulsory for this product! Please upload all <strong className="text-[#3A2B24] font-extrabold">{photoAlertModal.requiredCount} photo(s)</strong> before {photoAlertModal.actionType === "cart" ? "adding to cart" : "proceeding to checkout"}.
+            </p>
+
+            {/* Upload Progress Bar Card */}
+            <div className="w-full bg-[#FFF8F2] border border-[#EFE6DD] rounded-2xl p-4 mb-6 text-left shadow-2xs">
+              <div className="flex justify-between items-center text-xs font-bold text-[#3A2B24] mb-2">
+                <span className="flex items-center gap-1.5 text-[#3A2B24]">
+                  <ImageIcon className="h-4 w-4 text-[#D89A86]" /> Photo Upload Progress
+                </span>
+                <span className="text-amber-800 font-extrabold bg-amber-100 border border-amber-200 px-2.5 py-0.5 rounded-full text-[11px]">
+                  {photoAlertModal.uploadedCount} / {photoAlertModal.requiredCount} Uploaded
+                </span>
+              </div>
+              <div className="w-full bg-[#EFE6DD] rounded-full h-2.5 overflow-hidden">
+                <div 
+                  className="bg-gradient-to-r from-amber-500 to-[#D89A86] h-full rounded-full transition-all duration-300"
+                  style={{ width: `${Math.round((photoAlertModal.uploadedCount / photoAlertModal.requiredCount) * 100)}%` }}
+                />
+              </div>
+            </div>
+
+            {/* CTA Button to Upload Photos */}
+            <Button
+              onClick={() => {
+                setPhotoAlertModal(null);
+                const uploadSection = document.getElementById("pixello-photo-upload-section");
+                if (uploadSection) {
+                  uploadSection.scrollIntoView({ behavior: "smooth", block: "center" });
+                }
+              }}
+              className="w-full bg-gradient-to-r from-[#D89A86] to-[#C88470] hover:opacity-95 text-white font-bold text-sm h-12 rounded-2xl shadow-md flex items-center justify-center gap-2 cursor-pointer uppercase tracking-wider"
+            >
+              <Upload className="h-4 w-4 text-white" />
+              <span>Upload Photos Now</span>
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* CUSTOM PIXELLO GENERAL ALERT MODAL */}
+      {/* ========================================================================= */}
+      {generalAlertModal?.isOpen && (
+        <div 
+          className="fixed inset-0 z-[9999] bg-black/70 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-200"
+          onClick={() => setGeneralAlertModal(null)}
+        >
+          <div 
+            className="bg-white border border-[#EFE6DD] rounded-[2rem] p-6 sm:p-8 max-w-md w-full shadow-2xl relative text-center flex flex-col items-center animate-in zoom-in-95 duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button 
+              onClick={() => setGeneralAlertModal(null)}
+              className="absolute top-4 right-4 h-8 w-8 rounded-full bg-[#FFF8F2] hover:bg-[#F2C8B5]/40 text-[#3A2B24] flex items-center justify-center font-bold text-sm transition-colors cursor-pointer"
+            >
+              <X className="h-4 w-4" />
+            </button>
+
+            <div className="h-16 w-16 rounded-2xl bg-[#FFF8F2] border border-[#EFE6DD] text-[#D89A86] flex items-center justify-center mb-4 shadow-2xs">
+              <Info className="h-8 w-8 text-[#D89A86]" />
+            </div>
+
+            <h3 className="font-serif-brand text-2xl font-bold text-[#3A2B24] mb-2">
+              {generalAlertModal.title}
+            </h3>
+            <p className="text-xs text-[#6C5C54] font-medium mb-6 leading-relaxed max-w-xs">
+              {generalAlertModal.message}
+            </p>
+
+            <Button
+              onClick={() => setGeneralAlertModal(null)}
+              className="w-full bg-[#3A2B24] hover:bg-[#2E201A] text-white font-bold text-xs h-11 rounded-2xl shadow-xs"
+            >
+              Got it
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* FLOATING WISHLIST TOAST NOTIFICATION */}
+      {/* ========================================================================= */}
+      {wishlistToast && (
+        <div className="fixed bottom-6 right-6 z-[9999] bg-[#3A2B24] text-white px-5 py-3 rounded-2xl shadow-2xl border border-[#D89A86]/40 flex items-center gap-3 animate-in fade-in slide-in-from-bottom-5 duration-300">
+          <Heart className={cn("h-5 w-5", wishlistToast.isAdded ? "fill-rose-500 text-rose-500" : "text-[#D89A86]")} />
+          <span className="text-xs font-bold">{wishlistToast.message}</span>
+        </div>
+      )}
     </div>
   );
 }
+
