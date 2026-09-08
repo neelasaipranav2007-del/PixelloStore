@@ -12,26 +12,40 @@ import { isDeliveryPortalEnabled } from "@/lib/deliveryConfig";
 import { ChevronDown, Search, X, Eye, Download, FileText, Image as ImageIcon, MessageCircle, Upload, Package, Check, Paperclip, Truck, Bike, Gift, User, Phone, Store, Calendar, MapPin, RefreshCw, FileSpreadsheet } from "lucide-react";
 
 const STATUS_CONFIG: Record<string, { label: string; symbol: string; badgeClass: string; dotClass: string; itemBgClass: string }> = {
-  "Processing": { label: "Processing", symbol: "⏳", badgeClass: "bg-amber-100 text-amber-900 border-amber-300", dotClass: "bg-amber-500", itemBgClass: "bg-amber-50/90 hover:bg-amber-100/90 border-amber-200 text-amber-950" },
-  "Packed": { label: "Packed", symbol: "📦", badgeClass: "bg-sky-100 text-sky-900 border-sky-300", dotClass: "bg-sky-500", itemBgClass: "bg-sky-50/90 hover:bg-sky-100/90 border-sky-200 text-sky-950" },
-  "Out for Delivery": { label: "Out for Delivery", symbol: "🚚", badgeClass: "bg-blue-100 text-blue-900 border-blue-300", dotClass: "bg-blue-600", itemBgClass: "bg-blue-50/90 hover:bg-blue-100/90 border-blue-200 text-blue-950" },
-  "Delivered": { label: "Delivered", symbol: "✅", badgeClass: "bg-emerald-100 text-emerald-900 border-emerald-300", dotClass: "bg-emerald-600", itemBgClass: "bg-emerald-50/90 hover:bg-emerald-100/90 border-emerald-200 text-emerald-950" },
-  "Replacement Requested": { label: "Replacement Requested", symbol: "🔄", badgeClass: "bg-purple-100 text-purple-900 border-purple-300", dotClass: "bg-purple-600", itemBgClass: "bg-purple-50/90 hover:bg-purple-100/90 border-purple-200 text-purple-950" },
-  "Cancelled": { label: "Cancelled", symbol: "❌", badgeClass: "bg-slate-100 text-slate-900 border-slate-300", dotClass: "bg-slate-500", itemBgClass: "bg-slate-100/80 hover:bg-slate-200/80 border-slate-300 text-slate-950" },
+  "ORDER_PLACED": { label: "Order Placed", symbol: "📝", badgeClass: "bg-[#FFF8F2] text-[#D89A86] border-[#D89A86]/30", dotClass: "bg-[#D89A86]", itemBgClass: "bg-[#FFF8F2]" },
+  "PAYMENT_CONFIRMED": { label: "Payment Confirmed", symbol: "💳", badgeClass: "bg-emerald-50 text-emerald-800 border-emerald-200", dotClass: "bg-emerald-500", itemBgClass: "bg-emerald-50" },
+  "ORDER_CONFIRMED": { label: "Order Confirmed", symbol: "✅", badgeClass: "bg-emerald-100 text-emerald-900 border-emerald-300", dotClass: "bg-emerald-600", itemBgClass: "bg-emerald-50" },
+  "IN_PRODUCTION": { label: "In Production", symbol: "🖨️", badgeClass: "bg-amber-100 text-amber-900 border-amber-300", dotClass: "bg-amber-500", itemBgClass: "bg-amber-50" },
+  "READY_FOR_DELIVERY": { label: "Ready for Delivery", symbol: "📦", badgeClass: "bg-sky-100 text-sky-900 border-sky-300", dotClass: "bg-sky-500", itemBgClass: "bg-sky-50" },
+  "DELIVERY_ASSIGNED": { label: "Delivery Assigned", symbol: "📋", badgeClass: "bg-indigo-100 text-indigo-900 border-indigo-300", dotClass: "bg-indigo-500", itemBgClass: "bg-indigo-50" },
+  "PICKED_UP": { label: "Picked Up", symbol: "🛵", badgeClass: "bg-orange-100 text-orange-900 border-orange-300", dotClass: "bg-orange-500", itemBgClass: "bg-orange-50" },
+  "IN_TRANSIT": { label: "In Transit", symbol: "🚚", badgeClass: "bg-blue-100 text-blue-900 border-blue-300", dotClass: "bg-blue-600", itemBgClass: "bg-blue-50" },
+  "OUT_FOR_DELIVERY": { label: "Out for Delivery", symbol: "🚀", badgeClass: "bg-purple-100 text-purple-900 border-purple-300", dotClass: "bg-purple-600", itemBgClass: "bg-purple-50" },
+  "DELIVERED": { label: "Delivered", symbol: "🎉", badgeClass: "bg-emerald-100 text-emerald-900 border-emerald-300", dotClass: "bg-emerald-600", itemBgClass: "bg-emerald-50" },
+  "COMPLETED": { label: "Completed", symbol: "🏁", badgeClass: "bg-emerald-200 text-emerald-950 border-emerald-400", dotClass: "bg-emerald-700", itemBgClass: "bg-emerald-100" },
+  "REPLACEMENT_REQUESTED": { label: "Replacement Requested", symbol: "🔄", badgeClass: "bg-purple-100 text-purple-900 border-purple-300", dotClass: "bg-purple-600", itemBgClass: "bg-purple-50" },
+  "CANCELLED": { label: "Cancelled", symbol: "❌", badgeClass: "bg-slate-100 text-slate-900 border-slate-300", dotClass: "bg-slate-500", itemBgClass: "bg-slate-100" },
 };
 
 const normalizeStatus = (status?: string): string => {
-  if (!status) return "Processing";
-  const s = status.trim().toUpperCase();
-  if (s === "CANCELLED" || s === "CANCELED") return "Cancelled";
-  if (s === "DELIVERED") return "Delivered";
-  if (s === "REPLACEMENT REQUESTED" || s === "REPLACEMENT" || s === "REPLACEMENT_REQUESTED") return "Replacement Requested";
-  if (s === "PACKED" || s === "QUALITY_CHECK") return "Packed";
-  if (s === "OUT FOR DELIVERY" || s === "OUT_FOR_DELIVERY" || s === "DELIVERY PICKED UP" || s === "PICKED_UP") return "Out for Delivery";
-  if (s === "PROCESSING" || s === "PLACED" || s === "PRINTING" || s === "OUT OF STOCK" || s === "OUT_OF_STOCK") return "Processing";
+  if (!status) return "ORDER_PLACED";
+  const s = status.trim().toUpperCase().replace(/\s+/g, "_");
+  if (s === "CANCELLED" || s === "CANCELED") return "CANCELLED";
+  if (s === "DELIVERED") return "DELIVERED";
+  if (s === "COMPLETED") return "COMPLETED";
+  if (s === "REPLACEMENT_REQUESTED" || s === "REPLACEMENT") return "REPLACEMENT_REQUESTED";
+  if (s === "OUT_FOR_DELIVERY") return "OUT_FOR_DELIVERY";
+  if (s === "IN_TRANSIT") return "IN_TRANSIT";
+  if (s === "PICKED_UP") return "PICKED_UP";
+  if (s === "DELIVERY_ASSIGNED" || s === "ASSIGNED_DELIVERY") return "DELIVERY_ASSIGNED";
+  if (s === "READY_FOR_DELIVERY" || s === "READY_FOR_PICKUP") return "READY_FOR_DELIVERY";
+  if (s === "IN_PRODUCTION" || s === "PRINTING" || s === "FRAMING" || s === "QUALITY_CHECK" || s === "PACKED") return "IN_PRODUCTION";
+  if (s === "ORDER_CONFIRMED" || s === "ACCEPTED_BY_STUDIO" || s === "ASSIGNED_STUDIO" || s === "DESIGNING") return "ORDER_CONFIRMED";
+  if (s === "PAYMENT_CONFIRMED") return "PAYMENT_CONFIRMED";
+  if (s === "ORDER_PLACED" || s === "PLACED") return "ORDER_PLACED";
 
-  const match = Object.keys(STATUS_CONFIG).find((k) => k.toUpperCase() === s);
-  return match || "Processing";
+  const match = Object.keys(STATUS_CONFIG).find((k) => k === s);
+  return match || "ORDER_PLACED";
 };
 
 const getStatusConfig = (status: string) => {

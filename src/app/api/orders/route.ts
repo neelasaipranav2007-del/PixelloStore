@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { portalEvents } from "@/lib/events";
 import { getAuthenticatedUser } from "@/lib/session";
-import { mapDbStatusToUi, mapUiStatusToDb } from "@/lib/orderStatus";
+import { mapUiStatusToDb } from "@/lib/orderStatus";
+import { sanitizeCustomerOrderData, mapInternalToCustomerStatus } from "@/lib/orderStatusMapping";
 
 export const dynamic = "force-dynamic";
 
@@ -11,7 +12,7 @@ export async function GET(req: Request) {
     const user = await getAuthenticatedUser(req);
     
     // Check if role is CUSTOMER - if so, strictly filter only this customer's orders
-    let whereClause: any = {};
+    let whereClause: Record<string, unknown> = {};
     if (user && user.role === "CUSTOMER") {
       const cleanPhone = (user.phone || "").replace(/\D/g, "").slice(-10);
       whereClause = {
@@ -35,15 +36,18 @@ export async function GET(req: Request) {
       orderBy: { createdAt: "desc" },
     });
 
-    // Format for frontend context compatibility
+    // Format for frontend context compatibility with safe customer mapping
     const formatted = dbOrders.map((o) => {
+      const mapped = mapInternalToCustomerStatus(o.status);
+      const sanitized = sanitizeCustomerOrderData(o);
+      
       const parsedItems = o.items.map((it) => {
         let photos: string[] = [];
         if (it.customizationDetails) {
           try {
             const details = JSON.parse(it.customizationDetails);
             photos = details.photos || [];
-          } catch (e) {
+          } catch {
             photos = [];
           }
         }
@@ -51,6 +55,7 @@ export async function GET(req: Request) {
           photos = [it.image];
         }
         return {
+          id: it.id,
           name: it.name,
           size: it.size || "Standard",
           quantity: it.quantity,
@@ -68,13 +73,28 @@ export async function GET(req: Request) {
         customerPhone: o.customerPhone,
         totalAmount: o.totalAmount,
         subtotal: o.totalAmount,
-        status: mapDbStatusToUi(o.status),
+        status: mapped.customerStatus,
+        rawStatus: o.status,
+        stageIndex: mapped.stageIndex,
+        stepTitle: mapped.stepTitle,
+        stepDesc: mapped.stepDesc,
+        badgeClass: mapped.badgeClass,
         assignedStudio: o.assignedStudio || "Studio Alpha (Central Powai Branch)",
         deliveryAddress: o.shippingAddress,
         items: parsedItems,
-        deliveryPartner: o.deliveryInfo?.deliveryPartnerName || "Pixello Express",
+        deliveryInfo: sanitized?.deliveryInfo || {
+          deliveryProvider: o.deliveryInfo?.deliveryProvider || o.deliveryInfo?.deliveryPartnerName || "Delhivery",
+          trackingId: o.deliveryInfo?.trackingId || o.deliveryInfo?.awbNumber || null,
+          awbNumber: o.deliveryInfo?.awbNumber || o.deliveryInfo?.trackingId || null,
+          estimatedDeliveryDate: o.deliveryInfo?.estimatedDeliveryDate ? new Date(o.deliveryInfo.estimatedDeliveryDate).toISOString().split("T")[0] : null,
+          shippedAt: o.deliveryInfo?.shippedAt ? new Date(o.deliveryInfo.shippedAt).toISOString() : (o.deliveryInfo?.pickupTime ? new Date(o.deliveryInfo.pickupTime).toISOString() : null),
+          outForDeliveryAt: o.deliveryInfo?.outForDeliveryAt ? new Date(o.deliveryInfo.outForDeliveryAt).toISOString() : null,
+          deliveredAt: o.deliveryInfo?.deliveredAt ? new Date(o.deliveryInfo.deliveredAt).toISOString() : (o.deliveryInfo?.deliveryTime ? new Date(o.deliveryInfo.deliveryTime).toISOString() : null),
+          trackingUrl: o.deliveryInfo?.trackingUrl || (o.deliveryInfo?.awbNumber ? `https://www.delhivery.com/track/package/${o.deliveryInfo.awbNumber}` : null),
+        },
+        deliveryPartner: o.deliveryInfo?.deliveryProvider || o.deliveryInfo?.deliveryPartnerName || "Delhivery",
         trackingUrl: o.deliveryInfo?.trackingUrl || null,
-        waybill: o.deliveryInfo?.trackingUrl?.match(/(?:DLV|PXL)\w+/)?.[0] || null,
+        waybill: o.deliveryInfo?.awbNumber || o.deliveryInfo?.trackingId || null,
         pickupTime: o.deliveryInfo?.pickupTime ? o.deliveryInfo.pickupTime.toISOString() : null,
         deliveryTime: o.deliveryInfo?.deliveryTime ? o.deliveryInfo.deliveryTime.toISOString() : null,
         referralCode: o.referralCode || undefined,
@@ -300,9 +320,10 @@ export async function POST(req: Request) {
     portalEvents.emit("notification_change", { action: "CREATE", orderId: createdOrder.id });
 
     return NextResponse.json({ success: true, order: createdOrder });
-  } catch (error: any) {
-    console.error("Error creating order:", error);
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+  } catch (error: unknown) {
+    const err = error as Error;
+    console.error("Error creating order:", err);
+    return NextResponse.json({ success: false, error: err.message }, { status: 500 });
   }
 }
 
@@ -383,8 +404,9 @@ export async function PATCH(req: Request) {
     portalEvents.emit("order_update", { action: "STATUS_UPDATE", orderId: updated.id, status: dbStatus });
 
     return NextResponse.json({ success: true, order: updated });
-  } catch (error: any) {
-    console.error("Error updating order status:", error);
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+  } catch (error: unknown) {
+    const err = error as Error;
+    console.error("Error updating order status:", err);
+    return NextResponse.json({ success: false, error: err.message }, { status: 500 });
   }
 }

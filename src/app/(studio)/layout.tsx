@@ -14,9 +14,20 @@ import {
 
 
 
+import { isStudioPortalEnabled } from "@/lib/studioConfig";
+
 export default function StudioLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
+
+  const isStudioEnabled = isStudioPortalEnabled();
+
+  // Redirect to /studio/closed when Studio Portal is temporarily closed
+  useEffect(() => {
+    if (!isStudioEnabled && pathname !== "/studio/closed") {
+      router.replace("/studio/closed");
+    }
+  }, [isStudioEnabled, pathname, router]);
 
   const [isAccepting, setIsAccepting] = useState(true);
   const [studioBranchName, setStudioBranchName] = useState("Studio Alpha (Powai Branch)");
@@ -95,7 +106,43 @@ export default function StudioLayout({ children }: { children: React.ReactNode }
     return "Production Dashboard";
   };
 
+  // If Studio Portal is disabled, render simplified header without sidebar controls
+  if (!isStudioEnabled || pathname === "/studio/closed") {
+    return (
+      <div className="min-h-screen bg-[#F8F3EE] flex flex-col font-sans">
+        <header className="bg-[#3A2B24] text-white border-b border-[#4E3D35] shadow-md sticky top-0 z-50">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-18 flex items-center justify-between">
+            <Link href="/" className="flex flex-col">
+              <div className="flex items-center gap-2">
+                <span className="font-serif-brand text-2xl font-bold tracking-tight text-white flex items-center gap-2">
+                  Pixello
+                  <span className="text-[#D89A86] font-sans text-xs font-bold uppercase tracking-wider bg-[#FFF8F2]/10 border border-[#D89A86]/40 px-2.5 py-0.5 rounded-full shadow-2xs">
+                    STUDIO
+                  </span>
+                </span>
+              </div>
+              <span className="text-[10px] text-[#EFE6DD]/80 font-medium uppercase tracking-widest mt-0.5 flex items-center gap-1">
+                <Heart className="h-2.5 w-2.5 text-[#F48A8A] fill-[#F48A8A]" /> FRAMES • MEMORIES • GIFTS
+              </span>
+            </Link>
+            <Button 
+              variant="ghost" 
+              onClick={() => router.push("/")}
+              className="text-[#EFE6DD]/80 hover:text-white hover:bg-[#FFF8F2]/10 rounded-2xl text-xs font-bold flex items-center gap-1.5"
+            >
+              <LogOut className="h-4 w-4 text-[#D89A86]" /> Store
+            </Button>
+          </div>
+        </header>
+        <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8">
+          {children}
+        </main>
+      </div>
+    );
+  }
+
   return (
+
     <div className="flex h-screen bg-[#F8F3EE]">
       {/* Pixello Light-Dark Espresso Sidebar (#3A2B24) */}
       <aside className="w-64 bg-[#3A2B24] text-white flex flex-col flex-shrink-0 border-r border-[#4E3D35] shadow-md">

@@ -42,7 +42,17 @@ const SECONDARY_NOTIFICATIONS: AdminNotification[] = [
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(() => {
+    if (typeof window !== "undefined") {
+      const isAuth = localStorage.getItem("pixello_admin_authenticated");
+      const adminUser = localStorage.getItem("pixello_admin_user");
+      const adminToken = localStorage.getItem("pixello_admin_token");
+      if (isAuth === "true" || adminUser || adminToken) {
+        return true;
+      }
+    }
+    return null;
+  });
   const isDeliveryEnabled = isDeliveryPortalEnabled();
   
   // Real Database Notifications System for Admin Portal

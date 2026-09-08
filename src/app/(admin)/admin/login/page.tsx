@@ -73,7 +73,7 @@ export default function AdminLoginPage() {
     setErrorMessage("");
   };
 
-  const handleAdminLogin = (e: React.FormEvent) => {
+  const handleAdminLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (isLoading) return;
 
@@ -95,7 +95,7 @@ export default function AdminLoginPage() {
 
     setIsLoading(true);
 
-    setTimeout(() => {
+    try {
       // Re-read latest settings from localStorage
       let currentPhone = activeAdminPhone;
       let currentPass = activeAdminPass;
@@ -139,7 +139,28 @@ export default function AdminLoginPage() {
         (cleanMobile.length === 10 && isValidPass);
 
       if (isValidPhone && isValidPass) {
-        // Authenticate with server and obtain signed token
+        // Mark session as authenticated locally immediately
+        if (typeof window !== "undefined") {
+          localStorage.setItem("pixello_admin_authenticated", "true");
+          localStorage.setItem("pixello_admin_session_time", new Date().toISOString());
+          localStorage.setItem(
+            "pixello_admin_user",
+            JSON.stringify({
+              name: currentName || "Pranav",
+              email: currentEmail || "neelasaipranav2007@gmail.com",
+              phone: cleanMobile,
+              role: "Super Administrator",
+              authenticatedAt: new Date().toISOString()
+            })
+          );
+          window.dispatchEvent(new Event("pixello_admin_auth_changed"));
+          window.dispatchEvent(new Event("pixello_orders_updated"));
+          window.dispatchEvent(new Event("storage"));
+        }
+
+        setSuccessMessage("✓ Authentication successful! Accessing Pixello Management Suite...");
+
+        // Fire background token fetch without blocking UI navigation
         fetch("/api/admin/auth", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -151,47 +172,27 @@ export default function AdminLoginPage() {
         })
           .then((res) => res.json())
           .then((data) => {
-            if (typeof window !== "undefined") {
-              if (data.token) {
-                localStorage.setItem("pixello_admin_token", data.token);
-                document.cookie = `pixello_admin_token=${data.token}; path=/; max-age=2592000; SameSite=Lax`;
-              }
-              localStorage.setItem("pixello_admin_authenticated", "true");
-              localStorage.setItem("pixello_admin_session_time", new Date().toISOString());
-              localStorage.setItem(
-                "pixello_admin_user",
-                JSON.stringify({
-                  name: currentName || "Pranav",
-                  email: currentEmail || "neelasaipranav2007@gmail.com",
-                  phone: cleanMobile,
-                  role: "Super Administrator",
-                  authenticatedAt: new Date().toISOString()
-                })
-              );
-              window.dispatchEvent(new Event("pixello_admin_auth_changed"));
-              window.dispatchEvent(new Event("pixello_orders_updated"));
-              window.dispatchEvent(new Event("storage"));
+            if (data && data.token && typeof window !== "undefined") {
+              localStorage.setItem("pixello_admin_token", data.token);
+              document.cookie = `pixello_admin_token=${data.token}; path=/; max-age=2592000; SameSite=Lax`;
             }
-
-            setSuccessMessage("✓ Authentication successful! Accessing Pixello Management Suite...");
-
-            setTimeout(() => {
-              window.location.href = "/admin/orders";
-            }, 200);
           })
-          .catch((err) => {
-            console.error("Admin login API error:", err);
-            if (typeof window !== "undefined") {
-              localStorage.setItem("pixello_admin_authenticated", "true");
-              window.dispatchEvent(new Event("pixello_admin_auth_changed"));
-            }
-            window.location.href = "/admin/orders";
-          });
+          .catch((apiErr) => console.warn("Background admin auth token fetch:", apiErr));
+
+        // Instant Client-side Navigation
+        router.push("/admin/orders");
+        setTimeout(() => {
+          setIsLoading(false);
+        }, 500);
       } else {
         setIsLoading(false);
         setErrorMessage(`❌ Invalid Admin Credentials. (Accepted keys: saipranav / admin123 / 1234)`);
       }
-    }, 200);
+    } catch (err) {
+      console.error("Admin login error:", err);
+      setIsLoading(false);
+      setErrorMessage("⚠️ Login processing error. Please try again.");
+    }
   };
 
   return (

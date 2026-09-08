@@ -16,6 +16,7 @@ import { useWishlist } from "@/context/WishlistContext";
 import { useSearchParams } from "next/navigation";
 import { usePixelloTransition } from "@/components/customer/PixelloPageTransition";
 import { isDeliveryPortalEnabled } from "@/lib/deliveryConfig";
+import { isStudioPortalEnabled } from "@/lib/studioConfig";
 
 function ProfileContent() {
   const { startTransitionTo } = usePixelloTransition();
@@ -1541,58 +1542,80 @@ function ProfileContent() {
           const steps = isReplacementTrack ? [
             {
               title: "🔄 Replacement Requested & Approved",
-              desc: "Replacement request registered and approved by Studio.",
+              desc: !isStudioPortalEnabled()
+                ? "Replacement request registered. Studio crafting will begin as studio operations resume."
+                : "Replacement request registered and approved by Studio.",
               time: "Stage 1",
             },
             {
               title: "🖨️ Replacement Production & Framing",
-              desc: "Re-printing high-resolution photo & solid wood frame assembly.",
+              desc: !isStudioPortalEnabled()
+                ? "Studio printing & wooden frame assembly temporarily paused."
+                : "Re-printing high-resolution photo & solid wood frame assembly.",
               time: "Stage 2",
             },
             {
               title: "📦 Quality Check & Express Re-Packaging",
-              desc: "Quality inspection & protective double-bubble wrap seal.",
+              desc: !isStudioPortalEnabled()
+                ? "Quality inspection & protective packaging queued."
+                : "Quality inspection & protective double-bubble wrap seal.",
               time: "Stage 3",
             },
             {
               title: "🚚 Replacement Out for Doorstep Handover",
-              desc: `Rider: ${trackOrderObj?.deliveryPartner || "Ramesh K. (+91 99887 76655)"} • Direct local bike dispatch.`,
+              desc: !isDeliveryPortalEnabled()
+                ? "Replacement delivery temporarily paused. Order will be dispatched once delivery operations reopen."
+                : `Rider: ${trackOrderObj?.deliveryPartner || "Ramesh K. (+91 99887 76655)"} • Direct local bike dispatch.`,
               time: "Stage 4",
             },
             {
               title: "✅ Replacement Delivered Successfully",
-              desc: "Fresh replacement delivered to your doorstep. Enjoy!",
+              desc: !isDeliveryPortalEnabled() || !isStudioPortalEnabled()
+                ? "Handover will take place upon redelivery dispatch once operations reopen."
+                : "Fresh replacement delivered to your doorstep. Enjoy!",
               time: "Completed",
             }
           ] : [
             {
               title: "Order Placed & Payment Verified",
-              desc: trackOrderObj?.assignedStudio ? `Assigned to verified studio: ${trackOrderObj.assignedStudio}` : "Order confirmed & payment verified.",
+              desc: !isStudioPortalEnabled() 
+                ? "Order confirmed & payment verified. Photo crafting will begin as studio operations resume." 
+                : (trackOrderObj?.assignedStudio ? `Assigned to verified studio: ${trackOrderObj.assignedStudio}` : "Order confirmed & payment verified."),
               time: "Stage 1",
             },
             {
               title: "Studio Accepted & Layout Design",
-              desc: "Studio verified photo resolution & aspect ratio cropping.",
+              desc: !isStudioPortalEnabled()
+                ? "Studio operations temporarily paused. Photo resolution check & layout design queued."
+                : "Studio verified photo resolution & aspect ratio cropping.",
               time: "Stage 2",
             },
             {
               title: "Master Lab Printing & Frame Assembly",
-              desc: "High-definition archival photo printing on anti-glare paper & solid wood frame assembly.",
+              desc: !isStudioPortalEnabled()
+                ? "Master lab printing & wooden frame assembly paused until studio operations resume."
+                : "High-definition archival photo printing on anti-glare paper & solid wood frame assembly.",
               time: "Stage 3",
             },
             {
               title: "Quality Check Passed & Gift Wrapped",
-              desc: "Quality inspected, double bubble-wrapped & sealed for delivery.",
+              desc: !isStudioPortalEnabled()
+                ? "Quality inspection & gift packaging queued."
+                : "Quality inspected, double bubble-wrapped & sealed for delivery.",
               time: "Stage 4",
             },
             {
               title: "Out for Express Doorstep Delivery",
-              desc: `Rider: ${trackOrderObj?.deliveryPartner || "Ramesh K. (+91 99887 76655)"} • Direct local bike dispatch.`,
+              desc: !isDeliveryPortalEnabled() 
+                ? "Doorstep delivery temporarily paused. Order is safe and will be dispatched once delivery operations reopen." 
+                : (trackOrderObj?.deliveryPartner ? `Rider: ${trackOrderObj.deliveryPartner} • Direct local bike dispatch.` : "Direct local bike dispatch."),
               time: "Stage 5",
             },
             {
               title: "Delivered Successfully",
-              desc: "Handed over to customer. Enjoy your Pixello memories!",
+              desc: !isDeliveryPortalEnabled() || !isStudioPortalEnabled()
+                ? "Handover will take place upon redelivery dispatch once operations reopen."
+                : "Handed over to customer. Enjoy your Pixello memories!",
               time: "Completed",
             }
           ];
@@ -1629,14 +1652,22 @@ function ProfileContent() {
                   <Clock className="h-3.5 w-3.5 text-[#D89A86]" /> Status: <strong className="text-emerald-700 font-bold">{trackOrderObj?.status || "Processing"} ⚡</strong>
                 </p>
 
-                {/* Reassurance Banner when Delivery Operations are Temporarily Closed */}
-                {!isDeliveryPortalEnabled() && (rawStatus === "READY_FOR_PICKUP" || rawStatus === "READY FOR DELIVERY" || rawStatus === "QUALITY_CHECK" || rawStatus === "PACKED") && (
+                {/* Reassurance Banner when Studio or Delivery Operations are Temporarily Closed */}
+                {(!isStudioPortalEnabled() || !isDeliveryPortalEnabled()) && (
                   <div className="p-4 bg-amber-50 border border-amber-200 rounded-2xl flex items-start gap-3 text-left mb-5 shadow-2xs">
                     <Clock className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
                     <div className="text-xs">
-                      <span className="font-bold text-amber-900 block text-sm">Delivery Temporarily Unavailable</span>
+                      <span className="font-bold text-amber-900 block text-sm">
+                        {!isStudioPortalEnabled() && !isDeliveryPortalEnabled() 
+                          ? "Studio & Delivery Operations Paused" 
+                          : (!isStudioPortalEnabled() ? "Studio Operations Temporarily Paused" : "Delivery Temporarily Unavailable")}
+                      </span>
                       <span className="text-amber-800 font-medium leading-relaxed block mt-0.5">
-                        Your order has been received and is currently waiting for delivery operations to resume. Your order and information are completely safe.
+                        {!isStudioPortalEnabled() && !isDeliveryPortalEnabled()
+                          ? "Studio crafting and doorstep delivery operations are currently paused while system updates are underway. Your order, photos, and payment are 100% safe."
+                          : (!isStudioPortalEnabled() 
+                            ? "Studio photo crafting operations are currently paused. Your order is confirmed and safely queued." 
+                            : "Your order has been received and is currently waiting for delivery operations to resume. Your order and information are completely safe.")}
                       </span>
                     </div>
                   </div>
@@ -1684,6 +1715,64 @@ function ProfileContent() {
                   })}
                 </div>
 
+                {/* SAFE CUSTOMER DELIVERY INFORMATION CARD */}
+                {(() => {
+                  const delInfo = trackOrderObj?.deliveryInfo || {};
+                  const providerName = delInfo.deliveryProvider || delInfo.deliveryPartnerName || trackOrderObj?.deliveryPartner || "Delhivery";
+                  const awbNo = delInfo.awbNumber || delInfo.trackingId || trackOrderObj?.waybill || null;
+                  const estDate = delInfo.estimatedDeliveryDate || null;
+                  const trackUrl = delInfo.trackingUrl || (awbNo ? `https://www.delhivery.com/track/package/${awbNo}` : null);
+
+                  return (
+                    <div className="bg-[#FFF8F2] border border-[#EFE6DD] rounded-2xl p-4 mb-6 text-left shadow-2xs">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          <Truck className="h-4 w-4 text-[#D89A86]" />
+                          <span className="text-xs font-bold text-[#3A2B24] uppercase tracking-wider">
+                            Delivery Information
+                          </span>
+                        </div>
+                        <Badge className="bg-emerald-100 text-emerald-800 text-[10px] font-bold border-none px-2 py-0.5 rounded-full">
+                          {providerName} Verified
+                        </Badge>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-3 text-xs mb-3">
+                        <div>
+                          <span className="text-[#6C5C54] block text-[11px]">Delivery Partner</span>
+                          <span className="font-bold text-[#3A2B24]">{providerName}</span>
+                        </div>
+                        <div>
+                          <span className="text-[#6C5C54] block text-[11px]">Tracking ID / AWB</span>
+                          <span className="font-mono font-bold text-[#3A2B24]">{awbNo || "Assigned on Dispatch"}</span>
+                        </div>
+                        {estDate && (
+                          <div className="col-span-2">
+                            <span className="text-[#6C5C54] block text-[11px]">Estimated Delivery</span>
+                            <span className="font-bold text-emerald-800">{estDate}</span>
+                          </div>
+                        )}
+                      </div>
+
+                      {trackUrl ? (
+                        <a
+                          href={trackUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="w-full bg-[#3A2B24] hover:bg-[#2E201A] text-white text-xs font-bold h-9 rounded-xl flex items-center justify-center gap-2 shadow-xs transition-colors"
+                        >
+                          <ExternalLink className="h-3.5 w-3.5 text-[#D89A86]" />
+                          <span>Track Delivery on {providerName}</span>
+                        </a>
+                      ) : (
+                        <div className="text-[11px] text-[#6C5C54] italic text-center pt-1 border-t border-[#EFE6DD]">
+                          Live tracking link will be generated once courier pickup is completed.
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
+
                 {/* Actions */}
                 <div className="flex flex-col sm:flex-row gap-3 pt-2">
                   <a 
@@ -1692,7 +1781,7 @@ function ProfileContent() {
                     rel="noopener noreferrer"
                     className="flex-1 btn-pixello-primary text-xs font-bold h-11 rounded-full flex items-center justify-center gap-2 shadow-xs"
                   >
-                    <MessageSquare className="h-4 w-4" /> Chat with Studio on WhatsApp
+                    <MessageSquare className="h-4 w-4" /> {!isStudioPortalEnabled() || !isDeliveryPortalEnabled() ? "Chat with Support on WhatsApp" : "Chat with Studio on WhatsApp"}
                   </a>
                   <Button 
                     variant="outline" 

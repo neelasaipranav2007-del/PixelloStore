@@ -271,18 +271,26 @@ model Coupon {
 }
 
 enum OrderStatus {
+  ORDER_PLACED
   PLACED
+  PAYMENT_CONFIRMED
+  ORDER_CONFIRMED
   ASSIGNED_STUDIO
   ACCEPTED_BY_STUDIO
   DESIGNING
+  IN_PRODUCTION
   PRINTING
   FRAMING
   QUALITY_CHECK
+  READY_FOR_DELIVERY
   READY_FOR_PICKUP
+  DELIVERY_ASSIGNED
   ASSIGNED_DELIVERY
   PICKED_UP
+  IN_TRANSIT
   OUT_FOR_DELIVERY
   DELIVERED
+  COMPLETED
   CANCELLED
   REPLACEMENT_REQUESTED
   REFUND_REQUESTED
@@ -309,7 +317,7 @@ model Order {
   commissionEarned    Float?          @default(0.0)
   
   totalAmount         Float
-  status              OrderStatus     @default(PLACED)
+  status              OrderStatus     @default(ORDER_PLACED)
   shippingAddress     String
   deliveryType        String?         @default("Shipping") // "Direct Delivery" or "Shipping"
   
@@ -348,17 +356,43 @@ model OrderItem {
 }
 
 model DeliveryInfo {
-  id                String          @id @default(cuid())
-  orderId           String          @unique
-  order             Order           @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  id                  String          @id @default(cuid())
+  orderId             String          @unique
+  order               Order           @relation(fields: [orderId], references: [id], onDelete: Cascade)
   
-  deliveryProfileId String?
-  deliveryProfile   DeliveryProfile? @relation(fields: [deliveryProfileId], references: [id])
+  deliveryProfileId   String?
+  deliveryProfile     DeliveryProfile? @relation(fields: [deliveryProfileId], references: [id])
   
   deliveryPartnerName String?
+  deliveryStatus      String?         // Operational status from Delhivery/Delivery System
+  deliveryProvider    String?         @default("Delhivery")
+  deliveryId          String?
+  trackingId          String?
+  awbNumber           String?
+  shipmentId          String?
+  estimatedDeliveryDate DateTime?
+  shippedAt           DateTime?
+  outForDeliveryAt    DateTime?
+  deliveredAt         DateTime?
   pickupTime          DateTime?
   deliveryTime        DateTime?
   trackingUrl         String?
+  notes               String?
+
+  // Legacy fields preserved for backward compatibility
+  currentStatus       String?
+  deliveryAddress     String?
+  estimatedDelivery   String?
+  labelUrl            String?
+  lastSyncedAt        DateTime?
+  pickupLocation      String?
+  pickupStatus        String?
+  trackingEvents      String?
+  trackingStatus      String?
+  waybill             String?
+
+  createdAt           DateTime        @default(now())
+  updatedAt           DateTime        @default(now()) @updatedAt
 }
 
 model Commission {

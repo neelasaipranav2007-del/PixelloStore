@@ -65,6 +65,17 @@ export interface Order {
   pickupTime?: string | null;
   deliveryTime?: string | null;
   deliveryType?: "Direct Delivery" | "Shipping";
+  deliveryInfo?: {
+    deliveryProvider?: string;
+    deliveryPartnerName?: string;
+    trackingId?: string | null;
+    awbNumber?: string | null;
+    estimatedDeliveryDate?: string | null;
+    shippedAt?: string | null;
+    outForDeliveryAt?: string | null;
+    deliveredAt?: string | null;
+    trackingUrl?: string | null;
+  };
   history?: OrderStatusHistoryItem[];
 }
 

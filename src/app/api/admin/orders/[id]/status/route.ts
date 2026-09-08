@@ -23,7 +23,16 @@ export async function PATCH(
     const { id: rawOrderId } = await params;
     const orderId = decodeURIComponent(rawOrderId);
     const body = await req.json();
-    const { status, note, deliveryPartnerName } = body;
+    const { 
+      status, 
+      note, 
+      deliveryPartnerName, 
+      deliveryProvider, 
+      trackingId, 
+      awbNumber, 
+      estimatedDeliveryDate, 
+      trackingUrl 
+    } = body;
 
     if (!status) {
       return NextResponse.json(
@@ -34,7 +43,7 @@ export async function PATCH(
 
     const dbStatus = mapUiStatusToDb(status);
 
-    if (!isDeliveryPortalEnabled() && (dbStatus === "ASSIGNED_DELIVERY" || dbStatus === "OUT_FOR_DELIVERY" || dbStatus === "PICKED_UP")) {
+    if (!isDeliveryPortalEnabled() && (dbStatus === "DELIVERY_ASSIGNED" || dbStatus === "ASSIGNED_DELIVERY" || dbStatus === "OUT_FOR_DELIVERY" || dbStatus === "PICKED_UP" || dbStatus === "IN_TRANSIT")) {
       return NextResponse.json(
         { success: false, error: "Delivery operations are temporarily closed." },
         { status: 400 }
@@ -80,24 +89,33 @@ export async function PATCH(
         },
       });
 
-      // 4. Update Delivery partner assignment if applicable
-      const riderName = deliveryPartnerName || "Ramesh Kumar";
-      if (dbStatus === "PICKED_UP" || dbStatus === "OUT_FOR_DELIVERY" || dbStatus === "DELIVERED") {
-        await tx.deliveryInfo.upsert({
-          where: { orderId: order.id },
-          update: {
-            deliveryPartnerName: riderName,
-            ...(dbStatus === "PICKED_UP" ? { pickupTime: new Date() } : {}),
-            ...(dbStatus === "DELIVERED" ? { deliveryTime: new Date() } : {}),
-          },
-          create: {
-            orderId: order.id,
-            deliveryPartnerName: riderName,
-            ...(dbStatus === "PICKED_UP" ? { pickupTime: new Date() } : {}),
-            ...(dbStatus === "DELIVERED" ? { deliveryTime: new Date() } : {}),
-          },
-        });
-      }
+      // 4. Update DeliveryInfo in Prisma
+      const provider = deliveryProvider || deliveryPartnerName || "Delhivery";
+      const awb = awbNumber || trackingId || null;
+      const trackId = trackingId || awbNumber || null;
+      const estDate = estimatedDeliveryDate ? new Date(estimatedDeliveryDate) : null;
+      const now = new Date();
+
+      const deliveryUpdatePayload: Record<string, unknown> = {
+        deliveryPartnerName: provider,
+        deliveryProvider: provider,
+        ...(awb ? { awbNumber: awb, waybill: awb } : {}),
+        ...(trackId ? { trackingId: trackId } : {}),
+        ...(estDate ? { estimatedDeliveryDate: estDate } : {}),
+        ...(trackingUrl ? { trackingUrl } : (awb ? { trackingUrl: `https://www.delhivery.com/track/package/${awb}` } : {})),
+        ...(dbStatus === "PICKED_UP" || dbStatus === "IN_TRANSIT" || dbStatus === "DELIVERY_ASSIGNED" ? { shippedAt: now, pickupTime: now } : {}),
+        ...(dbStatus === "OUT_FOR_DELIVERY" ? { outForDeliveryAt: now } : {}),
+        ...(dbStatus === "DELIVERED" || dbStatus === "COMPLETED" ? { deliveredAt: now, deliveryTime: now } : {}),
+      };
+
+      await tx.deliveryInfo.upsert({
+        where: { orderId: order.id },
+        update: deliveryUpdatePayload,
+        create: {
+          orderId: order.id,
+          ...deliveryUpdatePayload,
+        },
+      });
 
       return order;
     });
@@ -114,8 +132,9 @@ export async function PATCH(
     portalEvents.emit("order_update", { action: "STATUS_UPDATE", orderId: updatedOrder.id, status: dbStatus });
 
     return NextResponse.json({ success: true, order: updatedOrder });
-  } catch (error: any) {
-    console.error("Admin order status update error:", error);
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+  } catch (error: unknown) {
+    const err = error as Error;
+    console.error("Admin order status update error:", err);
+    return NextResponse.json({ success: false, error: err.message }, { status: 500 });
   }
 }

@@ -8,13 +8,12 @@
  */
 
 export function isDeliveryPortalEnabled(): boolean {
-  // Read server or client environment variable
-  const serverFlag = process.env.DELIVERY_PORTAL_ENABLED;
   const publicFlag = process.env.NEXT_PUBLIC_DELIVERY_PORTAL_ENABLED;
+  const serverFlag = process.env.DELIVERY_PORTAL_ENABLED;
 
-  const val = serverFlag ?? publicFlag;
+  const val = (publicFlag && publicFlag.trim() !== "") ? publicFlag : serverFlag;
 
-  if (val !== undefined && String(val).trim().toLowerCase() === "false") {
+  if (val !== undefined && val !== null && String(val).trim().toLowerCase() === "false") {
     return false;
   }
 

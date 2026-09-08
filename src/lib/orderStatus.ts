@@ -4,10 +4,11 @@ import { OrderStatus } from "@prisma/client";
  * Maps database enum status to human-readable UI label
  */
 export function mapDbStatusToUi(dbStatus?: string | null): string {
-  if (!dbStatus) return "Processing";
+  if (!dbStatus) return "Order Placed";
   const s = dbStatus.trim().toUpperCase();
 
   switch (s) {
+    case "COMPLETED":
     case "DELIVERED":
       return "Delivered";
     case "CANCELLED":
@@ -16,31 +17,35 @@ export function mapDbStatusToUi(dbStatus?: string | null): string {
     case "OUT_FOR_DELIVERY":
     case "OUT FOR DELIVERY":
       return "Out for Delivery";
+    case "IN_TRANSIT":
+    case "IN TRANSIT":
+      return "In Transit";
     case "PICKED_UP":
     case "DELIVERY_PICKED_UP":
     case "DELIVERY PICKED UP":
-      return "Delivery Picked Up";
-    case "DELIVERY_ON_HOLD":
-    case "DELIVERY ON HOLD":
-      return "Delivery On Hold";
+      return "Picked Up";
+    case "DELIVERY_ASSIGNED":
     case "ASSIGNED_DELIVERY":
+      return "Delivery Assigned";
+    case "READY_FOR_DELIVERY":
     case "READY_FOR_PICKUP":
     case "READY FOR PICKUP":
+    case "READY FOR DELIVERY":
       return "Ready for Delivery";
+    case "IN_PRODUCTION":
     case "QUALITY_CHECK":
     case "PACKED":
-      return "Packed";
     case "FRAMING":
-      return "Framing";
     case "PRINTING":
-      return "Printing";
     case "DESIGNING":
-      return "Designing";
+      return "In Production";
+    case "ORDER_CONFIRMED":
     case "ACCEPTED_BY_STUDIO":
     case "STUDIO_ACCEPTED":
-      return "Studio Accepted";
     case "ASSIGNED_STUDIO":
-      return "Studio Assigned";
+      return "Order Confirmed";
+    case "PAYMENT_CONFIRMED":
+      return "Payment Confirmed";
     case "REPLACEMENT_REQUESTED":
     case "REPLACEMENT REQUESTED":
     case "REPLACEMENT":
@@ -49,11 +54,10 @@ export function mapDbStatusToUi(dbStatus?: string | null): string {
       return "Refunded";
     case "REFUND_REQUESTED":
       return "Refund Requested";
-    case "OUT_OF_STOCK":
-      return "Out of Stock (Refill Pending)";
+    case "ORDER_PLACED":
     case "PLACED":
     default:
-      return "Processing";
+      return "Order Placed";
   }
 }
 
@@ -61,57 +65,54 @@ export function mapDbStatusToUi(dbStatus?: string | null): string {
  * Maps UI label to Prisma OrderStatus enum
  */
 export function mapUiStatusToDb(uiStatus?: string | null): OrderStatus {
-  if (!uiStatus) return "PLACED";
-  const s = uiStatus.trim().toUpperCase();
+  if (!uiStatus) return "ORDER_PLACED";
+  const s = uiStatus.trim().toUpperCase().replace(/\s+/g, "_");
 
   switch (s) {
+    case "COMPLETED":
+      return "COMPLETED";
     case "DELIVERED":
       return "DELIVERED";
     case "CANCELLED":
     case "CANCELED":
       return "CANCELLED";
     case "OUT_FOR_DELIVERY":
-    case "OUT FOR DELIVERY":
       return "OUT_FOR_DELIVERY";
+    case "IN_TRANSIT":
+      return "IN_TRANSIT";
     case "PICKED_UP":
-    case "DELIVERY PICKED UP":
     case "DELIVERY_PICKED_UP":
       return "PICKED_UP";
-    case "READY FOR PICKUP":
-    case "READY_FOR_PICKUP":
-    case "READY FOR DELIVERY":
-    case "READY_FOR_DELIVERY":
-      return "READY_FOR_PICKUP";
+    case "DELIVERY_ASSIGNED":
     case "ASSIGNED_DELIVERY":
-      return "ASSIGNED_DELIVERY";
+      return "DELIVERY_ASSIGNED";
+    case "READY_FOR_DELIVERY":
+    case "READY_FOR_PICKUP":
+      return "READY_FOR_DELIVERY";
+    case "IN_PRODUCTION":
     case "QUALITY_CHECK":
-    case "QUALITY CHECK":
     case "PACKED":
-      return "QUALITY_CHECK";
     case "FRAMING":
-      return "FRAMING";
     case "PRINTING":
-      return "PRINTING";
     case "DESIGNING":
-      return "DESIGNING";
+      return "IN_PRODUCTION";
+    case "ORDER_CONFIRMED":
     case "ACCEPTED_BY_STUDIO":
-    case "STUDIO ACCEPTED":
     case "STUDIO_ACCEPTED":
-      return "ACCEPTED_BY_STUDIO";
     case "ASSIGNED_STUDIO":
-    case "STUDIO ASSIGNED":
-      return "ASSIGNED_STUDIO";
+      return "ORDER_CONFIRMED";
+    case "PAYMENT_CONFIRMED":
+      return "PAYMENT_CONFIRMED";
     case "REPLACEMENT":
-    case "REPLACEMENT REQUESTED":
     case "REPLACEMENT_REQUESTED":
       return "REPLACEMENT_REQUESTED";
     case "REFUNDED":
       return "REFUNDED";
     case "REFUND_REQUESTED":
       return "REFUND_REQUESTED";
-    case "PROCESSING":
+    case "ORDER_PLACED":
     case "PLACED":
     default:
-      return "PLACED";
+      return "ORDER_PLACED";
   }
 }
