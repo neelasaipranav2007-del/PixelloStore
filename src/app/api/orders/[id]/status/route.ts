@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { portalEvents } from "@/lib/events";
 import { mapUiStatusToDb } from "@/lib/orderStatus";
+import { isDeliveryPortalEnabled } from "@/lib/deliveryConfig";
 
 export const dynamic = "force-dynamic";
 
@@ -23,6 +24,13 @@ export async function PATCH(
     }
 
     const dbStatus = mapUiStatusToDb(status);
+
+    if (!isDeliveryPortalEnabled() && (dbStatus === "ASSIGNED_DELIVERY" || dbStatus === "OUT_FOR_DELIVERY" || dbStatus === "PICKED_UP")) {
+      return NextResponse.json(
+        { success: false, error: "Delivery operations are temporarily closed." },
+        { status: 400 }
+      );
+    }
 
     const updatedOrder = await prisma.$transaction(async (tx) => {
       // 1. Find Order by exact ID or flexible match
@@ -96,20 +104,25 @@ export async function PATCH(
         adminMsg = `Order #${order.id} is now ${status.toLowerCase().replace(/_/g, " ")}.`;
       } else if (dbStatus === "READY_FOR_PICKUP") {
         statusTitle = "Ready for Pickup";
-        customerMsg = `Order #${order.id} is handcrafted & packed, waiting for delivery pickup.`;
-        adminMsg = `Order #${order.id} is ready for pickup at studio.`;
+        if (isDeliveryPortalEnabled()) {
+          customerMsg = `Order #${order.id} is handcrafted & packed, waiting for delivery pickup.`;
+          adminMsg = `Order #${order.id} is ready for pickup at studio.`;
 
-        // Notify Delivery Rider
-        await tx.notification.create({
-          data: {
-            role: "DELIVERY",
-            type: "PICKUP_AVAILABLE",
-            title: "Pickup Available",
-            message: `Order #${order.id} is ready for pickup at Studio.`,
-            referenceType: "ORDER",
-            referenceId: order.id,
-          },
-        });
+          // Notify Delivery Rider
+          await tx.notification.create({
+            data: {
+              role: "DELIVERY",
+              type: "PICKUP_AVAILABLE",
+              title: "Pickup Available",
+              message: `Order #${order.id} is ready for pickup at Studio.`,
+              referenceType: "ORDER",
+              referenceId: order.id,
+            },
+          });
+        } else {
+          customerMsg = `Order #${order.id} is handcrafted & ready. Delivery operations are currently paused and delivery will resume once operations reopen.`;
+          adminMsg = `Order #${order.id} is ready for pickup (Delivery operations temporarily closed).`;
+        }
       } else if (dbStatus === "OUT_FOR_DELIVERY" || dbStatus === "PICKED_UP") {
         statusTitle = "Out for Delivery";
         customerMsg = `Order #${order.id} is on the way with delivery partner Ramesh Kumar! 🚀`;

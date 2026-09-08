@@ -1,10 +1,22 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { mapDbStatusToUi } from "@/lib/orderStatus";
+import { isDeliveryPortalEnabled } from "@/lib/deliveryConfig";
 
 export const dynamic = "force-dynamic";
 
 export async function GET() {
+  if (!isDeliveryPortalEnabled()) {
+    return NextResponse.json(
+      { 
+        success: false, 
+        error: "Delivery operations are temporarily closed.",
+        closed: true
+      },
+      { status: 503 }
+    );
+  }
+
   try {
     const orders = await prisma.order.findMany({
       include: {

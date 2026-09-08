@@ -1,5 +1,6 @@
-﻿import { prisma } from "@/lib/db";
+import { prisma } from "@/lib/db";
 import { portalEvents } from "@/lib/events";
+import { isDeliveryPortalEnabled } from "@/lib/deliveryConfig";
 
 export interface CreateNotificationParams {
   role: "ADMIN" | "STUDIO" | "DELIVERY" | "CUSTOMER" | "AMBASSADOR";
@@ -16,6 +17,11 @@ export interface CreateNotificationParams {
  */
 export async function createDatabaseNotification(params: CreateNotificationParams) {
   try {
+    // Suppress DELIVERY notifications while delivery operations are temporarily closed
+    if (params.role === "DELIVERY" && !isDeliveryPortalEnabled()) {
+      return null;
+    }
+
     const notification = await prisma.notification.create({
       data: {
         role: params.role,

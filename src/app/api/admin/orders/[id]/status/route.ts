@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { portalEvents } from "@/lib/events";
 import { getAuthenticatedAdmin } from "@/lib/session";
 import { mapUiStatusToDb } from "@/lib/orderStatus";
+import { isDeliveryPortalEnabled } from "@/lib/deliveryConfig";
 
 export const dynamic = "force-dynamic";
 
@@ -32,6 +33,13 @@ export async function PATCH(
     }
 
     const dbStatus = mapUiStatusToDb(status);
+
+    if (!isDeliveryPortalEnabled() && (dbStatus === "ASSIGNED_DELIVERY" || dbStatus === "OUT_FOR_DELIVERY" || dbStatus === "PICKED_UP")) {
+      return NextResponse.json(
+        { success: false, error: "Delivery operations are temporarily closed." },
+        { status: 400 }
+      );
+    }
 
     const updatedOrder = await prisma.$transaction(async (tx) => {
       // 1. Find Order by exact ID or case-insensitive match

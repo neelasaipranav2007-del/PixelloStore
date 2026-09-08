@@ -15,6 +15,7 @@ import { useOrders } from "@/context/OrderContext";
 import { useWishlist } from "@/context/WishlistContext";
 import { useSearchParams } from "next/navigation";
 import { usePixelloTransition } from "@/components/customer/PixelloPageTransition";
+import { isDeliveryPortalEnabled } from "@/lib/deliveryConfig";
 
 function ProfileContent() {
   const { startTransitionTo } = usePixelloTransition();
@@ -1627,6 +1628,19 @@ function ProfileContent() {
                 <p className="text-xs text-[#6C5C54] mb-5 font-medium flex items-center gap-1.5">
                   <Clock className="h-3.5 w-3.5 text-[#D89A86]" /> Status: <strong className="text-emerald-700 font-bold">{trackOrderObj?.status || "Processing"} ⚡</strong>
                 </p>
+
+                {/* Reassurance Banner when Delivery Operations are Temporarily Closed */}
+                {!isDeliveryPortalEnabled() && (rawStatus === "READY_FOR_PICKUP" || rawStatus === "READY FOR DELIVERY" || rawStatus === "QUALITY_CHECK" || rawStatus === "PACKED") && (
+                  <div className="p-4 bg-amber-50 border border-amber-200 rounded-2xl flex items-start gap-3 text-left mb-5 shadow-2xs">
+                    <Clock className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
+                    <div className="text-xs">
+                      <span className="font-bold text-amber-900 block text-sm">Delivery Temporarily Unavailable</span>
+                      <span className="text-amber-800 font-medium leading-relaxed block mt-0.5">
+                        Your order has been received and is currently waiting for delivery operations to resume. Your order and information are completely safe.
+                      </span>
+                    </div>
+                  </div>
+                )}
 
                 {/* Studio Progress Bar */}
                 <div className="bg-[#FFF8F2] border border-[#EFE6DD] rounded-2xl p-4 mb-6">

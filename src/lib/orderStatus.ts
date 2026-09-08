@@ -20,6 +20,9 @@ export function mapDbStatusToUi(dbStatus?: string | null): string {
     case "DELIVERY_PICKED_UP":
     case "DELIVERY PICKED UP":
       return "Delivery Picked Up";
+    case "DELIVERY_ON_HOLD":
+    case "DELIVERY ON HOLD":
+      return "Delivery On Hold";
     case "ASSIGNED_DELIVERY":
     case "READY_FOR_PICKUP":
     case "READY FOR PICKUP":

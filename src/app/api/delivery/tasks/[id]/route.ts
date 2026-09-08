@@ -2,8 +2,20 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { portalEvents } from "@/lib/events";
 import { OrderStatus } from "@prisma/client";
+import { isDeliveryPortalEnabled } from "@/lib/deliveryConfig";
 
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
+  if (!isDeliveryPortalEnabled()) {
+    return NextResponse.json(
+      { 
+        success: false, 
+        error: "Delivery operations are temporarily closed.",
+        closed: true 
+      },
+      { status: 403 }
+    );
+  }
+
   try {
     const { id } = await params;
     const body = await req.json();

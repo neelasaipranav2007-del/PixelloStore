@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
+import { isDeliveryPortalEnabled } from "@/lib/deliveryConfig";
 import { 
   useMobileNotifications, 
   MobileNotificationToast, 
@@ -42,6 +43,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const router = useRouter();
   const pathname = usePathname();
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
+  const isDeliveryEnabled = isDeliveryPortalEnabled();
   
   // Real Database Notifications System for Admin Portal
   const {
@@ -371,6 +373,22 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
           </div>
         </header>
+
+        {/* Delivery Operations Closed Admin Alert Banner */}
+        {!isDeliveryEnabled && (
+          <div className="bg-amber-500 text-white px-6 py-2.5 flex items-center justify-between shadow-xs border-b border-amber-600 text-xs font-bold shrink-0">
+            <div className="flex items-center gap-2">
+              <Truck className="h-4 w-4" />
+              <span>DELIVERY OPERATIONS TEMPORARILY CLOSED</span>
+              <span className="opacity-90 font-normal ml-2 hidden sm:inline">
+                (New delivery assignments are paused. Delivery Portal is blocked for riders.)
+              </span>
+            </div>
+            <span className="bg-amber-700 text-white text-[10px] uppercase tracking-wider px-2.5 py-0.5 rounded-full font-black">
+              FLAG: DELIVERY_PORTAL_ENABLED=false
+            </span>
+          </div>
+        )}
 
         {/* Scrollable Page Body */}
         <div className="flex-1 overflow-y-auto overflow-x-hidden min-w-0 w-full">{children}</div>

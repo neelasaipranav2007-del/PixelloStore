@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useOrders, OrderStatus, Order } from "@/context/OrderContext";
 import { OrderStatusBadge } from "@/components/ui/status-badge";
+import { isDeliveryPortalEnabled } from "@/lib/deliveryConfig";
 import { ChevronDown, Search, X, Eye, Download, FileText, Image as ImageIcon, MessageCircle, Upload, Package, Check, Paperclip, Truck, Bike, Gift, User, Phone, Store, Calendar, MapPin, RefreshCw, FileSpreadsheet } from "lucide-react";
 
 const STATUS_CONFIG: Record<string, { label: string; symbol: string; badgeClass: string; dotClass: string; itemBgClass: string }> = {
@@ -205,6 +206,11 @@ export default function AdminOrdersPage() {
   };
 
   const handleStatusChange = (orderId: string, newStatus: OrderStatus) => {
+    if (!isDeliveryPortalEnabled() && (newStatus === "Out for Delivery" || newStatus === "Delivery Picked Up" || newStatus === "Ready for Delivery")) {
+      alert("⚠️ Delivery operations are temporarily closed. New delivery assignments cannot be created at this time.");
+      return;
+    }
+
     const order = orders.find(o => o.id === orderId);
     const isRep = order?.status === "Replacement Requested" || (order?.history && order.history.some((h: any) => h.status === "Replacement Requested" || (h.note && h.note.includes("Replacement"))));
     
