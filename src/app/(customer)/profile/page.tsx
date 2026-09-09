@@ -2,7 +2,7 @@
 
 import { useState, useEffect, Suspense } from "react";
 import Link from "next/link";
-import { User, Package, MapPin, Heart, Settings, LogOut, ShieldCheck, Check, Plus, Edit2, Key, Bell, CreditCard, ExternalLink, Download, Eye, EyeOff, CheckCircle2, Truck, Sparkles, Clock, PhoneCall, MessageSquare, FileText, Image as ImageIcon, X, Ticket, RefreshCw, Star, Upload, AlertTriangle, CheckCircle, MessageSquareQuote } from "lucide-react";
+import { User, Package, MapPin, Heart, Settings, LogOut, ShieldCheck, Check, Plus, Edit2, Key, Bell, CreditCard, ExternalLink, Download, Eye, EyeOff, CheckCircle2, Truck, Sparkles, Clock, PhoneCall, MessageSquare, FileText, Image as ImageIcon, X, Ticket, RefreshCw, Star, Upload, AlertTriangle, CheckCircle, MessageSquareQuote, Copy, PackageCheck, ShoppingBag, Lock } from "lucide-react";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -1504,7 +1504,7 @@ function ProfileContent() {
         </div>
       </div>
 
-      {/* DYNAMIC 5-STAGE TRACK ORDER MODAL */}
+      {/* NEW LUXURY MULTI-TAB ORDER TRACKER MODAL MODEL */}
       {trackingOrder && (
         (() => {
           const trackOrderObj = orders.find(o => o.id === trackingOrder);
@@ -1617,183 +1617,15 @@ function ProfileContent() {
           ];
 
           return (
-            <div 
-              className="fixed inset-0 top-0 left-0 w-screen h-screen z-[9999] bg-black/80 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in"
-              onClick={() => setTrackingOrder(null)}
-            >
-              <div 
-                className="bg-white border border-[#EFE6DD] rounded-3xl p-6 md:p-8 max-w-lg w-full shadow-2xl relative animate-in zoom-in-95 my-auto overflow-hidden text-left"
-                onClick={e => e.stopPropagation()}
-              >
-                <button 
-                  onClick={() => setTrackingOrder(null)}
-                  className="absolute top-5 right-5 h-9 w-9 rounded-full bg-[#FFF8F2] hover:bg-[#F2C8B5]/30 text-[#3A2B24] flex items-center justify-center font-bold text-base transition-colors"
-                >
-                  ✕
-                </button>
-
-                <div className="flex items-center gap-2 mb-2 flex-wrap">
-                  <Badge className="bg-[#D89A86] text-white border-none font-bold text-[10px] uppercase tracking-wider px-2.5 py-0.5 rounded-full">
-                    {isReplacementTrack ? "🔄 Replacement Express Tracker" : "🚀 Hyper-Local Express Tracker"}
-                  </Badge>
-                  <Badge className="bg-emerald-100 text-emerald-800 border-none font-bold text-[10px] px-2.5 py-0.5 rounded-full flex items-center gap-1">
-                    <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" /> LIVE STATUS: {trackOrderObj?.status || "Processing"}
-                  </Badge>
-                </div>
-
-                <h3 className="font-serif-brand text-2xl font-bold text-[#3A2B24] mb-1">
-                  Tracking Order #{trackingOrder}
-                </h3>
-                <p className="text-xs text-[#6C5C54] mb-5 font-medium flex items-center gap-1.5">
-                  <Clock className="h-3.5 w-3.5 text-[#D89A86]" /> Status: <strong className="text-emerald-700 font-bold">{trackOrderObj?.status || "Processing"} ⚡</strong>
-                </p>
-
-                {/* Reassurance Banner when Studio or Delivery Operations are Temporarily Closed */}
-                {(!isStudioPortalEnabled() || !isDeliveryPortalEnabled()) && (
-                  <div className="p-4 bg-amber-50 border border-amber-200 rounded-2xl flex items-start gap-3 text-left mb-5 shadow-2xs">
-                    <Clock className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
-                    <div className="text-xs">
-                      <span className="font-bold text-amber-900 block text-sm">
-                        {!isStudioPortalEnabled() && !isDeliveryPortalEnabled() 
-                          ? "Studio & Delivery Operations Paused" 
-                          : (!isStudioPortalEnabled() ? "Studio Operations Temporarily Paused" : "Delivery Temporarily Unavailable")}
-                      </span>
-                      <span className="text-amber-800 font-medium leading-relaxed block mt-0.5">
-                        {!isStudioPortalEnabled() && !isDeliveryPortalEnabled()
-                          ? "Studio crafting and doorstep delivery operations are currently paused while system updates are underway. Your order, photos, and payment are 100% safe."
-                          : (!isStudioPortalEnabled() 
-                            ? "Studio photo crafting operations are currently paused. Your order is confirmed and safely queued." 
-                            : "Your order has been received and is currently waiting for delivery operations to resume. Your order and information are completely safe.")}
-                      </span>
-                    </div>
-                  </div>
-                )}
-
-                {/* Studio Progress Bar */}
-                <div className="bg-[#FFF8F2] border border-[#EFE6DD] rounded-2xl p-4 mb-6">
-                  <div className="flex justify-between items-center text-xs font-bold text-[#3A2B24] mb-2">
-                    <span>{isReplacementTrack ? "Replacement Progress" : "Fulfillment Progress"}</span>
-                    <span className="text-[#D89A86] font-extrabold">{progressPercent}% Completed</span>
-                  </div>
-                  <div className="w-full bg-[#EFE6DD] rounded-full h-2 overflow-hidden">
-                    <div className="bg-[#D89A86] h-full rounded-full transition-all duration-500" style={{ width: `${progressPercent}%` }} />
-                  </div>
-                </div>
-
-                {/* Multi-Step Timeline */}
-                <div className="relative pl-6 space-y-6 before:absolute before:left-3 before:top-2 before:bottom-2 before:w-0.5 before:bg-[#EFE6DD] mb-6">
-                  {steps.map((stObj, sIdx) => {
-                    const isDone = sIdx < currentStepIdx || (currentStepIdx === steps.length - 1 && sIdx === steps.length - 1);
-                    const isActive = sIdx === currentStepIdx && currentStepIdx < steps.length - 1;
-                    const isPending = sIdx > currentStepIdx;
-
-                    return (
-                      <div key={sIdx} className={`relative transition-all ${isPending ? "opacity-45" : "opacity-100"}`}>
-                        <div className={`absolute -left-[30px] top-0 h-6 w-6 rounded-full flex items-center justify-center shadow-xs text-white ${
-                          isDone ? "bg-emerald-500" : (isActive ? "bg-[#D89A86] animate-pulse" : "bg-[#EFE6DD] text-[#6C5C54]")
-                        }`}>
-                          {isDone ? <Check className="h-3.5 w-3.5 stroke-[3]" /> : (isActive ? <Sparkles className="h-3.5 w-3.5" /> : <span className="text-[10px] font-bold">{sIdx + 1}</span>)}
-                        </div>
-                        <div className="flex justify-between items-start">
-                          <h4 className={`font-bold text-sm ${isActive ? "text-[#D89A86]" : (isDone ? "text-[#3A2B24]" : "text-[#6C5C54]")}`}>
-                            {stObj.title}
-                          </h4>
-                          {isActive && (
-                            <span className="text-[10px] text-white bg-[#D89A86] font-bold px-2 py-0.5 rounded-full shadow-2xs">ACTIVE NOW</span>
-                          )}
-                          {isDone && (
-                            <span className="text-[10px] text-emerald-800 bg-emerald-100 font-bold px-2 py-0.5 rounded-full">DONE</span>
-                          )}
-                        </div>
-                        <p className="text-xs text-[#6C5C54] mt-0.5 font-medium">{stObj.desc}</p>
-                      </div>
-                    );
-                  })}
-                </div>
-
-                {/* SAFE CUSTOMER DELIVERY INFORMATION CARD */}
-                {(() => {
-                  const delInfo = trackOrderObj?.deliveryInfo || {};
-                  const providerName = delInfo.deliveryProvider || delInfo.deliveryPartnerName || trackOrderObj?.deliveryPartner || "Delhivery";
-                  const awbNo = delInfo.awbNumber || delInfo.trackingId || trackOrderObj?.waybill || null;
-                  const estDate = delInfo.estimatedDeliveryDate || null;
-                  const trackUrl = delInfo.trackingUrl || (awbNo ? `https://www.delhivery.com/track/package/${awbNo}` : null);
-
-                  return (
-                    <div className="bg-[#FFF8F2] border border-[#EFE6DD] rounded-2xl p-4 mb-6 text-left shadow-2xs">
-                      <div className="flex items-center justify-between mb-2">
-                        <div className="flex items-center gap-2">
-                          <Truck className="h-4 w-4 text-[#D89A86]" />
-                          <span className="text-xs font-bold text-[#3A2B24] uppercase tracking-wider">
-                            Delivery Information
-                          </span>
-                        </div>
-                        <Badge className="bg-emerald-100 text-emerald-800 text-[10px] font-bold border-none px-2 py-0.5 rounded-full">
-                          {providerName} Verified
-                        </Badge>
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-3 text-xs mb-3">
-                        <div>
-                          <span className="text-[#6C5C54] block text-[11px]">Delivery Partner</span>
-                          <span className="font-bold text-[#3A2B24]">{providerName}</span>
-                        </div>
-                        <div>
-                          <span className="text-[#6C5C54] block text-[11px]">Tracking ID / AWB</span>
-                          <span className="font-mono font-bold text-[#3A2B24]">{awbNo || "Assigned on Dispatch"}</span>
-                        </div>
-                        {estDate ? (
-                          <div className="col-span-2">
-                            <span className="text-[#6C5C54] block text-[11px]">Estimated Delivery</span>
-                            <span className="font-bold text-emerald-800">{estDate}</span>
-                          </div>
-                        ) : (
-                          <div className="col-span-2">
-                            <span className="text-[#6C5C54] block text-[11px]">Estimated Delivery</span>
-                            <span className="font-medium text-[#6C5C54] italic text-[11px]">To be assigned by Admin</span>
-                          </div>
-                        )}
-                      </div>
-
-                      {trackUrl ? (
-                        <a
-                          href={trackUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="w-full bg-[#3A2B24] hover:bg-[#2E201A] text-white text-xs font-bold h-9 rounded-xl flex items-center justify-center gap-2 shadow-xs transition-colors"
-                        >
-                          <ExternalLink className="h-3.5 w-3.5 text-[#D89A86]" />
-                          <span>Track Delivery on {providerName}</span>
-                        </a>
-                      ) : (
-                        <div className="text-[11px] text-[#6C5C54] italic text-center pt-1 border-t border-[#EFE6DD]">
-                          Live tracking link will be generated once courier pickup is completed.
-                        </div>
-                      )}
-                    </div>
-                  );
-                })()}
-
-                {/* Actions */}
-                <div className="flex flex-col sm:flex-row gap-3 pt-2">
-                  <a 
-                    href="https://wa.me/918074589949"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex-1 btn-pixello-primary text-xs font-bold h-11 rounded-full flex items-center justify-center gap-2 shadow-xs"
-                  >
-                    <MessageSquare className="h-4 w-4" /> {!isStudioPortalEnabled() || !isDeliveryPortalEnabled() ? "Chat with Support on WhatsApp" : "Chat with Studio on WhatsApp"}
-                  </a>
-                  <Button 
-                    variant="outline" 
-                    className="rounded-full border-[#EFE6DD] text-[#3A2B24] font-semibold text-xs h-11 px-6 hover:bg-[#FFF8F2]"
-                    onClick={() => setTrackingOrder(null)}
-                  >
-                    Close
-                  </Button>
-                </div>
-              </div>
-            </div>
+            <OrderTrackerModalContent 
+              trackingOrder={trackingOrder}
+              trackOrderObj={trackOrderObj}
+              isReplacementTrack={Boolean(isReplacementTrack)}
+              currentStepIdx={currentStepIdx}
+              progressPercent={progressPercent}
+              steps={steps}
+              onClose={() => setTrackingOrder(null)}
+            />
           );
         })()
       )}
@@ -3081,3 +2913,388 @@ export default function ProfilePage() {
     </Suspense>
   );
 }
+
+/* NEW UNIQUE PIXELLO LUXURY MULTI-TAB ORDER TRACKER MODAL COMPONENT */
+function OrderTrackerModalContent({
+  trackingOrder,
+  trackOrderObj,
+  isReplacementTrack,
+  currentStepIdx,
+  progressPercent,
+  steps,
+  onClose,
+}: {
+  trackingOrder: string;
+  trackOrderObj: any;
+  isReplacementTrack: boolean;
+  currentStepIdx: number;
+  progressPercent: number;
+  steps: { title: string; desc: string; time: string }[];
+  onClose: () => void;
+}) {
+  const [activeTab, setActiveTab] = useState<"TIMELINE" | "ITEMS" | "DELIVERY">("TIMELINE");
+  const [copied, setCopied] = useState(false);
+
+  const handleCopyOrder = () => {
+    if (typeof navigator !== "undefined" && navigator.clipboard) {
+      navigator.clipboard.writeText(trackingOrder);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  };
+
+  const delInfo = trackOrderObj?.deliveryInfo || {};
+  const providerName = delInfo.deliveryProvider || delInfo.deliveryPartnerName || trackOrderObj?.deliveryPartner || "Delhivery";
+  const awbNo = delInfo.awbNumber || delInfo.trackingId || trackOrderObj?.waybill || null;
+  const estDate = delInfo.estimatedDeliveryDate || null;
+  const trackUrl = delInfo.trackingUrl || (awbNo ? `https://www.delhivery.com/track/package/${awbNo}` : null);
+  const items = trackOrderObj?.items || [];
+
+  const studioPaused = !isStudioPortalEnabled();
+  const deliveryPaused = !isDeliveryPortalEnabled();
+  const opsPaused = studioPaused || deliveryPaused;
+
+  return (
+    <div 
+      className="fixed inset-0 z-[99999] bg-[#1A120C]/80 backdrop-blur-md flex items-center justify-center p-3 sm:p-5 animate-in fade-in duration-200"
+      onClick={onClose}
+    >
+      <div 
+        className="bg-[#FFFDFB] border border-[#EFE6DD] rounded-[32px] max-w-xl w-full shadow-2xl relative animate-in zoom-in-95 duration-200 my-auto overflow-hidden text-left flex flex-col max-h-[92vh]"
+        onClick={e => e.stopPropagation()}
+      >
+        {/* Pixello Luxury Header Card */}
+        <div className="bg-gradient-to-br from-[#2A1E17] via-[#3D2C23] to-[#1F1611] text-white p-6 sm:p-7 relative border-b border-[#4A382D] overflow-hidden">
+          {/* Ambient Glow */}
+          <div className="absolute -top-12 -right-12 w-44 h-44 bg-[#DF8673]/20 rounded-full blur-3xl pointer-events-none" />
+          <div className="absolute -bottom-10 -left-10 w-36 h-36 bg-amber-500/15 rounded-full blur-2xl pointer-events-none" />
+
+          <button 
+            type="button"
+            onClick={onClose}
+            className="absolute top-5 right-5 h-9 w-9 rounded-full bg-white/10 hover:bg-white/20 text-[#EFE6DD] flex items-center justify-center font-bold text-sm transition-all cursor-pointer z-10 hover:scale-105"
+          >
+            ✕
+          </button>
+
+          <div className="flex items-center gap-2 mb-3 flex-wrap relative z-10">
+            <Badge className="bg-gradient-to-r from-[#DF8673] to-[#C96E5B] text-white border-none font-extrabold text-[10px] uppercase tracking-wider px-3.5 py-1 rounded-full shadow-xs flex items-center gap-1.5">
+              <Sparkles className="h-3 w-3 text-amber-200" />
+              {isReplacementTrack ? "REPLACEMENT EXPRESS VAULT" : "PIXELLO MEMORY TRACKER"}
+            </Badge>
+            <Badge className="bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-bold text-[10px] px-3 py-1 rounded-full flex items-center gap-1.5 shadow-2xs backdrop-blur-xs">
+              <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
+              STATUS: {trackOrderObj?.status || "Processing"}
+            </Badge>
+          </div>
+
+          <div className="relative z-10">
+            <div className="flex items-center gap-2 flex-wrap">
+              <h3 className="font-serif-brand text-2xl sm:text-3xl font-black text-white tracking-tight">
+                Order #{trackingOrder}
+              </h3>
+              <button
+                type="button"
+                onClick={handleCopyOrder}
+                className="bg-white/10 hover:bg-white/20 text-white/90 px-2.5 py-1 rounded-lg text-xs font-semibold flex items-center gap-1 transition-all cursor-pointer hover:scale-105"
+                title="Copy Order ID"
+              >
+                {copied ? (
+                  <>
+                    <Check className="h-3.5 w-3.5 text-emerald-400" />
+                    <span className="text-emerald-400 text-[11px]">Copied</span>
+                  </>
+                ) : (
+                  <>
+                    <Copy className="h-3.5 w-3.5 text-amber-300" />
+                    <span className="text-[11px] text-amber-100">Copy</span>
+                  </>
+                )}
+              </button>
+            </div>
+            <p className="text-xs text-[#EFE6DD]/80 mt-1.5 font-medium flex items-center gap-2">
+              <Clock className="h-3.5 w-3.5 text-[#DF8673]" /> Current Phase: <strong className="text-amber-300 font-bold">{trackOrderObj?.status || "Processing"} ⚡</strong>
+            </p>
+          </div>
+        </div>
+
+        {/* Unique Pixello Segmented Pill Navigation */}
+        <div className="bg-[#FAF6F0] p-2 border-b border-[#EFE6DD]">
+          <div className="flex items-center justify-between bg-[#EFE6DD]/60 p-1 rounded-2xl gap-1">
+            <button
+              type="button"
+              onClick={() => setActiveTab("TIMELINE")}
+              className={`flex-1 py-2 px-3 rounded-xl text-xs font-extrabold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                activeTab === "TIMELINE"
+                  ? "bg-[#2A1E17] text-white shadow-md scale-[1.02]"
+                  : "text-[#6C5C54] hover:bg-white/80 hover:text-[#3A2B24]"
+              }`}
+            >
+              <Sparkles className={`h-3.5 w-3.5 ${activeTab === "TIMELINE" ? "text-[#DF8673]" : "text-[#8C7A70]"}`} />
+              <span>Timeline</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab("ITEMS")}
+              className={`flex-1 py-2 px-3 rounded-xl text-xs font-extrabold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                activeTab === "ITEMS"
+                  ? "bg-[#2A1E17] text-white shadow-md scale-[1.02]"
+                  : "text-[#6C5C54] hover:bg-white/80 hover:text-[#3A2B24]"
+              }`}
+            >
+              <PackageCheck className={`h-3.5 w-3.5 ${activeTab === "ITEMS" ? "text-[#DF8673]" : "text-[#8C7A70]"}`} />
+              <span>Items & Photos ({items.length})</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab("DELIVERY")}
+              className={`flex-1 py-2 px-3 rounded-xl text-xs font-extrabold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                activeTab === "DELIVERY"
+                  ? "bg-[#2A1E17] text-white shadow-md scale-[1.02]"
+                  : "text-[#6C5C54] hover:bg-white/80 hover:text-[#3A2B24]"
+              }`}
+            >
+              <Truck className={`h-3.5 w-3.5 ${activeTab === "DELIVERY" ? "text-[#DF8673]" : "text-[#8C7A70]"}`} />
+              <span>Express Delivery</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Modal Body */}
+        <div className="p-5 sm:p-6 flex-1 overflow-y-auto bg-[#FAF6F0] space-y-5">
+          {/* TAB 1: TIMELINE */}
+          {activeTab === "TIMELINE" && (
+            <div className="space-y-5">
+              {/* Unique Pixello System Status Safeguard Card */}
+              {opsPaused && (
+                <div className="bg-gradient-to-br from-amber-500/10 via-amber-500/5 to-orange-500/10 border-2 border-amber-400/40 rounded-2xl p-4 sm:p-5 text-left shadow-xs relative overflow-hidden">
+                  <div className="flex items-start gap-3.5">
+                    <div className="h-10 w-10 rounded-2xl bg-amber-500/20 text-amber-900 flex items-center justify-center flex-shrink-0 font-bold shadow-xs">
+                      <ShieldCheck className="h-5 w-5 text-amber-800" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between gap-2 flex-wrap mb-1">
+                        <h4 className="font-extrabold text-amber-950 text-sm tracking-tight flex items-center gap-2">
+                          {studioPaused && deliveryPaused 
+                            ? "Studio Crafting & Delivery Operations Paused" 
+                            : (studioPaused ? "Studio Operations Temporarily Paused" : "Delivery Fleet Temporarily Unavailable")}
+                        </h4>
+                        <span className="bg-amber-500/20 text-amber-900 border border-amber-400/50 text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full flex items-center gap-1">
+                          <Lock className="h-3 w-3" /> Safe In Vault
+                        </span>
+                      </div>
+                      <p className="text-xs text-amber-900/90 font-medium leading-relaxed">
+                        {studioPaused && deliveryPaused
+                          ? "Our photo crafting studios and local express delivery fleet are currently undergoing a scheduled system upgrade. Your custom memory photos, framing specifications, and payments are 100% safe in our vault."
+                          : (studioPaused 
+                            ? "Photo framing and crafting operations are currently paused for maintenance. Your order is safely queued in our studio vault." 
+                            : "Your order is prepared and safely stored while local express delivery fleet operations resume shortly.")}
+                      </p>
+
+                      {/* Interactive Safeguard Tags */}
+                      <div className="mt-3 pt-3 border-t border-amber-300/40 flex items-center gap-2 flex-wrap text-[11px] font-bold text-amber-950">
+                        <span className="bg-white/80 px-2.5 py-1 rounded-lg border border-amber-200 shadow-2xs flex items-center gap-1">
+                          📸 Photos Secured
+                        </span>
+                        <span className="bg-white/80 px-2.5 py-1 rounded-lg border border-amber-200 shadow-2xs flex items-center gap-1">
+                          🖼️ Frame Specs Saved
+                        </span>
+                        <span className="bg-white/80 px-2.5 py-1 rounded-lg border border-amber-200 shadow-2xs flex items-center gap-1">
+                          💳 Payment Safe
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Bespoke Progress Tracker */}
+              <div className="bg-white border border-[#EFE6DD] rounded-2xl p-4 sm:p-5 shadow-2xs relative overflow-hidden">
+                <div className="flex justify-between items-center text-xs font-bold text-[#3A2B24] mb-2.5">
+                  <div className="flex items-center gap-1.5">
+                    <span className="h-2 w-2 rounded-full bg-[#DF8673]" />
+                    <span className="uppercase tracking-wider text-[11px] text-[#6C5C54] font-extrabold">
+                      {isReplacementTrack ? "Replacement Vault Progress" : "Fulfillment Progress"}
+                    </span>
+                  </div>
+                  <span className="text-[#DF8673] font-black text-sm bg-[#FFF5EE] px-2.5 py-0.5 rounded-full border border-[#DF8673]/20">
+                    {progressPercent}% Completed
+                  </span>
+                </div>
+                <div className="w-full bg-[#EFE6DD]/80 rounded-full h-3 p-0.5 relative">
+                  <div 
+                    className="bg-gradient-to-r from-[#DF8673] via-[#E5A852] to-emerald-500 h-full rounded-full transition-all duration-500 relative" 
+                    style={{ width: `${progressPercent}%` }}
+                  >
+                    <div className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/2 h-4 w-4 bg-white rounded-full border-2 border-emerald-500 shadow-xs flex items-center justify-center">
+                      <div className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Multi-Step Timeline */}
+              <div className="relative pl-7 space-y-6 before:absolute before:left-3.5 before:top-3 before:bottom-3 before:w-0.5 before:bg-[#EFE6DD] bg-white border border-[#EFE6DD] rounded-3xl p-5 shadow-2xs">
+                {steps.map((stObj, sIdx) => {
+                  const isDone = sIdx < currentStepIdx || (currentStepIdx === steps.length - 1 && sIdx === steps.length - 1);
+                  const isActive = sIdx === currentStepIdx && currentStepIdx < steps.length - 1;
+                  const isPending = sIdx > currentStepIdx;
+
+                  return (
+                    <div key={sIdx} className={`relative transition-all ${isPending ? "opacity-50" : "opacity-100"}`}>
+                      <div className={`absolute -left-[35px] top-0.5 h-7 w-7 rounded-full flex items-center justify-center shadow-xs text-white transition-all ${
+                        isDone 
+                          ? "bg-emerald-500 ring-2 ring-emerald-100" 
+                          : (isActive ? "bg-[#DF8673] ring-4 ring-[#DF8673]/20 animate-pulse" : "bg-[#EFE6DD] text-[#6C5C54]")
+                      }`}>
+                        {isDone ? (
+                          <Check className="h-4 w-4 stroke-[3]" />
+                        ) : isActive ? (
+                          <Sparkles className="h-4 w-4" />
+                        ) : (
+                          <span className="text-xs font-extrabold">{sIdx + 1}</span>
+                        )}
+                      </div>
+                      <div className="flex justify-between items-start gap-2">
+                        <h4 className={`font-bold text-sm ${isActive ? "text-[#DF8673]" : (isDone ? "text-[#3A2B24]" : "text-[#6C5C54]")}`}>
+                          {stObj.title}
+                        </h4>
+                        {isActive && (
+                          <span className="text-[10px] text-white bg-[#DF8673] font-extrabold px-2.5 py-0.5 rounded-full shadow-2xs whitespace-nowrap">
+                            ACTIVE NOW
+                          </span>
+                        )}
+                        {isDone && (
+                          <span className="text-[10px] text-emerald-800 bg-emerald-100 font-extrabold px-2.5 py-0.5 rounded-full whitespace-nowrap">
+                            DONE
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-xs text-[#6C5C54] mt-1 font-medium leading-relaxed">{stObj.desc}</p>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* TAB 2: ITEMS & PHOTOS */}
+          {activeTab === "ITEMS" && (
+            <div className="space-y-3">
+              <h4 className="font-extrabold text-xs uppercase tracking-wider text-[#6C5C54]">
+                Order Items ({items.length})
+              </h4>
+              {items.length === 0 ? (
+                <div className="p-6 text-center text-xs text-[#6C5C54] bg-white rounded-2xl border border-[#EFE6DD]">
+                  Item details stored on cloud. Your frame is being crafted carefully.
+                </div>
+              ) : (
+                items.map((item: any, idx: number) => (
+                  <div key={idx} className="p-4 bg-white border border-[#EFE6DD] rounded-2xl flex items-center justify-between gap-4 shadow-2xs hover:border-[#DF8673]/40 transition-colors">
+                    <div className="h-16 w-16 rounded-xl bg-[#FFF5EE] border border-[#EFE6DD] overflow-hidden flex-shrink-0 flex items-center justify-center p-0.5 shadow-2xs">
+                      {item.image || item.userUploadedPhotoUrl ? (
+                        <img 
+                          src={item.image || item.userUploadedPhotoUrl} 
+                          alt={item.name || "Frame"} 
+                          className="h-full w-full object-cover rounded-lg" 
+                        />
+                      ) : (
+                        <ShoppingBag className="h-7 w-7 text-[#DF8673]" />
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h5 className="font-bold text-sm text-[#3A2B24] truncate">{item.name || "Custom Photo Frame"}</h5>
+                      <p className="text-xs text-[#6C5C54] mt-0.5">Size: <span className="font-semibold text-[#DF8673]">{item.size || item.selectedSize || "Standard"}</span></p>
+                      <p className="text-xs text-[#6C5C54]">Qty: <span className="font-semibold">{item.quantity || 1}</span></p>
+                    </div>
+                    <div className="text-right">
+                      <span className="font-extrabold text-sm text-[#3A2B24]">₹{item.price || item.unitPrice || 0}</span>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          )}
+
+          {/* TAB 3: COURIER & DELIVERY */}
+          {activeTab === "DELIVERY" && (
+            <div className="space-y-4">
+              <div className="bg-white border border-[#EFE6DD] rounded-2xl p-5 shadow-2xs space-y-4 text-left">
+                <div className="flex items-center justify-between pb-3 border-b border-[#EFE6DD]">
+                  <div className="flex items-center gap-2">
+                    <Truck className="h-5 w-5 text-[#DF8673]" />
+                    <span className="text-xs font-extrabold text-[#3A2B24] uppercase tracking-wider">
+                      Express Courier Status
+                    </span>
+                  </div>
+                  <Badge className="bg-emerald-100 text-emerald-800 text-[10px] font-extrabold border-none px-2.5 py-0.5 rounded-full">
+                    {providerName} Verified
+                  </Badge>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4 text-xs">
+                  <div>
+                    <span className="text-[#6C5C54] block text-[11px] font-medium">Delivery Partner</span>
+                    <span className="font-bold text-sm text-[#3A2B24]">{providerName}</span>
+                  </div>
+                  <div>
+                    <span className="text-[#6C5C54] block text-[11px] font-medium">Tracking ID / AWB</span>
+                    <span className="font-mono font-bold text-sm text-[#3A2B24]">{awbNo || "Assigned on Dispatch"}</span>
+                  </div>
+                  {estDate ? (
+                    <div className="col-span-2">
+                      <span className="text-[#6C5C54] block text-[11px] font-medium">Estimated Delivery</span>
+                      <span className="font-extrabold text-sm text-emerald-800">{estDate}</span>
+                    </div>
+                  ) : (
+                    <div className="col-span-2">
+                      <span className="text-[#6C5C54] block text-[11px] font-medium">Estimated Delivery</span>
+                      <span className="font-medium text-[#6C5C54] italic text-[11px]">Assigned upon courier pickup</span>
+                    </div>
+                  )}
+                </div>
+
+                {trackUrl ? (
+                  <a
+                    href={trackUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="w-full bg-[#2A1E17] hover:bg-[#1F1611] text-white text-xs font-bold h-10 rounded-xl flex items-center justify-center gap-2 shadow-xs transition-colors cursor-pointer"
+                  >
+                    <ExternalLink className="h-3.5 w-3.5 text-[#DF8673]" />
+                    <span>Track Delivery on {providerName}</span>
+                  </a>
+                ) : (
+                  <div className="text-[11px] text-[#6C5C54] italic text-center pt-2 border-t border-[#EFE6DD]">
+                    Live tracking link will be generated once courier pickup is completed.
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Modal Footer Actions */}
+        <div className="p-4 sm:p-5 bg-white border-t border-[#EFE6DD] flex flex-col sm:flex-row gap-3 items-center justify-between">
+          <a 
+            href="https://wa.me/918074589949"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="w-full sm:flex-1 btn-pixello-primary text-xs font-bold h-11 rounded-full flex items-center justify-center gap-2 shadow-xs"
+          >
+            <MessageSquare className="h-4 w-4" /> 
+            {opsPaused ? "Chat with Support on WhatsApp" : "Chat with Studio on WhatsApp"}
+          </a>
+          <Button 
+            variant="outline" 
+            className="w-full sm:w-auto rounded-full border-[#EFE6DD] text-[#3A2B24] font-bold text-xs h-11 px-7 hover:bg-[#FFF5EE] cursor-pointer"
+            onClick={onClose}
+          >
+            Close
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
