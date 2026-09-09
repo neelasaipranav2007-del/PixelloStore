@@ -154,7 +154,7 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
         }
       }
 
-      let endpoint = isAdmin ? "/api/admin/orders?limit=100" : "/api/orders";
+      const endpoint = isAdmin ? "/api/admin/orders?limit=100" : "/api/orders";
       let res = await fetch(endpoint, { headers });
       let data = await res.json().catch(() => ({ success: false }));
 
@@ -205,7 +205,9 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
       eventSource.addEventListener("notification_change", () => {
         triggerDebouncedFetch();
       });
-    } catch (e) {}
+    } catch {
+      // ignore event source error
+    }
 
     const handleStorageUpdate = () => {
       triggerDebouncedFetch();
@@ -252,7 +254,7 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
       } else {
         throw new Error(result.error || "Failed to create order");
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Error creating order on database backend:", err);
       throw err;
     }
