@@ -1155,21 +1155,12 @@ function ProfileContent() {
                           
                           <div className="flex flex-col gap-4">
                             {order.items.map((item, idx) => {
-                              const customPhotoUrl = (item.photos && item.photos.length > 0 && (item.photos[0].startsWith("data:") || item.photos[0].startsWith("http") || item.photos[0].startsWith("/")))
-                                ? item.photos[0]
-                                : ((item.image && (item.image.startsWith("data:") || item.image.startsWith("http"))) ? item.image : item.image);
-
-                              const photoLabel = (item.photos && item.photos.length > 0)
-                                ? (item.photos[0].startsWith("data:") || item.photos[0].startsWith("http") ? "Uploaded Custom Photo" : item.photos[0])
-                                : "Custom Photo Attached";
-
-                              const targetPhotoCount = Math.max(item.photos ? item.photos.length : 0, item.quantity || 1);
-                              const photoList = Array.from({ length: targetPhotoCount }, (_, i) => {
-                                if (item.photos && item.photos[i]) {
-                                  return item.photos[i];
-                                }
-                                return `Uploaded Photo #${i + 1}`;
-                              });
+                              const customUploadedPhotos = (item.photos || []).filter(
+                                (p: string) => typeof p === "string" && (p.startsWith("data:") || p.startsWith("blob:") || (p.startsWith("http") && !p.includes("images.unsplash.com") && !p.includes("wooden_frame")))
+                              );
+                              const hasUploadedPhotos = customUploadedPhotos.length > 0 || (item.image && item.image.startsWith("data:"));
+                              const photoList = hasUploadedPhotos ? (customUploadedPhotos.length > 0 ? customUploadedPhotos : [item.image]) : [];
+                              const customPhotoUrl = hasUploadedPhotos ? photoList[0] : (item.image || "/images/wooden_frame_main.png");
 
                               const reviewKey = `${order.id}_${item.name}`;
                               const existingReview = userReviews[reviewKey];
@@ -1183,7 +1174,7 @@ function ProfileContent() {
                                         onClick={() => setPhotoPreviewModal({
                                           isOpen: true,
                                           photoUrl: customPhotoUrl,
-                                          photoName: photoLabel,
+                                          photoName: item.name,
                                           itemName: item.name,
                                           orderId: order.id
                                         })}
@@ -1203,33 +1194,33 @@ function ProfileContent() {
                                     </div>
                                   </div>
 
-                                  {/* Photo Badges Container with Generous Padding */}
-                                  <div className="p-3 bg-emerald-50/70 border border-emerald-200/80 rounded-2xl flex flex-col gap-2">
-                                    <span className="text-[10px] font-extrabold uppercase tracking-wider text-emerald-950">Customer Uploaded Photos ({photoList.length}):</span>
-                                    <div className="flex flex-wrap gap-2">
-                                      {photoList.map((pName, pI) => {
-                                        const pUrl = (pName.startsWith("data:") || pName.startsWith("http") || pName.startsWith("/")) ? pName : customPhotoUrl;
-                                        const displayName = (pName.startsWith("data:") || pName.startsWith("http")) ? `Uploaded Photo #${pI + 1}` : pName;
-                                        return (
-                                          <button
-                                            key={pI}
-                                            type="button"
-                                            onClick={() => setPhotoPreviewModal({
-                                              isOpen: true,
-                                              photoUrl: pUrl,
-                                              photoName: displayName,
-                                              itemName: item.name,
-                                              orderId: order.id
-                                            })}
-                                            className="bg-white hover:bg-emerald-100/80 border border-emerald-300 text-emerald-950 px-3 py-1.5 rounded-full font-bold text-xs flex items-center gap-1.5 transition-all cursor-pointer shadow-2xs hover:scale-102"
-                                          >
-                                            <Eye className="h-3.5 w-3.5 text-emerald-600" />
-                                            <span>Photo #{pI + 1}</span>
-                                          </button>
-                                        );
-                                      })}
+                                  {/* Photo Badges Container with Generous Padding - Only rendered if customer uploaded photos */}
+                                  {hasUploadedPhotos && photoList.length > 0 && (
+                                    <div className="p-3 bg-emerald-50/70 border border-emerald-200/80 rounded-2xl flex flex-col gap-2">
+                                      <span className="text-[10px] font-extrabold uppercase tracking-wider text-emerald-950">Customer Uploaded Photos ({photoList.length}):</span>
+                                      <div className="flex flex-wrap gap-2">
+                                        {photoList.map((pUrl, pI) => {
+                                          return (
+                                            <button
+                                              key={pI}
+                                              type="button"
+                                              onClick={() => setPhotoPreviewModal({
+                                                isOpen: true,
+                                                photoUrl: pUrl,
+                                                photoName: `Uploaded Photo #${pI + 1}`,
+                                                itemName: item.name,
+                                                orderId: order.id
+                                              })}
+                                              className="bg-white hover:bg-emerald-100/80 border border-emerald-300 text-emerald-950 px-3 py-1.5 rounded-full font-bold text-xs flex items-center gap-1.5 transition-all cursor-pointer shadow-2xs hover:scale-102"
+                                            >
+                                              <Eye className="h-3.5 w-3.5 text-emerald-600" />
+                                              <span>Photo #{pI + 1}</span>
+                                            </button>
+                                          );
+                                        })}
+                                      </div>
                                     </div>
-                                  </div>
+                                  )}
 
                                   {!existingReview && (isDelivered || cleanStatus === "DELIVERED" || isPrintingStarted) && (
                                     <div className="p-3 bg-white border border-amber-200/80 rounded-2xl flex items-center justify-between gap-3 shadow-2xs">

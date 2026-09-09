@@ -50,9 +50,6 @@ export async function GET(req: Request) {
             photos = [];
           }
         }
-        if (photos.length === 0 && it.image) {
-          photos = [it.image];
-        }
         return {
           id: it.id,
           name: it.name,
