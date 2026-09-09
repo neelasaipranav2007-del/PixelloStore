@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { portalEvents } from "@/lib/events";
-import { getAuthenticatedUser } from "@/lib/session";
+import { getAuthenticatedUser, getAuthenticatedAdmin } from "@/lib/session";
 import { mapUiStatusToDb } from "@/lib/orderStatus";
 import { sanitizeCustomerOrderData, mapInternalToCustomerStatus } from "@/lib/orderStatusMapping";
 
@@ -9,11 +9,14 @@ export const dynamic = "force-dynamic";
 
 export async function GET(req: Request) {
   try {
+    const admin = await getAuthenticatedAdmin(req);
     const user = await getAuthenticatedUser(req);
     
-    // Check if role is CUSTOMER - if so, strictly filter only this customer's orders
+    // Privacy Safeguard: Only Admin and the owning Customer can view uploaded photos
+    const isAuthorizedForPhotos = Boolean(admin || user);
+
     let whereClause: Record<string, unknown> = {};
-    if (user && user.role === "CUSTOMER") {
+    if (!admin && user && user.role === "CUSTOMER") {
       const cleanPhone = (user.phone || "").replace(/\D/g, "").slice(-10);
       whereClause = {
         OR: [
@@ -61,7 +64,7 @@ export async function GET(req: Request) {
           quantity: it.quantity,
           price: it.price,
           image: it.image || "/images/wooden_frame_main.png",
-          photos: photos,
+          photos: isAuthorizedForPhotos ? photos : [],
         };
       });
 
