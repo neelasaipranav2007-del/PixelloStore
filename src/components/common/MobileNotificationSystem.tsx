@@ -331,23 +331,26 @@ export function AllNotificationsModal({
   if (!mounted || !isOpen || typeof document === "undefined") return null;
 
   return createPortal(
-    <div className="fixed inset-0 z-[999999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+    <div 
+      className="fixed inset-0 z-[999999] flex items-center justify-center p-4 bg-black/65 backdrop-blur-sm animate-in fade-in duration-200"
+      onClick={onClose}
+    >
       <div 
         className="bg-[#FFFDFB] border border-[#EFE6DD] w-full max-w-2xl rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh] animate-in zoom-in-95 duration-200"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="px-6 py-4 bg-[#2E201A] text-white flex items-center justify-between border-b border-[#443228]">
+        <div className="px-6 py-4 bg-[#2A1E17] text-white flex items-center justify-between border-b border-[#443228]">
           <div className="flex items-center gap-3">
-            <div className="h-9 w-9 rounded-2xl bg-white/10 flex items-center justify-center text-amber-300 border border-white/10 shadow-xs">
+            <div className="h-9 w-9 rounded-full bg-[#E5A852]/20 flex items-center justify-center text-[#F5C46B] border border-[#E5A852]/30 shadow-xs">
               <Bell className="h-4 w-4" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h3 className="font-bold text-base font-serif-brand tracking-wide uppercase text-[#EFE6DD]">
+                <h3 className="font-bold text-base font-serif-brand tracking-wide uppercase text-white">
                   Notification Center
                 </h3>
-                <Badge className="bg-[#D89A86] text-white text-[10px] font-black rounded-full border-none">
+                <Badge className="bg-[#DF8673] text-white text-[10px] font-black rounded-full border-none px-2.5 py-0.5">
                   {role}
                 </Badge>
               </div>
@@ -362,10 +365,13 @@ export function AllNotificationsModal({
               <Button
                 variant="outline"
                 size="sm"
-                onClick={onMarkAllRead}
-                className="h-8 rounded-full border-white/20 bg-white/10 text-white hover:bg-white/20 text-xs font-bold flex items-center gap-1.5"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onMarkAllRead();
+                }}
+                className="h-8 rounded-full border-white/20 bg-white/10 text-white hover:bg-white/20 text-xs font-bold flex items-center gap-1.5 cursor-pointer"
               >
-                <Check className="h-3.5 w-3.5 text-amber-300" /> Mark All Read
+                <Check className="h-3.5 w-3.5 text-[#F5C46B]" /> Mark All Read
               </Button>
             )}
             <button
@@ -379,19 +385,20 @@ export function AllNotificationsModal({
         </div>
 
         {/* Toolbar: Search & Filter Tabs */}
-        <div className="p-4 border-b border-[#EFE6DD] bg-[#FAF7F4] flex flex-col sm:flex-row gap-3 items-center justify-between">
+        <div className="p-4 border-b border-[#EFE6DD] bg-[#FAF6F0] flex flex-col sm:flex-row gap-3 items-center justify-between">
           <div className="relative w-full sm:w-64">
             <Search className="h-3.5 w-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-[#6C5C54]" />
             <Input
               placeholder="Search notifications..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-8 h-9 text-xs rounded-xl bg-white border-[#EFE6DD] focus-visible:ring-[#D89A86]"
+              className="pl-8 h-9 text-xs rounded-xl bg-white border-[#EFE6DD] focus-visible:ring-[#DF8673]"
             />
             {searchQuery && (
               <button 
+                type="button"
                 onClick={() => setSearchQuery("")} 
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-600"
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-600 cursor-pointer"
               >
                 <X className="h-3 w-3" />
               </button>
@@ -404,10 +411,10 @@ export function AllNotificationsModal({
                 key={tab}
                 type="button"
                 onClick={() => setFilterTab(tab)}
-                className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+                className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
                   filterTab === tab
-                    ? "bg-[#3A2B24] text-white shadow-xs"
-                    : "bg-white text-[#6C5C54] hover:bg-[#FFF8F2] border border-[#EFE6DD]"
+                    ? "bg-[#2A1E17] text-white shadow-xs"
+                    : "bg-white text-[#6C5C54] hover:bg-[#FFF5EE] border border-[#EFE6DD]"
                 }`}
               >
                 {tab === "ALL" && `All (${notifications.length})`}
@@ -420,10 +427,10 @@ export function AllNotificationsModal({
         </div>
 
         {/* Notifications List */}
-        <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-2.5 bg-[#FAF7F4]">
+        <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-2.5 bg-[#FAF6F0]">
           {filteredNotifications.length === 0 ? (
             <div className="py-16 text-center text-xs text-[#6C5C54] bg-white rounded-3xl border border-[#EFE6DD] p-8">
-              <div className="h-12 w-12 rounded-full bg-[#FFF8F2] border border-[#EFE6DD] flex items-center justify-center mx-auto mb-3 text-[#D89A86]">
+              <div className="h-12 w-12 rounded-full bg-[#FFF5EE] border border-[#EFE6DD] flex items-center justify-center mx-auto mb-3 text-[#DF8673]">
                 <Bell className="h-6 w-6 opacity-60" />
               </div>
               <h4 className="font-bold text-sm text-[#3A2B24] mb-1">No Notifications Found</h4>
@@ -439,22 +446,24 @@ export function AllNotificationsModal({
                   onMarkRead(notif.id);
                   if (notif.referenceId) {
                     onNavigateOrder(notif.referenceId);
-                    onClose();
+                  } else {
+                    onNavigateOrder(null);
                   }
+                  onClose();
                 }}
                 className={`p-4 rounded-2xl border transition-all cursor-pointer shadow-xs hover:shadow-md flex flex-col sm:flex-row sm:items-center justify-between gap-3 relative group overflow-hidden ${
                   !notif.isRead
-                    ? "bg-white border-[#D89A86]/70 ring-1 ring-[#D89A86]/20 shadow-amber-900/5"
-                    : "bg-white/90 border-[#EFE6DD] hover:border-[#D89A86]/40"
+                    ? "bg-white border-[#DF8673]/70 ring-1 ring-[#DF8673]/20 shadow-amber-900/5"
+                    : "bg-white/90 border-[#EFE6DD] hover:border-[#DF8673]/40"
                 }`}
               >
                 {/* Left unread bar */}
                 {!notif.isRead && (
-                  <span className="absolute left-0 top-3 bottom-3 w-1 bg-[#D89A86] rounded-r-full" />
+                  <span className="absolute left-0 top-3 bottom-3 w-1 bg-[#DF8673] rounded-r-full" />
                 )}
 
                 <div className="flex items-start gap-3 flex-1 min-w-0">
-                  <div className="h-9 w-9 rounded-xl bg-[#FFF8F2] border border-[#EFE6DD] flex items-center justify-center flex-shrink-0 text-[#D89A86] mt-0.5">
+                  <div className="h-9 w-9 rounded-full bg-[#FFF5EE] border border-[#EFE6DD] flex items-center justify-center flex-shrink-0 text-[#DF8673] mt-0.5">
                     {notif.referenceType === "ORDER" ? (
                       <ShoppingBag className="h-4 w-4" />
                     ) : (
@@ -468,10 +477,10 @@ export function AllNotificationsModal({
                         {notif.title}
                       </h4>
                       {!notif.isRead && (
-                        <span className="h-2 w-2 rounded-full bg-[#D89A86] animate-pulse" />
+                        <span className="h-2 w-2 rounded-full bg-[#DF8673] animate-pulse" />
                       )}
                       {notif.referenceId && (
-                        <span className="text-[10px] bg-[#FAF7F4] border border-[#EFE6DD] font-mono font-bold text-[#6C5C54] px-2 py-0.5 rounded-md">
+                        <span className="text-[10px] bg-[#FAF6F0] border border-[#EFE6DD] font-mono font-bold text-[#6C5C54] px-2 py-0.5 rounded-md">
                           #{notif.referenceId}
                         </span>
                       )}
@@ -480,7 +489,7 @@ export function AllNotificationsModal({
                       {notif.message}
                     </p>
                     <div className="flex items-center gap-2 mt-2 text-[11px] text-[#6C5C54]/80">
-                      <Clock className="h-3 w-3 text-[#D89A86]" />
+                      <Clock className="h-3 w-3 text-[#DF8673]" />
                       <span>{new Date(notif.createdAt).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" })}</span>
                       <span>•</span>
                       <span>{formatNotificationTime(notif.createdAt)}</span>
@@ -490,21 +499,20 @@ export function AllNotificationsModal({
 
                 {/* Actions */}
                 <div className="flex items-center gap-2 flex-shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-[#EFE6DD]/60 justify-end">
-                  {notif.referenceId && (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onMarkRead(notif.id);
-                        onNavigateOrder(notif.referenceId);
-                        onClose();
-                      }}
-                      className="h-8 rounded-full border-[#EFE6DD] text-[#3A2B24] hover:bg-[#FFF8F2] text-xs font-bold flex items-center gap-1"
-                    >
-                      View <ArrowRight className="h-3 w-3 text-[#D89A86]" />
-                    </Button>
-                  )}
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onMarkRead(notif.id);
+                      onNavigateOrder(notif.referenceId);
+                      onClose();
+                    }}
+                    className="h-8 rounded-full border-[#EFE6DD] text-[#3A2B24] hover:bg-[#FFF5EE] text-xs font-bold flex items-center gap-1 cursor-pointer"
+                  >
+                    View <ArrowRight className="h-3 w-3 text-[#DF8673]" />
+                  </Button>
+
                   {onDeleteSingle && (
                     <button
                       type="button"
@@ -528,7 +536,8 @@ export function AllNotificationsModal({
         <div className="p-4 bg-white border-t border-[#EFE6DD] flex items-center justify-between">
           <button
             type="button"
-            onClick={() => {
+            onClick={(e) => {
+              e.stopPropagation();
               if (window.confirm("Are you sure you want to clear all notifications?")) {
                 onClearAll();
               }
@@ -540,7 +549,7 @@ export function AllNotificationsModal({
 
           <Button
             onClick={onClose}
-            className="btn-pixello-primary rounded-full text-xs font-bold h-9 px-6"
+            className="btn-pixello-primary rounded-full text-xs font-bold h-9 px-6 cursor-pointer"
           >
             Done
           </Button>
@@ -552,7 +561,7 @@ export function AllNotificationsModal({
 }
 
 /**
- * Compact One-Line Notification Center Dropdown Menu
+ * Compact One-Line Notification Center Dropdown Menu (Exact 1:1 Design Matching User Request)
  */
 export function CompactNotificationCenter({
   role,
@@ -576,13 +585,19 @@ export function CompactNotificationCenter({
   const [isOpen, setIsOpen] = useState(false);
   const [isAllModalOpen, setIsAllModalOpen] = useState(false);
 
-  const handleClearAllClick = () => {
+  const handleClearAllClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
     onClearAll();
   };
 
-  const handleViewAllClick = () => {
+  const handleViewAllClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
     setIsOpen(false);
-    setIsAllModalOpen(true);
+    setTimeout(() => {
+      setIsAllModalOpen(true);
+    }, 50);
   };
 
   const handleNotificationItemClick = (notif: MobileDbNotification) => {
@@ -604,7 +619,7 @@ export function CompactNotificationCenter({
         >
           <Bell className="h-4 w-4 sm:h-5 sm:w-5 text-[#3A2B24]" />
           {unreadCount > 0 && (
-            <span className="absolute top-1 right-1 flex h-4 w-4 items-center justify-center rounded-full bg-[#D89A86] text-[10px] font-bold text-white shadow-sm animate-pulse">
+            <span className="absolute top-1 right-1 flex h-4.5 w-4.5 items-center justify-center rounded-full bg-[#DF8673] text-[10px] font-black text-white shadow-sm animate-pulse">
               {unreadCount > 9 ? "9+" : unreadCount}
             </span>
           )}
@@ -612,106 +627,110 @@ export function CompactNotificationCenter({
 
         <DropdownMenuContent
           align="end"
-          className="w-[360px] sm:w-[440px] max-w-[94vw] rounded-3xl border border-[#EFE6DD] p-0 shadow-2xl bg-[#FFFDFB] overflow-hidden z-50 animate-in fade-in-50 zoom-in-95 duration-200"
+          className="w-[360px] sm:w-[460px] max-w-[94vw] rounded-[28px] border border-[#EFE6DD] p-0 shadow-2xl bg-[#FFFDFB] overflow-hidden z-50 animate-in fade-in-50 zoom-in-95 duration-200"
         >
-          {/* Compact Espresso Header */}
-          <div className="px-4 py-3 bg-[#2E201A] text-white flex items-center justify-between border-b border-[#443228]">
-            <div className="flex items-center gap-2">
-              <div className="h-7 w-7 rounded-xl bg-white/10 flex items-center justify-center text-amber-300 border border-white/10 shadow-xs">
+          {/* Header matching screenshot */}
+          <div className="px-4 py-3 bg-[#2A1E17] text-white flex items-center justify-between border-b border-[#443228]">
+            <div className="flex items-center gap-2.5">
+              <div className="h-7 w-7 rounded-full bg-[#E5A852]/20 flex items-center justify-center text-[#F5C46B] border border-[#E5A852]/40 shadow-2xs">
                 <Bell className="h-3.5 w-3.5" />
               </div>
-              <h4 className="font-bold text-xs font-serif-brand tracking-wide uppercase text-[#EFE6DD]">
-                Notifications
+              <h4 className="font-bold text-xs sm:text-sm font-serif-brand tracking-wider uppercase text-white">
+                NOTIFICATIONS
               </h4>
               {unreadCount > 0 && (
-                <span className="bg-[#D89A86] text-white text-[10px] font-black px-2 py-0.2 rounded-full shadow-2xs">
+                <span className="bg-[#DF8673] text-white text-[11px] font-black px-2.5 py-0.5 rounded-full shadow-2xs">
                   {unreadCount} new
                 </span>
               )}
             </div>
+
             {unreadCount > 0 && (
               <button
                 type="button"
-                onClick={() => {
+                onClick={(e) => {
+                  e.stopPropagation();
                   onMarkAllRead();
                 }}
-                className="text-[11px] text-[#EFE6DD]/80 hover:text-white font-semibold transition-colors cursor-pointer flex items-center gap-1"
+                className="text-xs text-[#EFE6DD]/90 hover:text-white font-semibold transition-colors cursor-pointer flex items-center gap-1.5"
               >
-                <Check className="h-3 w-3 text-amber-300" />
+                <Check className="h-3.5 w-3.5 text-[#F5C46B]" />
                 <span>Mark all read</span>
               </button>
             )}
           </div>
 
-          {/* Compact Single-Line Notification Items List */}
-          <div className="max-h-[360px] overflow-y-auto p-2.5 flex flex-col gap-1.5 bg-[#FAF6F0]">
+          {/* List of Notification Cards matching screenshot */}
+          <div className="max-h-[380px] overflow-y-auto p-3 flex flex-col gap-2 bg-[#FAF6F0]">
             {notifications.length === 0 ? (
-              <div className="p-8 text-center text-xs text-[#6C5C54] bg-white rounded-2xl border border-[#EFE6DD]">
-                <Bell className="h-5 w-5 text-[#D89A86] mx-auto mb-1.5 opacity-60" />
+              <div className="p-8 text-center text-xs text-[#6C5C54] bg-white rounded-3xl border border-[#EFE6DD]">
+                <Bell className="h-6 w-6 text-[#DF8673] mx-auto mb-2 opacity-60" />
                 <p className="font-bold text-[#3A2B24] text-xs">No Notifications</p>
-                <p className="text-[10px] text-[#6C5C54]">You're all caught up with official updates.</p>
+                <p className="text-[11px] text-[#6C5C54] mt-0.5">You're all caught up with official updates.</p>
               </div>
             ) : (
               notifications.map((notif) => (
                 <div
                   key={notif.id}
                   onClick={() => handleNotificationItemClick(notif)}
-                  className={`p-2.5 sm:p-3 rounded-2xl border transition-all cursor-pointer shadow-xs hover:shadow-md flex items-center justify-between gap-2.5 relative group overflow-hidden ${
+                  className={`p-3 rounded-[24px] border transition-all cursor-pointer shadow-2xs hover:shadow-md flex items-center justify-between gap-3 relative group overflow-hidden ${
                     !notif.isRead
-                      ? "bg-white border-[#D89A86]/60 ring-1 ring-[#D89A86]/15 shadow-amber-900/5"
-                      : "bg-white/90 border-[#EFE6DD] hover:border-[#D89A86]/40"
+                      ? "bg-white border-[#DF8673]/60 ring-1 ring-[#DF8673]/15 shadow-amber-900/5"
+                      : "bg-white/90 border-[#EFE6DD] hover:border-[#DF8673]/40"
                   }`}
                 >
                   {/* Unread Indicator Bar */}
                   {!notif.isRead && (
-                    <span className="absolute left-0 top-2 bottom-2 w-1 bg-[#D89A86] rounded-r-full" />
+                    <span className="absolute left-0 top-3 bottom-3 w-[4px] bg-[#DF8673] rounded-r-full" />
                   )}
 
-                  {/* Left Mini Icon */}
-                  <div className="h-7 w-7 rounded-lg bg-[#FFF8F2] border border-[#EFE6DD] flex items-center justify-center flex-shrink-0 text-[#D89A86]">
-                    <Bell className="h-3.5 w-3.5" />
+                  {/* Left Bell Icon Badge */}
+                  <div className="h-8 w-8 rounded-full bg-[#FFF5EE] border border-[#EFE6DD] flex items-center justify-center flex-shrink-0 text-[#DF8673]">
+                    <Bell className="h-4 w-4" />
                   </div>
 
-                  {/* Single-Line Content Preview */}
+                  {/* Single-Line Title & Message Content */}
                   <div className="flex-1 min-w-0 flex items-center gap-1.5 text-xs overflow-hidden">
-                    <span className="font-bold text-[#3A2B24] truncate flex-shrink-0 max-w-[120px] sm:max-w-[150px]">
+                    <span className="font-bold text-[#3A2B24] truncate flex-shrink-0 max-w-[130px] sm:max-w-[160px]">
                       {notif.title}
                     </span>
-                    <span className="text-[#6C5C54] text-[10px] flex-shrink-0">—</span>
+                    <span className="text-[#8C7A70] text-xs flex-shrink-0">—</span>
                     <span className="text-[#6C5C54] text-xs font-medium truncate flex-1 min-w-0">
                       {notif.message}
                     </span>
                   </div>
 
-                  {/* Timestamp & Arrow */}
-                  <div className="flex items-center gap-1.5 flex-shrink-0">
-                    <span className="text-[10px] font-medium text-[#6C5C54] whitespace-nowrap">
+                  {/* Timestamp & Right Arrow Button */}
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    <span className="text-[11px] font-medium text-[#8C7A70] whitespace-nowrap">
                       {formatNotificationTime(notif.createdAt)}
                     </span>
-                    <ArrowRight className="h-3.5 w-3.5 text-[#D89A86] opacity-60 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all" />
+                    <div className="h-7 w-7 rounded-full bg-white border border-[#EFE6DD] group-hover:border-[#DF8673] flex items-center justify-center text-[#DF8673] transition-colors shadow-2xs">
+                      <ArrowRight className="h-3.5 w-3.5 group-hover:translate-x-0.5 transition-transform" />
+                    </div>
                   </div>
                 </div>
               ))
             )}
           </div>
 
-          {/* Working Footer with Reliable Click Handlers */}
+          {/* Footer Bar matching screenshot */}
           {notifications.length > 0 && (
-            <div className="px-3.5 py-2.5 bg-white border-t border-[#EFE6DD] flex items-center justify-between text-xs">
+            <div className="px-4 py-3 bg-white border-t border-[#EFE6DD] flex items-center justify-between text-xs">
               <button
                 type="button"
                 onClick={handleClearAllClick}
-                className="text-[11px] text-[#6C5C54] hover:text-red-600 font-bold flex items-center gap-1 cursor-pointer transition-colors px-2.5 py-1.5 rounded-lg hover:bg-red-50"
+                className="text-xs text-[#6C5C54] hover:text-red-600 font-bold flex items-center gap-1.5 cursor-pointer transition-colors px-2 py-1 rounded-lg hover:bg-red-50"
               >
-                <Trash2 className="h-3 w-3" /> Clear all
+                <Trash2 className="h-3.5 w-3.5" /> Clear all
               </button>
               <button
                 type="button"
                 onClick={handleViewAllClick}
-                className="text-[11px] font-bold text-[#3A2B24] hover:text-[#D89A86] flex items-center gap-1 transition-colors px-3 py-1.5 rounded-lg hover:bg-[#FFF8F2] border border-[#EFE6DD] cursor-pointer shadow-2xs"
+                className="text-xs font-bold text-[#3A2B24] hover:text-[#DF8673] flex items-center gap-1.5 transition-colors px-4 py-1.5 rounded-full border border-[#EFE6DD] hover:bg-[#FFF5EE] cursor-pointer shadow-2xs bg-white"
               >
                 <span>View All</span>
-                <ArrowRight className="h-3 w-3 text-[#D89A86]" />
+                <ArrowRight className="h-3.5 w-3.5 text-[#DF8673]" />
               </button>
             </div>
           )}
