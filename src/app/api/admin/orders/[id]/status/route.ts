@@ -34,22 +34,6 @@ export async function PATCH(
       trackingUrl 
     } = body;
 
-    if (!status) {
-      return NextResponse.json(
-        { success: false, error: "Missing required status field" },
-        { status: 400 }
-      );
-    }
-
-    const dbStatus = mapUiStatusToDb(status);
-
-    if (!isDeliveryPortalEnabled() && (dbStatus === "DELIVERY_ASSIGNED" || dbStatus === "ASSIGNED_DELIVERY" || dbStatus === "OUT_FOR_DELIVERY" || dbStatus === "PICKED_UP" || dbStatus === "IN_TRANSIT")) {
-      return NextResponse.json(
-        { success: false, error: "Delivery operations are temporarily closed." },
-        { status: 400 }
-      );
-    }
-
     const updatedOrder = await prisma.$transaction(async (tx) => {
       // 1. Find Order by exact ID or case-insensitive match
       let targetOrder = await tx.order.findUnique({
@@ -72,22 +56,30 @@ export async function PATCH(
         return null;
       }
 
-      // 2. Update Order Status
-      const order = await tx.order.update({
+      const dbStatus = status ? mapUiStatusToDb(status) : targetOrder.status;
+
+      if (status && !isDeliveryPortalEnabled() && (dbStatus === "DELIVERY_ASSIGNED" || dbStatus === "ASSIGNED_DELIVERY" || dbStatus === "OUT_FOR_DELIVERY" || dbStatus === "PICKED_UP" || dbStatus === "IN_TRANSIT")) {
+        throw new Error("Delivery operations are temporarily closed.");
+      }
+
+      // 2. Update Order Status if provided
+      const order = status ? await tx.order.update({
         where: { id: targetOrder.id },
         data: {
           status: dbStatus,
         },
-      });
+      }) : targetOrder;
 
-      // 3. Append OrderStatusHistory Entry
-      await tx.orderStatusHistory.create({
-        data: {
-          orderId: order.id,
-          status: dbStatus,
-          note: note || `Order status updated to ${status} by Admin`,
-        },
-      });
+      // 3. Append OrderStatusHistory Entry if status updated
+      if (status) {
+        await tx.orderStatusHistory.create({
+          data: {
+            orderId: order.id,
+            status: dbStatus,
+            note: note || `Order status updated to ${status} by Admin`,
+          },
+        });
+      }
 
       // 4. Update DeliveryInfo in Prisma
       const provider = deliveryProvider || deliveryPartnerName || "Delhivery";
@@ -128,8 +120,8 @@ export async function PATCH(
     }
 
     // Broadcast real-time update to all listeners
-    portalEvents.emit("order_change", { action: "STATUS_UPDATE", orderId: updatedOrder.id, status: dbStatus });
-    portalEvents.emit("order_update", { action: "STATUS_UPDATE", orderId: updatedOrder.id, status: dbStatus });
+    portalEvents.emit("order_change", { action: "STATUS_UPDATE", orderId: updatedOrder.id, status: updatedOrder.status });
+    portalEvents.emit("order_update", { action: "STATUS_UPDATE", orderId: updatedOrder.id, status: updatedOrder.status });
 
     return NextResponse.json({ success: true, order: updatedOrder });
   } catch (error: unknown) {

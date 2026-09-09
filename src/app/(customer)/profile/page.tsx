@@ -1746,10 +1746,15 @@ function ProfileContent() {
                           <span className="text-[#6C5C54] block text-[11px]">Tracking ID / AWB</span>
                           <span className="font-mono font-bold text-[#3A2B24]">{awbNo || "Assigned on Dispatch"}</span>
                         </div>
-                        {estDate && (
+                        {estDate ? (
                           <div className="col-span-2">
                             <span className="text-[#6C5C54] block text-[11px]">Estimated Delivery</span>
                             <span className="font-bold text-emerald-800">{estDate}</span>
+                          </div>
+                        ) : (
+                          <div className="col-span-2">
+                            <span className="text-[#6C5C54] block text-[11px]">Estimated Delivery</span>
+                            <span className="font-medium text-[#6C5C54] italic text-[11px]">To be assigned by Admin</span>
                           </div>
                         )}
                       </div>

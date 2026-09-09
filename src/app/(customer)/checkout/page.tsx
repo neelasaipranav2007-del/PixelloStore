@@ -1479,10 +1479,12 @@ export default function CheckoutPage() {
                 <span className="text-[#6C5C54]">Payment Method:</span>
                 <span className="font-bold text-[#3A2B24]">{orderSuccessModal.paymentMethod || "UPI / Online"}</span>
               </div>
-              <div className="flex justify-between items-center pb-2 border-b border-[#EFE6DD]">
-                <span className="text-[#6C5C54]">Estimated Delivery:</span>
-                <span className="font-bold text-emerald-700">Within 2 Hours 🚀</span>
-              </div>
+              {(orderSuccessModal as any).estimatedDelivery && (
+                <div className="flex justify-between items-center pb-2 border-b border-[#EFE6DD]">
+                  <span className="text-[#6C5C54]">Estimated Delivery:</span>
+                  <span className="font-bold text-emerald-700">{(orderSuccessModal as any).estimatedDelivery}</span>
+                </div>
+              )}
               <div className="flex justify-between items-center pb-2 border-b border-[#EFE6DD]">
                 <span className="text-[#6C5C54]">{orderSuccessModal.paymentMethod === "Cash on Delivery (COD)" ? "Amount Due on Delivery:" : "Amount Paid:"}</span>
                 <span className="font-extrabold text-[#D89A86] text-sm">₹{orderSuccessModal.totalAmount.toFixed(2)}</span>

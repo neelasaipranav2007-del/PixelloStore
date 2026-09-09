@@ -291,6 +291,29 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
 
   const updateOrderDetails = async (orderId: string, details: Partial<Order>) => {
     setOrders((prev) => prev.map((o) => (o.id === orderId ? { ...o, ...details } : o)));
+
+    try {
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      if (typeof window !== "undefined") {
+        const adminToken = localStorage.getItem("pixello_admin_token") || localStorage.getItem("pixello_auth_token");
+        if (adminToken) headers["Authorization"] = `Bearer ${adminToken}`;
+      }
+
+      await fetch(`/api/admin/orders/${encodeURIComponent(orderId)}/status`, {
+        method: "PATCH",
+        headers,
+        body: JSON.stringify({
+          estimatedDeliveryDate: details.deliveryInfo?.estimatedDeliveryDate || (details as Record<string, unknown>).estimatedDeliveryDate || (details as Record<string, unknown>).estimatedDelivery,
+          deliveryProvider: details.deliveryPartner || details.deliveryInfo?.deliveryProvider,
+          trackingId: details.trackingAwb || details.waybill,
+          awbNumber: details.trackingAwb || details.waybill,
+          trackingUrl: details.trackingUrl || details.deliveryInfo?.trackingUrl,
+        }),
+      });
+      await fetchOrdersFromBackend(false);
+    } catch (err) {
+      console.error("Error updating order details on backend:", err);
+    }
   };
 
   return (

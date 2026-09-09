@@ -9,7 +9,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { useOrders, OrderStatus, Order } from "@/context/OrderContext";
 import { OrderStatusBadge } from "@/components/ui/status-badge";
 import { isDeliveryPortalEnabled } from "@/lib/deliveryConfig";
-import { ChevronDown, Search, X, Eye, Download, FileText, Image as ImageIcon, MessageCircle, Upload, Package, Check, Paperclip, Truck, Bike, Gift, User, Phone, Store, Calendar, MapPin, RefreshCw, FileSpreadsheet } from "lucide-react";
+import { ChevronDown, Search, X, Eye, Download, FileText, Image as ImageIcon, MessageCircle, Upload, Package, Check, Paperclip, Truck, Bike, Gift, User, Phone, Store, Calendar, MapPin, RefreshCw, FileSpreadsheet, Clock } from "lucide-react";
 
 const STATUS_CONFIG: Record<string, { label: string; symbol: string; badgeClass: string; dotClass: string; itemBgClass: string }> = {
   "ORDER_PLACED": { label: "Order Placed", symbol: "📝", badgeClass: "bg-[#FFF8F2] text-[#D89A86] border-[#D89A86]/30", dotClass: "bg-[#D89A86]", itemBgClass: "bg-[#FFF8F2]" },
@@ -976,6 +976,62 @@ export default function AdminOrdersPage() {
                       onChange={(e) => updateOrderDetails(order.id, { trackingAwb: e.target.value })}
                       className="rounded-xl border-[#EFE6DD] bg-white text-xs font-medium text-[#3A2B24] focus-visible:ring-[#D89A86] h-9"
                     />
+                  </div>
+
+                  {/* ADMIN ESTIMATED DELIVERY DATE / TIME ASSIGNMENT SECTION */}
+                  <div className="flex flex-col gap-1.5 p-3 bg-[#FFF8F2] border border-[#EFE6DD] rounded-2xl">
+                    <div className="flex items-center justify-between">
+                      <label className="text-[11px] font-bold text-[#3A2B24] flex items-center gap-1.5">
+                        <Clock className="h-3.5 w-3.5 text-[#D89A86]" /> Assign / Update Estimated Delivery Date &amp; Time
+                      </label>
+                      {order.deliveryInfo?.estimatedDeliveryDate && (
+                        <span className="text-[10px] font-bold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded-full">
+                          Assigned: {order.deliveryInfo.estimatedDeliveryDate}
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="flex flex-col sm:flex-row gap-2">
+                      <Input
+                        placeholder="e.g. 10/09/2026, Today by 6 PM, Within 2 Hours"
+                        defaultValue={order.deliveryInfo?.estimatedDeliveryDate || ""}
+                        onBlur={(e) => {
+                          const val = e.target.value.trim();
+                          if (val !== (order.deliveryInfo?.estimatedDeliveryDate || "")) {
+                            updateOrderDetails(order.id, {
+                              deliveryInfo: {
+                                ...order.deliveryInfo,
+                                estimatedDeliveryDate: val,
+                              },
+                              estimatedDeliveryDate: val,
+                            } as Record<string, unknown>);
+                          }
+                        }}
+                        className="rounded-xl border-[#EFE6DD] bg-white text-xs font-medium text-[#3A2B24] focus-visible:ring-[#D89A86] h-9 flex-1"
+                      />
+
+                      {/* Quick Presets */}
+                      <div className="flex items-center gap-1 flex-wrap">
+                        {["Today by 6 PM", "Tomorrow", "Within 2 Hours", "2-3 Days"].map((preset) => (
+                          <button
+                            key={preset}
+                            type="button"
+                            onClick={() => {
+                              updateOrderDetails(order.id, {
+                                deliveryInfo: {
+                                  ...order.deliveryInfo,
+                                  estimatedDeliveryDate: preset,
+                                },
+                                estimatedDeliveryDate: preset,
+                              } as Record<string, unknown>);
+                            }}
+                            className="text-[10px] font-bold px-2 py-1 bg-white hover:bg-[#F2C8B5]/30 border border-[#EFE6DD] text-[#3A2B24] rounded-lg transition-colors"
+                          >
+                            {preset}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
                   </div>
                 </div>
               )}
