@@ -3123,11 +3123,11 @@ function OrderTrackerModalContent({
                 </div>
                 <div className="w-full bg-[#EFE6DD]/80 rounded-full h-3 p-0.5 relative">
                   <div 
-                    className="bg-gradient-to-r from-[#DF8673] via-[#E5A852] to-emerald-500 h-full rounded-full transition-all duration-500 relative" 
+                    className="bg-[#DF8673] h-full rounded-full transition-all duration-500 relative" 
                     style={{ width: `${progressPercent}%` }}
                   >
-                    <div className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/2 h-4 w-4 bg-white rounded-full border-2 border-emerald-500 shadow-xs flex items-center justify-center">
-                      <div className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                    <div className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/2 h-4 w-4 bg-white rounded-full border-2 border-[#DF8673] shadow-xs flex items-center justify-center">
+                      <div className="h-1.5 w-1.5 rounded-full bg-[#DF8673]" />
                     </div>
                   </div>
                 </div>
