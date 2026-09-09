@@ -2964,7 +2964,7 @@ function OrderTrackerModalContent({
         onClick={e => e.stopPropagation()}
       >
         {/* Pixello Luxury Header Card */}
-        <div className="bg-gradient-to-br from-[#2A1E17] via-[#3D2C23] to-[#1F1611] text-white p-6 sm:p-7 relative border-b border-[#4A382D] overflow-hidden">
+        <div className="bg-gradient-to-br from-[#2A1E17] via-[#3D2C23] to-[#1F1611] text-white p-5 sm:p-7 pb-6 sm:pb-8 relative border-b border-[#4A382D] overflow-hidden">
           {/* Ambient Glow */}
           <div className="absolute -top-12 -right-12 w-44 h-44 bg-[#DF8673]/20 rounded-full blur-3xl pointer-events-none" />
           <div className="absolute -bottom-10 -left-10 w-36 h-36 bg-amber-500/15 rounded-full blur-2xl pointer-events-none" />
@@ -2972,12 +2972,12 @@ function OrderTrackerModalContent({
           <button 
             type="button"
             onClick={onClose}
-            className="absolute top-5 right-5 h-9 w-9 rounded-full bg-white/10 hover:bg-white/20 text-[#EFE6DD] flex items-center justify-center font-bold text-sm transition-all cursor-pointer z-10 hover:scale-105"
+            className="absolute top-5 right-5 sm:top-6 sm:right-6 h-9 w-9 rounded-full bg-white/10 hover:bg-white/20 text-[#EFE6DD] flex items-center justify-center font-bold text-sm transition-all cursor-pointer z-10 hover:scale-105"
           >
             ✕
           </button>
 
-          <div className="flex items-center gap-2 mb-3 flex-wrap relative z-10">
+          <div className="flex items-center gap-2 mb-3.5 flex-wrap relative z-10 pr-10">
             <Badge className="bg-gradient-to-r from-[#DF8673] to-[#C96E5B] text-white border-none font-extrabold text-[10px] uppercase tracking-wider px-3.5 py-1 rounded-full shadow-xs flex items-center gap-1.5">
               <Sparkles className="h-3 w-3 text-amber-200" />
               {isReplacementTrack ? "REPLACEMENT EXPRESS VAULT" : "PIXELLO MEMORY TRACKER"}
@@ -2989,14 +2989,14 @@ function OrderTrackerModalContent({
           </div>
 
           <div className="relative z-10">
-            <div className="flex items-center gap-2 flex-wrap">
-              <h3 className="font-serif-brand text-2xl sm:text-3xl font-black text-white tracking-tight">
+            <div className="flex items-center gap-3 flex-wrap">
+              <h3 className="font-serif-brand text-2xl sm:text-3xl font-black text-white tracking-tight leading-tight py-0.5">
                 Order #{trackingOrder}
               </h3>
               <button
                 type="button"
                 onClick={handleCopyOrder}
-                className="bg-white/10 hover:bg-white/20 text-white/90 px-2.5 py-1 rounded-lg text-xs font-semibold flex items-center gap-1 transition-all cursor-pointer hover:scale-105"
+                className="bg-white/10 hover:bg-white/20 text-white/90 px-2.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer hover:scale-105"
                 title="Copy Order ID"
               >
                 {copied ? (
@@ -3012,7 +3012,7 @@ function OrderTrackerModalContent({
                 )}
               </button>
             </div>
-            <p className="text-xs text-[#EFE6DD]/80 mt-1.5 font-medium flex items-center gap-2">
+            <p className="text-xs text-[#EFE6DD]/80 mt-2 font-medium flex items-center gap-2">
               <Clock className="h-3.5 w-3.5 text-[#DF8673]" /> Current Phase: <strong className="text-amber-300 font-bold">{trackOrderObj?.status || "Processing"} ⚡</strong>
             </p>
           </div>
