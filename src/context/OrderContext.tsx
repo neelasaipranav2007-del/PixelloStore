@@ -130,12 +130,21 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
   const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   const fetchOrdersFromBackend = useCallback(async (isInitial = false) => {
-    if (isFetchingRef.current) return;
+    if (isFetchingRef.current) {
+      if (isInitial) setLoading(false);
+      return;
+    }
     isFetchingRef.current = true;
 
     if (isInitial) {
       setLoading(true);
     }
+
+    // Failsafe timeout so loading state never hangs permanently
+    const failsafeTimer = setTimeout(() => {
+      setLoading(false);
+      isFetchingRef.current = false;
+    }, 5000);
 
     try {
       const headers: Record<string, string> = {};
@@ -173,6 +182,7 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
     } catch (err) {
       console.warn("Error fetching orders from database API:", err);
     } finally {
+      clearTimeout(failsafeTimer);
       setLoading(false);
       isFetchingRef.current = false;
     }

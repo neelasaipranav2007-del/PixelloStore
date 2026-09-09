@@ -229,9 +229,13 @@ export default function CheckoutPage() {
 
       setIsPincodeLoading(true);
       setPincodeSuccessMsg("");
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 3500);
+
       try {
-        const res = await fetch(`https://api.postalpincode.in/pincode/${code}`);
-        const data = await res.json();
+        const res = await fetch(`https://api.postalpincode.in/pincode/${code}`, { signal: controller.signal });
+        clearTimeout(timeoutId);
+        const data = await res.json().catch(() => null);
         if (data && data[0] && data[0].Status === "Success" && data[0].PostOffice && data[0].PostOffice.length > 0) {
           const po = data[0].PostOffice[0];
           const area = po.Name || po.Block || "";
@@ -245,8 +249,9 @@ export default function CheckoutPage() {
           setPincodeSuccessMsg(`✓ Auto-filled: ${cName}, ${st}`);
         }
       } catch (err) {
-        console.error("Pincode lookup error:", err);
+        console.warn("Pincode lookup error or timeout:", err);
       } finally {
+        clearTimeout(timeoutId);
         setIsPincodeLoading(false);
       }
     } else {

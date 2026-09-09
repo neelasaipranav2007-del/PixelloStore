@@ -92,8 +92,8 @@ export default function AmbassadorLayout({ children }: { children: React.ReactNo
         return;
       }
 
-      const data = await res.json();
-      if (data.success && data.ambassador) {
+      const data = await res.json().catch(() => null);
+      if (data && data.success && data.ambassador) {
         setIsAuthenticated(true);
         setProfile({
           name: data.ambassador.name,
@@ -106,9 +106,12 @@ export default function AmbassadorLayout({ children }: { children: React.ReactNo
           localStorage.setItem("pixello_ambassador_authenticated", "true");
           localStorage.setItem("pixello_ambassador_profile", JSON.stringify(data.ambassador));
         }
+      } else {
+        setIsAuthenticated(false);
       }
     } catch (e) {
       console.error("Error loading ambassador profile:", e);
+      setIsAuthenticated(false);
     }
   };
 

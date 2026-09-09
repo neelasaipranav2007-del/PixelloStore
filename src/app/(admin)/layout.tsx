@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { LayoutDashboard, Users, Store, Package, Settings, LogOut, FileText, Bell, Sparkles, Heart, ChevronDown, ShoppingBag, ExternalLink, Ticket, Truck, CheckCheck, Check, RefreshCw, AlertTriangle, Trash2, X, Trophy, Star, ArrowUpRight } from "lucide-react";
+import { LayoutDashboard, Users, Store, Package, Settings, LogOut, FileText, Bell, Sparkles, Heart, ChevronDown, ShoppingBag, ExternalLink, Ticket, Truck, CheckCheck, Check, RefreshCw, AlertTriangle, Trash2, X, Trophy, Star, ArrowUpRight, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
@@ -210,15 +210,34 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     return <>{children}</>;
   }
 
-  // If verifying authentication, show clean branded verification state
-  if (isAuthenticated === null || isAuthenticated === false) {
+  // If not authenticated, render clear login required view
+  if (isAuthenticated === false) {
     return (
-      <div className="min-h-screen bg-[#F8F3EE] flex flex-col items-center justify-center p-6 text-center">
-        <div className="h-16 w-16 rounded-full overflow-hidden border-2 border-[#D89A86] bg-white p-1 shadow-lg mb-4 flex items-center justify-center animate-pulse">
-          <img src="/images/pixello_logo.png" alt="Pixello Admin" className="h-full w-full object-contain" />
+      <div className="flex h-screen w-screen flex-col items-center justify-center bg-[#F8F3EE] p-6 text-center">
+        <div className="flex flex-col items-center max-w-sm p-8 bg-white rounded-3xl shadow-sm border border-[#EFE6DD] gap-4">
+          <div className="h-12 w-12 rounded-2xl bg-[#FFF8F2] border border-[#EFE6DD] flex items-center justify-center text-[#D89A86]">
+            <Lock className="h-6 w-6" />
+          </div>
+          <div>
+            <h3 className="font-serif-brand font-bold text-lg text-[#3A2B24]">Admin Portal Login Required</h3>
+            <p className="text-xs text-[#6C5C54] mt-1">Please sign in with verified admin credentials to access the Pixello Management Suite.</p>
+          </div>
+          <Link href={`/admin/login?redirect=${encodeURIComponent(pathname)}`} className="w-full">
+            <Button className="btn-pixello-primary w-full h-11 rounded-xl text-xs font-bold shadow-xs">
+              Go to Admin Login →
+            </Button>
+          </Link>
         </div>
-        <h2 className="font-serif-brand text-lg font-bold text-[#3A2B24]">Verifying Admin Access...</h2>
-        <p className="text-xs text-[#6C5C54] mt-1">Securing Pixello Management Suite session</p>
+      </div>
+    );
+  }
+
+  // If loading initial auth state, render clean spinner
+  if (isAuthenticated === null) {
+    return (
+      <div className="min-h-screen bg-[#F8F3EE] flex flex-col items-center justify-center p-6 text-center gap-3">
+        <div className="h-10 w-10 border-4 border-[#D89A86] border-t-transparent rounded-full animate-spin" />
+        <h2 className="font-serif-brand text-sm font-bold text-[#3A2B24]">Loading Admin Central...</h2>
       </div>
     );
   }

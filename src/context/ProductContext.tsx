@@ -242,8 +242,6 @@ export function ProductProvider({ children }: { children: React.ReactNode }) {
     if (typeof window !== "undefined") {
       try {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(newList));
-        window.dispatchEvent(new Event("pixello_products_updated"));
-        window.dispatchEvent(new Event("storage"));
       } catch (e) {}
     }
   };
