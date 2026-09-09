@@ -2,28 +2,32 @@
  * PixelloStore - Centralized Order Workflow & Status Mapping Utility
  * 
  * Provides:
- * 1. Admin-controlled 11-stage order workflow definitions
- * 2. Customer-friendly status mapping (hides internal operational states)
- * 3. Customer data sanitization (strips internal API tokens, credentials, & private notes)
+ * 1. Founders & Admin internal order workflow stages
+ * 2. Customer-friendly status mapping (8 clean customer stages, zero Studio terminology)
+ * 3. Customer data sanitization (strips confidential internal API tokens, credentials, & private notes)
  */
 
 export const ADMIN_ORDER_STAGES = [
   { id: "ORDER_PLACED", label: "Order Placed", symbol: "📝", group: "Initial" },
   { id: "PAYMENT_CONFIRMED", label: "Payment Confirmed", symbol: "💳", group: "Initial" },
   { id: "ORDER_CONFIRMED", label: "Order Confirmed", symbol: "✅", group: "Production" },
-  { id: "IN_PRODUCTION", label: "In Production", symbol: "🖨️", group: "Production" },
-  { id: "READY_FOR_DELIVERY", label: "Ready for Delivery", symbol: "📦", group: "Fulfillment" },
+  { id: "PROCESSING", label: "Preparing Order", symbol: "⚙️", group: "Production" },
+  { id: "PRINTING", label: "Printing", symbol: "🖨️", group: "Production" },
+  { id: "PRODUCT_PREPARATION", label: "Product Preparation", symbol: "✂️", group: "Production" },
+  { id: "QUALITY_CHECK", label: "Quality Check", symbol: "🔍", group: "Production" },
+  { id: "PACKED", label: "Packed", symbol: "📦", group: "Fulfillment" },
+  { id: "READY_FOR_DELIVERY", label: "Ready for Delivery", symbol: "🚀", group: "Fulfillment" },
   { id: "DELIVERY_ASSIGNED", label: "Delivery Assigned", symbol: "📋", group: "Fulfillment" },
   { id: "PICKED_UP", label: "Picked Up", symbol: "🛵", group: "Transit" },
   { id: "IN_TRANSIT", label: "In Transit", symbol: "🚚", group: "Transit" },
-  { id: "OUT_FOR_DELIVERY", label: "Out for Delivery", symbol: "🚀", group: "Transit" },
+  { id: "OUT_FOR_DELIVERY", label: "Out for Delivery", symbol: "📍", group: "Transit" },
   { id: "DELIVERED", label: "Delivered", symbol: "🎉", group: "Completed" },
   { id: "COMPLETED", label: "Completed", symbol: "🏁", group: "Completed" },
 ] as const;
 
 export interface CustomerStatusMapping {
   customerStatus: string;
-  stageIndex: number; // 1 to 6
+  stageIndex: number; // 1 to 8
   stepTitle: string;
   stepDesc: string;
   badgeClass: string;
@@ -35,7 +39,7 @@ export function mapInternalToCustomerStatus(internalStatus?: string): CustomerSt
       customerStatus: "Order Placed",
       stageIndex: 1,
       stepTitle: "Order Placed",
-      stepDesc: "Order received successfully",
+      stepDesc: "Your order has been received and payment is confirmed.",
       badgeClass: "bg-[#FFF8F2] text-[#D89A86] border border-[#D89A86]/30",
     };
   }
@@ -49,71 +53,76 @@ export function mapInternalToCustomerStatus(internalStatus?: string): CustomerSt
         customerStatus: "Order Placed",
         stageIndex: 1,
         stepTitle: "Order Placed",
-        stepDesc: "Order placed successfully and payment verified",
+        stepDesc: "Your order has been received and payment is confirmed.",
         badgeClass: "bg-[#FFF8F2] text-[#D89A86] border border-[#D89A86]/30",
       };
 
     case "PAYMENT_CONFIRMED":
-      return {
-        customerStatus: "Payment Confirmed",
-        stageIndex: 2,
-        stepTitle: "Payment Verified",
-        stepDesc: "Payment verified successfully",
-        badgeClass: "bg-emerald-50 text-emerald-800 border border-emerald-200",
-      };
-
     case "ORDER_CONFIRMED":
+    case "PROCESSING":
+    case "IN_PRODUCTION":
     case "ASSIGNED_STUDIO":
     case "ACCEPTED_BY_STUDIO":
     case "DESIGNING":
       return {
-        customerStatus: "Order Confirmed",
+        customerStatus: "Preparing Your Order",
         stageIndex: 2,
-        stepTitle: "Order Confirmed",
-        stepDesc: "Order confirmed & verified by photo crafting team",
-        badgeClass: "bg-emerald-100 text-emerald-900 border border-emerald-300",
+        stepTitle: "Order Being Prepared",
+        stepDesc: "Our team is preparing your personalized order.",
+        badgeClass: "bg-emerald-50 text-emerald-800 border border-emerald-200",
       };
 
-    case "IN_PRODUCTION":
     case "PRINTING":
+    case "PRODUCT_PREPARATION":
     case "FRAMING":
-    case "QUALITY_CHECK":
       return {
-        customerStatus: "Preparing Your Order",
+        customerStatus: "Printing & Product Preparation",
         stageIndex: 3,
-        stepTitle: "Preparing Your Order",
-        stepDesc: "High-definition archival photo printing & solid wood frame assembly",
+        stepTitle: "Printing & Product Preparation",
+        stepDesc: "Your personalized product is being printed and prepared.",
         badgeClass: "bg-amber-100 text-amber-900 border border-amber-300",
+      };
+
+    case "QUALITY_CHECK":
+    case "PACKED":
+      return {
+        customerStatus: "Quality Check & Packed",
+        stageIndex: 4,
+        stepTitle: "Quality Check & Packed",
+        stepDesc: "Your order has passed quality checking and has been securely packed.",
+        badgeClass: "bg-purple-100 text-purple-900 border border-purple-300",
       };
 
     case "READY_FOR_DELIVERY":
     case "READY_FOR_PICKUP":
       return {
         customerStatus: "Ready for Delivery",
-        stageIndex: 4,
+        stageIndex: 5,
         stepTitle: "Ready for Delivery",
-        stepDesc: "Quality inspected, double bubble-wrapped & sealed for delivery dispatch",
+        stepDesc: "Your order is ready and will be handed over for delivery.",
         badgeClass: "bg-sky-100 text-sky-900 border border-sky-300",
       };
 
+    case "SHIPPED":
     case "DELIVERY_ASSIGNED":
     case "ASSIGNED_DELIVERY":
     case "PICKED_UP":
+    case "DELIVERY_PICKED_UP":
     case "IN_TRANSIT":
       return {
         customerStatus: "Shipped",
-        stageIndex: 5,
+        stageIndex: 6,
         stepTitle: "Shipped",
-        stepDesc: "Dispatched & currently in transit with delivery partner",
+        stepDesc: "Your order has been picked up by the delivery partner.",
         badgeClass: "bg-blue-100 text-blue-900 border border-blue-300",
       };
 
     case "OUT_FOR_DELIVERY":
       return {
         customerStatus: "Out for Delivery",
-        stageIndex: 6,
+        stageIndex: 7,
         stepTitle: "Out for Delivery",
-        stepDesc: "Rider is out for express doorstep delivery today",
+        stepDesc: "Your order is out for delivery.",
         badgeClass: "bg-indigo-100 text-indigo-900 border border-indigo-300",
       };
 
@@ -121,9 +130,9 @@ export function mapInternalToCustomerStatus(internalStatus?: string): CustomerSt
     case "COMPLETED":
       return {
         customerStatus: "Delivered",
-        stageIndex: 7,
-        stepTitle: "Delivered Successfully",
-        stepDesc: "Handed over to customer. Enjoy your Pixello memories!",
+        stageIndex: 8,
+        stepTitle: "Delivered",
+        stepDesc: "Your order has been delivered successfully.",
         badgeClass: "bg-emerald-100 text-emerald-900 border border-emerald-300",
       };
 
@@ -133,7 +142,7 @@ export function mapInternalToCustomerStatus(internalStatus?: string): CustomerSt
         customerStatus: "Cancelled",
         stageIndex: 0,
         stepTitle: "Order Cancelled",
-        stepDesc: "This order has been cancelled",
+        stepDesc: "This order has been cancelled.",
         badgeClass: "bg-rose-100 text-rose-900 border border-rose-300",
       };
 
@@ -143,16 +152,16 @@ export function mapInternalToCustomerStatus(internalStatus?: string): CustomerSt
         customerStatus: "Replacement Requested",
         stageIndex: 0,
         stepTitle: "Replacement Requested",
-        stepDesc: "24-Hour free replacement request registered",
-        badgeClass: "bg-purple-100 text-purple-900 border border-purple-300",
+        stepDesc: "Replacement request registered and queued for preparation.",
+        badgeClass: "bg-amber-100 text-amber-900 border border-amber-300",
       };
 
     default:
       return {
-        customerStatus: "Order Confirmed",
+        customerStatus: "Preparing Your Order",
         stageIndex: 2,
-        stepTitle: "Order Confirmed",
-        stepDesc: "Order confirmed & in queue",
+        stepTitle: "Order Being Prepared",
+        stepDesc: "Our team is preparing your personalized order.",
         badgeClass: "bg-[#FFF8F2] text-[#D89A86] border border-[#D89A86]/30",
       };
   }
@@ -160,7 +169,7 @@ export function mapInternalToCustomerStatus(internalStatus?: string): CustomerSt
 
 /**
  * Strips confidential internal operational data from order payloads sent to customer frontend.
- * Never exposes: Delhivery API tokens, internal API keys, driver personal phone, raw internal payloads.
+ * Never exposes: Delivery One / Delhivery API tokens, internal API keys, driver personal credentials, raw internal payloads.
  */
 export function sanitizeCustomerOrderData(order: Record<string, unknown> | null | undefined) {
   if (!order) return null;
@@ -212,7 +221,7 @@ export function sanitizeCustomerOrderData(order: Record<string, unknown> | null 
     // Safe customer delivery info
     deliveryInfo: safeDeliveryInfo,
 
-    // Filter history to safe timeline steps
+    // Filter history to safe customer timeline steps
     history: Array.isArray(order.history) ? (order.history as Record<string, unknown>[]).map((h) => {
       const hMapped = mapInternalToCustomerStatus(h.status as string);
       return {

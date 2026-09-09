@@ -252,7 +252,7 @@ function ProfileContent() {
     try {
       const fullNote = `Replacement Requested: [${replacementReason}] - Exact Defect: ${replacementExactIssue.trim()} - Resolution: ${replacementResolution}${replacementPhotoUrl ? " (Defect Photo Attached)" : ""}`;
       await updateOrderStatus(replacementModalOrder.id, "Replacement Requested", fullNote);
-      setReplacementSuccessMsg("✓ Replacement request registered with exact reason! Our partner studio will dispatch a fresh replacement.");
+      setReplacementSuccessMsg("✓ Replacement request registered with exact reason! Our crafting team will dispatch a fresh replacement.");
       setTimeout(() => {
         setReplacementModalOrder(null);
         setReplacementSuccessMsg("");
@@ -580,9 +580,9 @@ function ProfileContent() {
               </div>
 
               <div class="info-box">
-                <div class="box-title">Fulfilled By Verified Partner Studio</div>
-                <div class="info-name">${order.assignedStudio || "Studio Alpha - Powai Central Branch"}</div>
-                <div class="info-sub">Master Craftsman Studio • Express Delivery</div>
+                <div class="box-title">Fulfilled By Pixello Central Hub</div>
+                <div class="info-name">Pixello Central Fulfillment</div>
+                <div class="info-sub">Handcrafted Premium Frames • Express Delivery</div>
                 <div class="info-sub" style="margin-top: 4px; color: #059669; font-weight: 700;">Status: ${order.status}</div>
               </div>
             </div>
@@ -1235,7 +1235,7 @@ function ProfileContent() {
                                         </div>
                                         <div>
                                           <span className="text-xs font-bold text-[#3A2B24] block">How is your {item.name}?</span>
-                                          <span className="text-[10px] text-[#6C5C54] font-medium block">Share your rating & feedback directly with our studio team</span>
+                                          <span className="text-[10px] text-[#6C5C54] font-medium block">Share your rating & feedback directly with our team</span>
                                         </div>
                                       </div>
                                       <Button
@@ -1298,7 +1298,7 @@ function ProfileContent() {
                     <MapPin className="h-10 w-10 text-[#D89A86] mx-auto mb-3 opacity-60" />
                     <h3 className="font-bold text-base text-[#3A2B24]">No Saved Addresses Yet</h3>
                     <p className="text-xs text-[#6C5C54] mt-1 max-w-sm mx-auto font-medium">
-                      Add your delivery address so local partner studios can ship your customized photo frames directly to your doorstep.
+                      Add your delivery address so we can ship your customized photo frames directly to your doorstep.
                     </p>
                     <Button 
                       size="sm" 
@@ -1511,108 +1511,129 @@ function ProfileContent() {
           const rawStatus = (trackOrderObj?.status || "").toUpperCase();
           const isReplacementTrack = rawStatus.includes("REPLACEMENT") || (trackOrderObj?.history && trackOrderObj.history.some((h: any) => h.status === "Replacement Requested" || (h.note && h.note.includes("Replacement"))));
 
-          // Calculate current active stage index:
-          // 0: Placed
-          // 1: Studio Accepted / Designing
-          // 2: Printing / Framing
-          // 3: Quality Check / Packed / Ready for Delivery
-          // 4: Out for Delivery
-          // 5: Delivered
+          // Calculate current active stage index for 8 customer stages:
+          // 0: Order Placed
+          // 1: Preparing Your Order
+          // 2: Printing & Product Preparation
+          // 3: Quality Check & Packed
+          // 4: Ready for Delivery
+          // 5: Shipped
+          // 6: Out for Delivery
+          // 7: Delivered
           let currentStepIdx = 0;
-          if (rawStatus === "DELIVERED") {
+          if (rawStatus === "DELIVERED" || rawStatus === "COMPLETED") {
+            currentStepIdx = 7;
+          } else if (rawStatus === "OUT_FOR_DELIVERY" || rawStatus === "OUT FOR DELIVERY") {
+            currentStepIdx = 6;
+          } else if (rawStatus === "SHIPPED" || rawStatus === "IN_TRANSIT" || rawStatus === "PICKED_UP" || rawStatus === "DELIVERY_PICKED_UP" || rawStatus === "DELIVERY_ASSIGNED" || rawStatus === "ASSIGNED_DELIVERY") {
             currentStepIdx = 5;
-          } else if (rawStatus === "OUT_FOR_DELIVERY" || rawStatus === "OUT FOR DELIVERY" || rawStatus === "PICKED_UP" || rawStatus === "DELIVERY PICKED UP") {
+          } else if (rawStatus === "READY_FOR_DELIVERY" || rawStatus === "READY_FOR_PICKUP" || rawStatus === "READY FOR DELIVERY") {
             currentStepIdx = 4;
-          } else if (rawStatus === "QUALITY_CHECK" || rawStatus === "PACKED" || rawStatus === "READY_FOR_PICKUP" || rawStatus === "READY FOR DELIVERY") {
+          } else if (rawStatus === "QUALITY_CHECK" || rawStatus === "PACKED") {
             currentStepIdx = 3;
-          } else if (rawStatus === "PRINTING" || rawStatus === "FRAMING") {
+          } else if (rawStatus === "PRINTING" || rawStatus === "PRODUCT_PREPARATION" || rawStatus === "FRAMING") {
             currentStepIdx = 2;
-          } else if (rawStatus === "ACCEPTED_BY_STUDIO" || rawStatus === "STUDIO ACCEPTED" || rawStatus === "DESIGNING") {
+          } else if (rawStatus === "PROCESSING" || rawStatus === "PAYMENT_CONFIRMED" || rawStatus === "ORDER_CONFIRMED" || rawStatus === "ACCEPTED_BY_STUDIO" || rawStatus === "STUDIO ACCEPTED" || rawStatus === "DESIGNING" || rawStatus === "IN_PRODUCTION") {
             currentStepIdx = 1;
           } else {
             currentStepIdx = 0;
           }
 
-          const progressPercent = currentStepIdx === 0 ? 15 : (currentStepIdx === 1 ? 35 : (currentStepIdx === 2 ? 55 : (currentStepIdx === 3 ? 75 : (currentStepIdx === 4 ? 90 : 100))));
+          const progressPercent = currentStepIdx === 0 ? 12.5 : (currentStepIdx === 1 ? 25 : (currentStepIdx === 2 ? 37.5 : (currentStepIdx === 3 ? 50 : (currentStepIdx === 4 ? 62.5 : (currentStepIdx === 5 ? 75 : (currentStepIdx === 6 ? 87.5 : 100))))));
 
           const steps = isReplacementTrack ? [
             {
-              title: "🔄 Replacement Requested & Approved",
-              desc: !isStudioPortalEnabled()
-                ? "Replacement request registered. Studio crafting will begin as studio operations resume."
-                : "Replacement request registered and approved by Studio.",
+              title: "🔄 Replacement Requested",
+              desc: "Replacement request registered and queued for preparation.",
               time: "Stage 1",
             },
             {
-              title: "🖨️ Replacement Production & Framing",
-              desc: !isStudioPortalEnabled()
-                ? "Studio printing & wooden frame assembly temporarily paused."
-                : "Re-printing high-resolution photo & solid wood frame assembly.",
+              title: "⚙️ Preparing Replacement",
+              desc: "Our team is preparing your replacement order.",
               time: "Stage 2",
             },
             {
-              title: "📦 Quality Check & Express Re-Packaging",
-              desc: !isStudioPortalEnabled()
-                ? "Quality inspection & protective packaging queued."
-                : "Quality inspection & protective double-bubble wrap seal.",
+              title: "🖨️ Printing & Product Preparation",
+              desc: "Your replacement photo is being printed and prepared.",
               time: "Stage 3",
             },
             {
-              title: "🚚 Replacement Out for Doorstep Handover",
-              desc: !isDeliveryPortalEnabled()
-                ? "Replacement delivery temporarily paused. Order will be dispatched once delivery operations reopen."
-                : `Rider: ${trackOrderObj?.deliveryPartner || "Ramesh K. (+91 99887 76655)"} • Direct local bike dispatch.`,
+              title: "📦 Quality Check & Packed",
+              desc: "Replacement inspected and double bubble-wrapped for dispatch.",
               time: "Stage 4",
             },
             {
-              title: "✅ Replacement Delivered Successfully",
-              desc: !isDeliveryPortalEnabled() || !isStudioPortalEnabled()
-                ? "Handover will take place upon redelivery dispatch once operations reopen."
-                : "Fresh replacement delivered to your doorstep. Enjoy!",
-              time: "Completed",
-            }
-          ] : [
-            {
-              title: "Order Placed & Payment Verified",
-              desc: !isStudioPortalEnabled() 
-                ? "Order confirmed & payment verified. Photo crafting will begin as studio operations resume." 
-                : (trackOrderObj?.assignedStudio ? `Assigned to verified studio: ${trackOrderObj.assignedStudio}` : "Order confirmed & payment verified."),
-              time: "Stage 1",
-            },
-            {
-              title: "Studio Accepted & Layout Design",
-              desc: !isStudioPortalEnabled()
-                ? "Studio operations temporarily paused. Photo resolution check & layout design queued."
-                : "Studio verified photo resolution & aspect ratio cropping.",
-              time: "Stage 2",
-            },
-            {
-              title: "Master Lab Printing & Frame Assembly",
-              desc: !isStudioPortalEnabled()
-                ? "Master lab printing & wooden frame assembly paused until studio operations resume."
-                : "High-definition archival photo printing on anti-glare paper & solid wood frame assembly.",
-              time: "Stage 3",
-            },
-            {
-              title: "Quality Check Passed & Gift Wrapped",
-              desc: !isStudioPortalEnabled()
-                ? "Quality inspection & gift packaging queued."
-                : "Quality inspected, double bubble-wrapped & sealed for delivery.",
-              time: "Stage 4",
-            },
-            {
-              title: "Out for Express Doorstep Delivery",
-              desc: !isDeliveryPortalEnabled() 
-                ? "Doorstep delivery temporarily paused. Order is safe and will be dispatched once delivery operations reopen." 
-                : (trackOrderObj?.deliveryPartner ? `Rider: ${trackOrderObj.deliveryPartner} • Direct local bike dispatch.` : "Direct local bike dispatch."),
+              title: "🚀 Ready for Delivery",
+              desc: "Your replacement is ready and will be handed over for delivery.",
               time: "Stage 5",
             },
             {
-              title: "Delivered Successfully",
-              desc: !isDeliveryPortalEnabled() || !isStudioPortalEnabled()
+              title: "🚚 Shipped",
+              desc: !isDeliveryPortalEnabled()
+                ? "Doorstep delivery temporarily paused. Replacement will be handed over once delivery operations reopen."
+                : "Your replacement has been picked up by the delivery partner.",
+              time: "Stage 6",
+            },
+            {
+              title: "📍 Replacement Out for Doorstep Delivery",
+              desc: !isDeliveryPortalEnabled()
+                ? "Doorstep delivery temporarily paused. Replacement will be dispatched once delivery operations reopen."
+                : `Rider: ${trackOrderObj?.deliveryPartner || "Express Courier"} • Direct doorstep dispatch.`,
+              time: "Stage 7",
+            },
+            {
+              title: "✅ Replacement Delivered Successfully",
+              desc: !isDeliveryPortalEnabled()
                 ? "Handover will take place upon redelivery dispatch once operations reopen."
-                : "Handed over to customer. Enjoy your Pixello memories!",
-              time: "Completed",
+                : "Fresh replacement delivered to your doorstep. Enjoy!",
+              time: "Stage 8",
+            }
+          ] : [
+            {
+              title: "Order Placed",
+              desc: "Your order has been received and payment is confirmed.",
+              time: "Stage 1",
+            },
+            {
+              title: "Preparing Your Order",
+              desc: "Our team is preparing your personalized order.",
+              time: "Stage 2",
+            },
+            {
+              title: "Printing & Product Preparation",
+              desc: "Your personalized product is being printed and prepared.",
+              time: "Stage 3",
+            },
+            {
+              title: "Quality Check & Packed",
+              desc: "Your order has passed quality checking and has been securely packed.",
+              time: "Stage 4",
+            },
+            {
+              title: "Ready for Delivery",
+              desc: "Your order is ready and will be handed over for delivery.",
+              time: "Stage 5",
+            },
+            {
+              title: "Shipped",
+              desc: !isDeliveryPortalEnabled() 
+                ? "Doorstep delivery temporarily paused. Order will be handed over once delivery operations reopen."
+                : "Your order has been picked up by the delivery partner.",
+              time: "Stage 6",
+            },
+            {
+              title: "Out for Delivery",
+              desc: !isDeliveryPortalEnabled() 
+                ? "Doorstep delivery temporarily paused. Order will be dispatched once delivery operations reopen." 
+                : (trackOrderObj?.deliveryPartner ? `Rider: ${trackOrderObj.deliveryPartner} • Direct doorstep dispatch.` : "Your order is out for delivery."),
+              time: "Stage 7",
+            },
+            {
+              title: "Delivered",
+              desc: !isDeliveryPortalEnabled()
+                ? "Handover will take place upon redelivery dispatch once operations reopen."
+                : "Your order has been delivered successfully.",
+              time: "Stage 8",
             }
           ];
 
@@ -1889,7 +1910,7 @@ function ProfileContent() {
               Request Order Replacement
             </h3>
             <p className="text-xs text-[#6C5C54] mb-4 font-medium">
-              Order #{replacementModalOrder.id} • Please select the exact issue and explain what needs to be fixed so our partner studio crafts your replacement with 100% precision.
+              Order #{replacementModalOrder.id} • Please select the exact issue and explain what needs to be fixed so our crafting team prepares your replacement with 100% precision.
             </p>
 
             {replacementSuccessMsg ? (
@@ -2101,7 +2122,7 @@ function ProfileContent() {
               {editingAddressId ? "Update Delivery Address" : "Add Delivery Address"}
             </h3>
             <p className="text-xs text-[#6C5C54] mb-5 font-medium">
-              {editingAddressId ? "Update address details for express local studio delivery." : "Save a new address for express local studio delivery."}
+              {editingAddressId ? "Update address details for express delivery." : "Save a new address for express delivery."}
             </p>
 
             <form 
@@ -2543,7 +2564,7 @@ function ProfileContent() {
             ) : (
               <div className="space-y-4">
                 <div className="p-3 bg-amber-50 border border-amber-200 text-amber-900 rounded-2xl text-xs font-medium">
-                  ⚠️ Note: Orders can only be cancelled within <strong>24 hours</strong> of placement before studio framing begins.
+                  ⚠️ Note: Orders can only be cancelled within <strong>24 hours</strong> of placement before product preparation begins.
                 </div>
 
                 <div>
@@ -2670,10 +2691,10 @@ function ProfileContent() {
                       </h4>
                       <p className="mt-0.5 font-medium">
                         {isPrintingStarted
-                          ? "Studio framing and printing have begun. This order can no longer be cancelled."
+                          ? "Printing and product preparation have begun. This order can no longer be cancelled."
                           : (isCancelEligible 
-                            ? `You can cancel this order within ${hoursRemaining}h ${minsRemaining}m before studio printing starts.`
-                            : "Order placed over 24 hours ago. Studio framing is underway.")}
+                            ? `You can cancel this order within ${hoursRemaining}h ${minsRemaining}m before product preparation starts.`
+                            : "Order placed over 24 hours ago. Product preparation is underway.")}
                       </p>
                     </div>
                     {isCancelEligible && (
@@ -2964,7 +2985,7 @@ function OrderTrackerModalContent({
         onClick={e => e.stopPropagation()}
       >
         {/* Pixello Luxury Header Card */}
-        <div className="bg-gradient-to-br from-[#2A1E17] via-[#3D2C23] to-[#1F1611] text-white p-5 sm:p-7 pb-6 sm:pb-8 relative border-b border-[#4A382D] overflow-hidden">
+        <div className="bg-gradient-to-br from-[#2A1E17] via-[#3D2C23] to-[#1F1611] text-white px-6 pt-6 pb-8 sm:px-8 sm:pt-7 sm:pb-10 relative border-b border-[#4A382D] overflow-hidden">
           {/* Ambient Glow */}
           <div className="absolute -top-12 -right-12 w-44 h-44 bg-[#DF8673]/20 rounded-full blur-3xl pointer-events-none" />
           <div className="absolute -bottom-10 -left-10 w-36 h-36 bg-amber-500/15 rounded-full blur-2xl pointer-events-none" />
@@ -2977,7 +2998,7 @@ function OrderTrackerModalContent({
             ✕
           </button>
 
-          <div className="flex items-center gap-2 mb-3.5 flex-wrap relative z-10 pr-10">
+          <div className="flex items-center gap-2.5 mb-4 sm:mb-5 flex-wrap relative z-10 pr-12">
             <Badge className="bg-gradient-to-r from-[#DF8673] to-[#C96E5B] text-white border-none font-extrabold text-[10px] uppercase tracking-wider px-3.5 py-1 rounded-full shadow-xs flex items-center gap-1.5">
               <Sparkles className="h-3 w-3 text-amber-200" />
               {isReplacementTrack ? "REPLACEMENT EXPRESS VAULT" : "PIXELLO MEMORY TRACKER"}
@@ -2989,14 +3010,14 @@ function OrderTrackerModalContent({
           </div>
 
           <div className="relative z-10">
-            <div className="flex items-center gap-3 flex-wrap">
+            <div className="flex items-center gap-3 flex-wrap mb-2.5 sm:mb-3">
               <h3 className="font-serif-brand text-2xl sm:text-3xl font-black text-white tracking-tight leading-tight py-0.5">
                 Order #{trackingOrder}
               </h3>
               <button
                 type="button"
                 onClick={handleCopyOrder}
-                className="bg-white/10 hover:bg-white/20 text-white/90 px-2.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer hover:scale-105"
+                className="bg-white/10 hover:bg-white/20 text-white/90 px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer hover:scale-105 shadow-xs"
                 title="Copy Order ID"
               >
                 {copied ? (
@@ -3012,14 +3033,14 @@ function OrderTrackerModalContent({
                 )}
               </button>
             </div>
-            <p className="text-xs text-[#EFE6DD]/80 mt-2 font-medium flex items-center gap-2">
+            <p className="text-xs sm:text-sm text-[#EFE6DD]/80 font-medium flex items-center gap-2 leading-relaxed">
               <Clock className="h-3.5 w-3.5 text-[#DF8673]" /> Current Phase: <strong className="text-amber-300 font-bold">{trackOrderObj?.status || "Processing"} ⚡</strong>
             </p>
           </div>
         </div>
 
         {/* Unique Pixello Segmented Pill Navigation */}
-        <div className="bg-[#FAF6F0] p-2 border-b border-[#EFE6DD]">
+        <div className="bg-[#FAF6F0] p-2.5 sm:p-3 border-b border-[#EFE6DD]">
           <div className="flex items-center justify-between bg-[#EFE6DD]/60 p-1 rounded-2xl gap-1">
             <button
               type="button"
@@ -3075,20 +3096,18 @@ function OrderTrackerModalContent({
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between gap-2 flex-wrap mb-1">
                         <h4 className="font-extrabold text-amber-950 text-sm tracking-tight flex items-center gap-2">
-                          {studioPaused && deliveryPaused 
-                            ? "Studio Crafting & Delivery Operations Paused" 
-                            : (studioPaused ? "Studio Operations Temporarily Paused" : "Delivery Fleet Temporarily Unavailable")}
+                          {deliveryPaused 
+                            ? "Delivery Fleet Temporarily Unavailable" 
+                            : "Order Processing Notice"}
                         </h4>
                         <span className="bg-amber-500/20 text-amber-900 border border-amber-400/50 text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full flex items-center gap-1">
                           <Lock className="h-3 w-3" /> Safe In Vault
                         </span>
                       </div>
                       <p className="text-xs text-amber-900/90 font-medium leading-relaxed">
-                        {studioPaused && deliveryPaused
-                          ? "Our photo crafting studios and local express delivery fleet are currently undergoing a scheduled system upgrade. Your custom memory photos, framing specifications, and payments are 100% safe in our vault."
-                          : (studioPaused 
-                            ? "Photo framing and crafting operations are currently paused for maintenance. Your order is safely queued in our studio vault." 
-                            : "Your order is prepared and safely stored while local express delivery fleet operations resume shortly.")}
+                        {deliveryPaused
+                          ? "Your order is prepared and safely stored while local express delivery fleet operations resume shortly."
+                          : "Your order is safely queued for fulfillment."}
                       </p>
 
                       {/* Interactive Safeguard Tags */}
@@ -3283,7 +3302,7 @@ function OrderTrackerModalContent({
             className="w-full sm:flex-1 btn-pixello-primary text-xs font-bold h-11 rounded-full flex items-center justify-center gap-2 shadow-xs"
           >
             <MessageSquare className="h-4 w-4" /> 
-            {opsPaused ? "Chat with Support on WhatsApp" : "Chat with Studio on WhatsApp"}
+            Chat with Support on WhatsApp
           </a>
           <Button 
             variant="outline" 

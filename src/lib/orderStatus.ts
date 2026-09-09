@@ -17,33 +17,35 @@ export function mapDbStatusToUi(dbStatus?: string | null): string {
     case "OUT_FOR_DELIVERY":
     case "OUT FOR DELIVERY":
       return "Out for Delivery";
+    case "SHIPPED":
     case "IN_TRANSIT":
     case "IN TRANSIT":
-      return "In Transit";
     case "PICKED_UP":
     case "DELIVERY_PICKED_UP":
     case "DELIVERY PICKED UP":
-      return "Picked Up";
     case "DELIVERY_ASSIGNED":
     case "ASSIGNED_DELIVERY":
-      return "Delivery Assigned";
+      return "Shipped";
     case "READY_FOR_DELIVERY":
     case "READY_FOR_PICKUP":
     case "READY FOR PICKUP":
     case "READY FOR DELIVERY":
       return "Ready for Delivery";
-    case "IN_PRODUCTION":
     case "QUALITY_CHECK":
     case "PACKED":
-    case "FRAMING":
+      return "Quality Check & Packed";
     case "PRINTING":
-    case "DESIGNING":
-      return "In Production";
+    case "PRODUCT_PREPARATION":
+    case "FRAMING":
+      return "Printing & Product Preparation";
+    case "IN_PRODUCTION":
+    case "PROCESSING":
     case "ORDER_CONFIRMED":
     case "ACCEPTED_BY_STUDIO":
     case "STUDIO_ACCEPTED":
     case "ASSIGNED_STUDIO":
-      return "Order Confirmed";
+    case "DESIGNING":
+      return "Preparing Your Order";
     case "PAYMENT_CONFIRMED":
       return "Payment Confirmed";
     case "REPLACEMENT_REQUESTED":
@@ -78,6 +80,7 @@ export function mapUiStatusToDb(uiStatus?: string | null): OrderStatus {
       return "CANCELLED";
     case "OUT_FOR_DELIVERY":
       return "OUT_FOR_DELIVERY";
+    case "SHIPPED":
     case "IN_TRANSIT":
       return "IN_TRANSIT";
     case "PICKED_UP":
@@ -89,17 +92,19 @@ export function mapUiStatusToDb(uiStatus?: string | null): OrderStatus {
     case "READY_FOR_DELIVERY":
     case "READY_FOR_PICKUP":
       return "READY_FOR_DELIVERY";
-    case "IN_PRODUCTION":
     case "QUALITY_CHECK":
     case "PACKED":
-    case "FRAMING":
     case "PRINTING":
-    case "DESIGNING":
+    case "PRODUCT_PREPARATION":
+    case "FRAMING":
+    case "IN_PRODUCTION":
+    case "PROCESSING":
       return "IN_PRODUCTION";
     case "ORDER_CONFIRMED":
     case "ACCEPTED_BY_STUDIO":
     case "STUDIO_ACCEPTED":
     case "ASSIGNED_STUDIO":
+    case "DESIGNING":
       return "ORDER_CONFIRMED";
     case "PAYMENT_CONFIRMED":
       return "PAYMENT_CONFIRMED";
