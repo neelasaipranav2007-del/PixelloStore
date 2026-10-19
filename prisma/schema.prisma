@@ -36,6 +36,7 @@ model User {
   deliveryProfile   DeliveryProfile?
   notifications     Notification[]
   auditLogs         AuditLog[]
+  termsAcceptances  TermsAcceptance[]
 }
 
 model Account {
@@ -491,3 +492,15 @@ model SystemSetting {
   updatedAt  DateTime @updatedAt
 }
 
+model TermsAcceptance {
+  id            String   @id @default(cuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  version       String   @default("v1.0")
+  policyVersion String?  @default("v1.0")
+  acceptedAt    DateTime @default(now())
+  orderId       String?  // populated only for CHECKOUT context
+  context       String   @default("REGISTRATION") // REGISTRATION | AUTH_SIGNIN | TERMS_UPDATE | CHECKOUT
+
+  @@index([userId, version])
+}

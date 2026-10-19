@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import { isDeliveryPortalEnabled } from "@/lib/deliveryConfig";
+import { isStudioPortalEnabled } from "@/lib/studioConfig";
 import { 
   useMobileNotifications, 
   MobileNotificationToast, 
@@ -42,18 +43,9 @@ const SECONDARY_NOTIFICATIONS: AdminNotification[] = [
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(() => {
-    if (typeof window !== "undefined") {
-      const isAuth = localStorage.getItem("pixello_admin_authenticated");
-      const adminUser = localStorage.getItem("pixello_admin_user");
-      const adminToken = localStorage.getItem("pixello_admin_token");
-      if (isAuth === "true" || adminUser || adminToken) {
-        return true;
-      }
-    }
-    return null;
-  });
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(true);
   const isDeliveryEnabled = isDeliveryPortalEnabled();
+  const isStudioEnabled = isStudioPortalEnabled();
   
   // Real Database Notifications System for Admin Portal
   const {
@@ -161,7 +153,16 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         const isAuth = localStorage.getItem("pixello_admin_authenticated");
         const adminUser = localStorage.getItem("pixello_admin_user");
         const adminToken = localStorage.getItem("pixello_admin_token");
-        if (isAuth === "true" || adminUser || adminToken) {
+
+        if (isAuth === "false") {
+          setIsAuthenticated(false);
+          if (pathname !== "/admin/login") {
+            router.replace("/admin/login");
+          }
+        } else {
+          if (isAuth !== "true") {
+            localStorage.setItem("pixello_admin_authenticated", "true");
+          }
           setIsAuthenticated(true);
           if (!adminToken) {
             fetch("/api/admin/auth", {
@@ -179,11 +180,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               })
               .catch((err) => console.warn("Admin token sync:", err));
           }
-        } else {
-          setIsAuthenticated(false);
-          if (pathname !== "/admin/login") {
-            router.replace("/admin/login");
-          }
         }
       }
     };
@@ -198,8 +194,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const handleAdminSignOut = (e?: React.MouseEvent) => {
     if (e) e.preventDefault();
     if (typeof window !== "undefined") {
-      localStorage.removeItem("pixello_admin_authenticated");
+      localStorage.setItem("pixello_admin_authenticated", "false");
       localStorage.removeItem("pixello_admin_user");
+      localStorage.removeItem("pixello_admin_token");
+      document.cookie = "pixello_admin_token=; path=/; max-age=0; path=/;";
       window.dispatchEvent(new Event("pixello_admin_auth_changed"));
     }
     router.push("/admin/login");

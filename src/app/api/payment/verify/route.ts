@@ -194,6 +194,20 @@ export async function POST(req: Request) {
         },
       });
 
+      // Record Terms Acceptance for Checkout
+      try {
+        await tx.termsAcceptance.create({
+          data: {
+            userId: user.id,
+            version: "v1.0",
+            policyVersion: "v1.0",
+            context: "CHECKOUT",
+            orderId: newOrder.id,
+            acceptedAt: new Date(),
+          },
+        });
+      } catch (e) {}
+
       // Attribute Ambassador Referral & Commission if present
       if (cleanReferral) {
         const ambassador = await tx.ambassadorProfile.findUnique({

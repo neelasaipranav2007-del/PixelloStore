@@ -96,8 +96,8 @@ export async function POST(req: Request) {
     // Cap discount to subtotal
     discountAmount = Math.min(discountAmount, calculatedSubtotal);
 
-    // 3. Calculate Delivery Fee
-    const deliveryFee = calculatedSubtotal >= 999 ? 0 : 49;
+    // 3. Calculate Delivery Fee (Storewide Free Shipping Policy)
+    const deliveryFee = 0;
 
     // 4. Calculate Final Authoritative Total Amount
     const finalTotalAmount = Math.max(1, calculatedSubtotal - discountAmount + deliveryFee);

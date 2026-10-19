@@ -18,17 +18,25 @@ export async function GET() {
     }
 
     const allOrders = await prisma.order.findMany({
-      select: { customerProfileId: true, customerPhone: true, totalAmount: true },
+      select: {
+        id: true,
+        customerProfileId: true,
+        customerName: true,
+        customerPhone: true,
+        totalAmount: true,
+        createdAt: true,
+      },
+      orderBy: { createdAt: "desc" },
     });
 
-    const customers = await prisma.user.findMany({
+    // Retrieve all users who are customers or have accounts (exclude dedicated system studio/delivery partners)
+    const users = await prisma.user.findMany({
       where: {
-        role: { notIn: ["ADMIN", "SUPER_ADMIN", "STUDIO", "DELIVERY"] },
+        role: { notIn: ["STUDIO", "DELIVERY"] },
       },
       include: {
         customerProfile: {
           include: {
-            orders: true,
             addresses: true,
           },
         },
@@ -36,28 +44,67 @@ export async function GET() {
       orderBy: { createdAt: "desc" },
     });
 
-    const formatted = customers.map((c) => {
-      const cleanMob = (c.phone || "").replace(/\D/g, "").slice(-10);
-      const matchedOrders = allOrders.filter(
-        (o) =>
-          (c.customerProfile?.id && o.customerProfileId === c.customerProfile.id) ||
-          (cleanMob && o.customerPhone && o.customerPhone.replace(/\D/g, "").slice(-10) === cleanMob)
-      );
-      const totalSpent = matchedOrders.reduce((sum, o) => sum + o.totalAmount, 0);
-      const status = statusMap[c.id] || (cleanMob ? statusMap[cleanMob] : null) || "Active";
-      return {
-        id: c.id,
-        name: c.name || "Customer",
-        email: c.email || `${cleanMob}@pixello.store`,
-        phone: c.phone || `+91 ${cleanMob}`,
-        mobile: cleanMob,
-        status: status,
-        orderCount: matchedOrders.length,
-        totalSpent,
-        createdAt: c.createdAt,
-        addresses: c.customerProfile?.addresses || [],
-      };
+    const customerMap: Record<string, any> = {};
+
+    // 1. Seed customer directory with database users
+    users.forEach((u) => {
+      const cleanMob = (u.phone || "").replace(/\D/g, "").slice(-10);
+      if (cleanMob) {
+        const status = statusMap[u.id] || statusMap[cleanMob] || "Active";
+        customerMap[cleanMob] = {
+          id: u.id,
+          name: u.name || "Customer",
+          email: u.email || `${cleanMob}@pixello.store`,
+          phone: u.phone || `+91 ${cleanMob}`,
+          mobile: cleanMob,
+          status,
+          orderCount: 0,
+          totalSpent: 0,
+          createdAt: u.createdAt,
+          addresses: u.customerProfile?.addresses || [],
+          customerProfileId: u.customerProfile?.id,
+        };
+      }
     });
+
+    // 2. Scan and aggregate orders (including any placed by guest phone numbers)
+    allOrders.forEach((o) => {
+      const cleanMob = (o.customerPhone || "").replace(/\D/g, "").slice(-10);
+      if (cleanMob) {
+        if (!customerMap[cleanMob]) {
+          const status = statusMap[cleanMob] || "Active";
+          customerMap[cleanMob] = {
+            id: o.customerProfileId || `cust_${cleanMob}`,
+            name: o.customerName || "Customer",
+            email: `${cleanMob}@pixello.store`,
+            phone: o.customerPhone.includes("+91") ? o.customerPhone : `+91 ${cleanMob}`,
+            mobile: cleanMob,
+            status,
+            orderCount: 0,
+            totalSpent: 0,
+            createdAt: o.createdAt,
+            addresses: [],
+            customerProfileId: o.customerProfileId,
+          };
+        } else {
+          // If the registered name was a placeholder but the order has a real name, use it
+          if (
+            (!customerMap[cleanMob].name ||
+              customerMap[cleanMob].name === "Customer" ||
+              customerMap[cleanMob].name.startsWith("Customer (")) &&
+            o.customerName &&
+            o.customerName !== "Customer"
+          ) {
+            customerMap[cleanMob].name = o.customerName;
+          }
+        }
+
+        customerMap[cleanMob].orderCount += 1;
+        customerMap[cleanMob].totalSpent += Number(o.totalAmount || 0);
+      }
+    });
+
+    const formatted = Object.values(customerMap);
 
     return NextResponse.json({ success: true, customers: formatted, statusMap });
   } catch (error: any) {
@@ -69,7 +116,15 @@ export async function GET() {
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { name, email, phone, mobile, password, college } = body;
+    const { name, email, phone, mobile, password, college, termsAccepted } = body;
+
+    const isExplicitlyAccepted = termsAccepted === true || termsAccepted === "true";
+    if (!isExplicitlyAccepted) {
+      return NextResponse.json(
+        { success: false, error: "Please accept the Terms & Conditions to continue." },
+        { status: 400 }
+      );
+    }
 
     const cleanMobile = (mobile || phone || "").replace(/\D/g, "").slice(-10);
     const cleanPhone = cleanMobile ? `+91 ${cleanMobile}` : undefined;
@@ -108,6 +163,19 @@ export async function POST(req: Request) {
         name: updated.name,
       });
 
+      // Record terms acceptance
+      try {
+        await prisma.termsAcceptance.create({
+          data: {
+            userId: updated.id,
+            version: "v1.0",
+            policyVersion: "v1.0",
+            context: "REGISTRATION",
+            acceptedAt: new Date(),
+          },
+        });
+      } catch (err) {}
+
       const response = NextResponse.json({
         success: true,
         user: updated,
@@ -140,6 +208,19 @@ export async function POST(req: Request) {
     });
 
     portalEvents.emit("customer_change", { action: "CREATE", user: newUser });
+
+    // Record terms acceptance
+    try {
+      await prisma.termsAcceptance.create({
+        data: {
+          userId: newUser.id,
+          version: "v1.0",
+          policyVersion: "v1.0",
+          context: "REGISTRATION",
+          acceptedAt: new Date(),
+        },
+      });
+    } catch (err) {}
 
     const token = createCustomerToken({
       userId: newUser.id,

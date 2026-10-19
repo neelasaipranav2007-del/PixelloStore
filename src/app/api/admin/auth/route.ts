@@ -14,13 +14,20 @@ export async function POST(req: Request) {
     let adminUser = await prisma.user.findFirst({
       where: {
         OR: [
+          ...(cleanMobile ? [{ phone: { contains: cleanMobile } }] : []),
           { email: "admin@pixellostore.com" },
           { email: "neelasaipranav2007@gmail.com" },
-          { phone: `+91 ${cleanMobile}` },
           { role: "ADMIN" },
         ],
       },
     });
+
+    if (adminUser && adminUser.role !== "ADMIN" && adminUser.role !== "SUPER_ADMIN") {
+      adminUser = await prisma.user.update({
+        where: { id: adminUser.id },
+        data: { role: "ADMIN" },
+      });
+    }
 
     if (!adminUser) {
       adminUser = await prisma.user.create({

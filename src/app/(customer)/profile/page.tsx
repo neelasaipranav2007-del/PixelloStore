@@ -2,7 +2,7 @@
 
 import { useState, useEffect, Suspense } from "react";
 import Link from "next/link";
-import { User, Package, MapPin, Heart, Settings, LogOut, ShieldCheck, Check, Plus, Edit2, Key, Bell, CreditCard, ExternalLink, Download, Eye, EyeOff, CheckCircle2, Truck, Sparkles, Clock, PhoneCall, MessageSquare, FileText, Image as ImageIcon, X, Ticket, RefreshCw, Star, Upload, AlertTriangle, CheckCircle, MessageSquareQuote, Copy, PackageCheck, ShoppingBag, Lock } from "lucide-react";
+import { User, Package, MapPin, Heart, Settings, LogOut, ShieldCheck, Check, Plus, Edit2, Key, Bell, CreditCard, ExternalLink, Download, Eye, EyeOff, CheckCircle2, Truck, Sparkles, Clock, PhoneCall, MessageSquare, FileText, Image as ImageIcon, X, Ticket, RefreshCw, Star, Upload, AlertTriangle, AlertCircle, CheckCircle, MessageSquareQuote, Copy, PackageCheck, ShoppingBag, Lock } from "lucide-react";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -13,15 +13,17 @@ import { cn } from "@/lib/utils";
 
 import { useOrders } from "@/context/OrderContext";
 import { useWishlist } from "@/context/WishlistContext";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { usePixelloTransition } from "@/components/customer/PixelloPageTransition";
 import { isDeliveryPortalEnabled } from "@/lib/deliveryConfig";
 import { isStudioPortalEnabled } from "@/lib/studioConfig";
+import { PIXELLO_TERMS_POINTS, CURRENT_TERMS_VERSION } from "@/lib/termsData";
 
 function ProfileContent() {
   const { startTransitionTo } = usePixelloTransition();
   const { orders, updateOrderStatus } = useOrders();
   const { wishlist, toggleWishlist } = useWishlist();
+  const router = useRouter();
   const searchParams = useSearchParams();
   const initialTab = searchParams.get("tab") || "orders";
 
@@ -29,6 +31,12 @@ function ProfileContent() {
   const [savedSuccess, setSavedSuccess] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
+
+  // Terms acceptance modal state for policy updates
+  const [needsTermsAcceptance, setNeedsTermsAcceptance] = useState(false);
+  const [termsModalAccepted, setTermsModalAccepted] = useState(false);
+  const [termsModalError, setTermsModalError] = useState("");
+  const [isSubmittingTerms, setIsSubmittingTerms] = useState(false);
 
   // Product Reviews State
   const [userReviews, setUserReviews] = useState<Record<string, any>>({});
@@ -367,6 +375,76 @@ function ProfileContent() {
     }
   };
 
+  const handleViewDocument = (url: string | undefined, title: string) => {
+    if (!url) return;
+
+    // Check if PDF
+    const isPdf = url.startsWith("data:application/pdf") || url.toLowerCase().includes(".pdf");
+    if (isPdf) {
+      if (url.startsWith("data:application/pdf")) {
+        try {
+          const parts = url.split(";base64,");
+          const contentType = parts[0].split(":")[1] || "application/pdf";
+          const raw = window.atob(parts[1]);
+          const rawLength = raw.length;
+          const uInt8Array = new Uint8Array(rawLength);
+          for (let i = 0; i < rawLength; ++i) {
+            uInt8Array[i] = raw.charCodeAt(i);
+          }
+          const blob = new Blob([uInt8Array], { type: contentType });
+          const blobUrl = URL.createObjectURL(blob);
+          const newTab = window.open(blobUrl, "_blank");
+          if (!newTab) {
+            const a = document.createElement("a");
+            a.href = blobUrl;
+            a.download = `${title.replace(/\s+/g, "_")}.pdf`;
+            a.click();
+          }
+          return;
+        } catch (e) {
+          console.error("Failed to parse PDF data url:", e);
+        }
+      }
+
+      const newTab = window.open(url, "_blank");
+      if (!newTab) {
+        alert("Please allow popups to view this document");
+      }
+      return;
+    }
+
+    // Check if Image
+    if (url.startsWith("data:image") || url.startsWith("http") || url.startsWith("/")) {
+      const w = window.open("");
+      if (w) {
+        w.document.title = title;
+        w.document.write(`
+          <!DOCTYPE html>
+          <html>
+            <head>
+              <title>${title}</title>
+              <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            </head>
+            <body style="margin:0;background:#18181b;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;padding:24px;box-sizing:border-box;font-family:system-ui,sans-serif;">
+              <div style="background:#ffffff;padding:16px;border-radius:16px;box-shadow:0 20px 40px rgba(0,0,0,0.5);max-width:96vw;max-height:92vh;display:flex;flex-direction:column;align-items:center;">
+                <div style="display:flex;justify-content:space-between;align-items:center;width:100%;margin-bottom:12px;border-bottom:1px solid #e4e4e7;padding-bottom:8px;">
+                  <span style="font-weight:700;color:#27272a;font-size:14px;">${title}</span>
+                  <a href="${url}" download="${title.replace(/\s+/g, "_")}.png" style="font-size:12px;color:#2563eb;text-decoration:none;font-weight:600;padding:4px 8px;background:#eff6ff;border-radius:6px;">Download</a>
+                </div>
+                <img src="${url}" style="max-width:100%;max-height:78vh;object-fit:contain;border-radius:8px;" alt="${title}"/>
+              </div>
+            </body>
+          </html>
+        `);
+      } else {
+        alert("Please allow popups to view this document");
+      }
+      return;
+    }
+
+    alert(`${title}: ${url}`);
+  };
+
   const handleDownloadInvoice = (order: any) => {
     const invoiceHtml = `
       <!DOCTYPE html>
@@ -666,11 +744,71 @@ function ProfileContent() {
   };
 
   useEffect(() => {
-    const syncProfileData = () => {
+    const syncProfileData = async () => {
       if (typeof window !== "undefined") {
         const isLoggedOut = localStorage.getItem("pixello_logged_out") === "true";
-        const savedUser = localStorage.getItem("pixello_user");
+        let savedUser = localStorage.getItem("pixello_user");
+        let authToken = localStorage.getItem("pixello_auth_token");
         let mobileKey = "default";
+
+        // If not logged out and we have token or cookie, attempt backend verification if user is missing
+        if (!isLoggedOut && !savedUser) {
+          try {
+            const headers: Record<string, string> = {};
+            if (authToken) headers["Authorization"] = `Bearer ${authToken}`;
+            const res = await fetch("/api/auth/me", {
+              credentials: "same-origin",
+              headers,
+            });
+            const authData = await res.json();
+            if (authData?.success && authData.user) {
+              const u = authData.user;
+              const restoredUser = {
+                id: u.id,
+                name: u.name || "Customer",
+                email: u.email || "",
+                phone: u.phone || (u.mobile ? `+91 ${u.mobile}` : ""),
+                mobile: u.mobile || (u.phone ? u.phone.replace(/\D/g, "").slice(-10) : ""),
+                role: u.role,
+                customerProfileId: u.customerProfileId,
+                isLoggedIn: true,
+                termsAcceptedVersion: authData.termsAccepted ? authData.currentTermsVersion : null,
+              };
+              localStorage.setItem("pixello_user", JSON.stringify(restoredUser));
+              savedUser = JSON.stringify(restoredUser);
+
+              if (authData.termsAccepted === false) {
+                setNeedsTermsAcceptance(true);
+              } else {
+                setNeedsTermsAcceptance(false);
+              }
+            } else if (authData && authData.authenticated === false) {
+              setIsLoggedIn(false);
+              setIsCheckingAuth(false);
+              return;
+            }
+          } catch (e) {
+            console.warn("Could not auto-restore session from /api/auth/me:", e);
+          }
+        } else if (savedUser && !isLoggedOut) {
+          // Verify with backend if current terms version is accepted
+          try {
+            const headers: Record<string, string> = {};
+            if (authToken) headers["Authorization"] = `Bearer ${authToken}`;
+            fetch("/api/auth/me", { credentials: "same-origin", headers })
+              .then((r) => r.json())
+              .then((authData) => {
+                if (authData?.success) {
+                  if (authData.termsAccepted === false) {
+                    setNeedsTermsAcceptance(true);
+                  } else {
+                    setNeedsTermsAcceptance(false);
+                  }
+                }
+              })
+              .catch(() => {});
+          } catch (e) {}
+        }
 
         if (isLoggedOut || !savedUser) {
           setIsLoggedIn(false);
@@ -679,7 +817,7 @@ function ProfileContent() {
             name: "",
             email: "",
             phone: "",
-            college: ""
+            college: "",
           });
           setAddresses([]);
           return;
@@ -693,7 +831,7 @@ function ProfileContent() {
             return;
           }
 
-          const cleanMob = (parsed.mobile || "").replace(/\D/g, "").slice(-10);
+          const cleanMob = (parsed.mobile || parsed.phone || "").replace(/\D/g, "").slice(-10);
           mobileKey = cleanMob || "default";
 
           const profileByKey = cleanMob ? localStorage.getItem(`pixello_profile_${cleanMob}`) : null;
@@ -823,22 +961,28 @@ function ProfileContent() {
     { id: "settings", label: "Settings", icon: Settings },
   ];
 
-  if (!isCheckingAuth && !isLoggedIn) {
+  // Automatic redirection to login if unauthenticated
+  useEffect(() => {
+    if (!isCheckingAuth && !isLoggedIn) {
+      const destination = typeof window !== "undefined"
+        ? `${window.location.pathname}${window.location.search}`
+        : "/profile";
+      router.replace(`/login?redirect=${encodeURIComponent(destination)}`);
+    }
+  }, [isCheckingAuth, isLoggedIn, router]);
+
+  if (isCheckingAuth || !isLoggedIn) {
     return (
-      <div suppressHydrationWarning className="container mx-auto px-4 md:px-6 py-16 text-center max-w-md">
-        <div className="bg-white border border-[#EFE6DD] rounded-3xl p-8 sm:p-10 shadow-xs">
-          <div className="h-16 w-16 rounded-full bg-[#FFF8F2] border border-[#EFE6DD] flex items-center justify-center mx-auto mb-4 text-[#D89A86]">
-            <User className="h-8 w-8" />
-          </div>
-          <h2 className="font-serif-brand text-2xl font-bold text-[#3A2B24] mb-2">Customer Account</h2>
-          <p className="text-xs text-[#6C5C54] mb-6 leading-relaxed">
-            Please sign in with your mobile number to view your order history, saved addresses, and profile details.
-          </p>
+      <div suppressHydrationWarning className="container mx-auto px-4 md:px-6 py-20 text-center max-w-md">
+        <div className="bg-white border border-[#EFE6DD] rounded-3xl p-8 sm:p-10 shadow-xs flex flex-col items-center justify-center">
+          <div className="h-10 w-10 rounded-full border-3 border-[#D89A86] border-t-transparent animate-spin mb-4" />
+          <h2 className="font-serif-brand text-xl font-bold text-[#3A2B24] mb-1.5">Checking Customer Access...</h2>
+          <p className="text-xs text-[#6C5C54] mb-4">Redirecting you to the Customer Sign-In page.</p>
           <Button 
-            onClick={() => startTransitionTo("/login?redirect=/profile")}
-            className="btn-pixello-primary w-full rounded-full font-bold h-12 text-sm shadow-xs cursor-pointer"
+            onClick={() => router.push("/login?redirect=/profile")}
+            className="btn-pixello-primary rounded-full font-bold h-10 px-6 text-xs shadow-xs cursor-pointer"
           >
-            Sign In with Mobile Number
+            Go to Sign In
           </Button>
         </div>
       </div>
@@ -1044,7 +1188,7 @@ function ProfileContent() {
                               <div className="font-bold text-[#3A2B24]">{order.id}</div>
                             </div>
                           </div>
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-2 flex-wrap">
                             <Button 
                               variant="outline" 
                               size="sm" 
@@ -1053,13 +1197,32 @@ function ProfileContent() {
                             >
                               <FileText className="h-3.5 w-3.5 text-[#D89A86]" /> Order Details
                             </Button>
+                            {order.shippingLabelUrl && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="rounded-full text-xs border-emerald-300 bg-emerald-50/70 hover:bg-emerald-100 text-emerald-800 flex items-center gap-1.5 font-bold shadow-2xs"
+                                onClick={() => handleViewDocument(order.shippingLabelUrl, `Shipping Label - Order #${order.id}`)}
+                              >
+                                <Truck className="h-3.5 w-3.5 text-emerald-600" /> Shipping Label
+                              </Button>
+                            )}
                             <Button 
                               variant="outline" 
                               size="sm" 
-                              className="rounded-full text-xs border-[#EFE6DD] hover:bg-white flex items-center gap-1.5 font-semibold text-[#3A2B24]" 
-                              onClick={() => handleDownloadInvoice(order)}
+                              className={cn(
+                                "rounded-full text-xs border-[#EFE6DD] hover:bg-white flex items-center gap-1.5 font-semibold text-[#3A2B24]",
+                                order.invoiceUrl && "border-emerald-300 bg-emerald-50/70 hover:bg-emerald-100 text-emerald-800 font-bold shadow-2xs"
+                              )} 
+                              onClick={() => {
+                                if (order.invoiceUrl) {
+                                  handleViewDocument(order.invoiceUrl, `Official Invoice - Order #${order.id}`);
+                                } else {
+                                  handleDownloadInvoice(order);
+                                }
+                              }}
                             >
-                              <Download className="h-3.5 w-3.5 text-[#D89A86]" /> Invoice
+                              <Download className="h-3.5 w-3.5 text-[#D89A86]" /> {order.invoiceUrl ? "Official Invoice" : "Invoice"}
                             </Button>
                           </div>
                         </div>
@@ -1157,7 +1320,51 @@ function ProfileContent() {
                               )}
                             </div>
                           </div>
-                          
+
+                          {/* 📦 Attached Shipping Documents & Tracking Banner */}
+                          {(order.invoiceUrl || order.shippingLabelUrl || order.trackingAwb) && (
+                            <div className="p-3.5 bg-gradient-to-r from-emerald-50/90 via-[#FFF8F2] to-amber-50/50 border border-emerald-200/90 rounded-2xl flex flex-wrap items-center justify-between gap-3 mb-5 shadow-2xs">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="text-xs font-extrabold text-[#3A2B24] flex items-center gap-1.5">
+                                  <Package className="h-4 w-4 text-[#D89A86]" /> Attached Documents &amp; Dispatch:
+                                </span>
+                                {order.invoiceUrl && (
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => handleViewDocument(order.invoiceUrl, `Official Invoice - Order #${order.id}`)}
+                                    className="h-8 px-3 text-xs font-bold rounded-full border-emerald-300 bg-white hover:bg-emerald-100 text-emerald-800 flex items-center gap-1.5 shadow-2xs cursor-pointer"
+                                  >
+                                    <FileText className="h-3.5 w-3.5 text-emerald-600" />
+                                    <span>Invoice {order.invoiceUrl.startsWith("data:application/pdf") ? "(PDF)" : "(Image)"}</span>
+                                    <ExternalLink className="h-3 w-3 text-emerald-600" />
+                                  </Button>
+                                )}
+                                {order.shippingLabelUrl && (
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => handleViewDocument(order.shippingLabelUrl, `Shipping Label - Order #${order.id}`)}
+                                    className="h-8 px-3 text-xs font-bold rounded-full border-emerald-300 bg-white hover:bg-emerald-100 text-emerald-800 flex items-center gap-1.5 shadow-2xs cursor-pointer"
+                                  >
+                                    <Truck className="h-3.5 w-3.5 text-emerald-600" />
+                                    <span>Shipping Label {order.shippingLabelUrl.startsWith("data:application/pdf") ? "(PDF)" : "(Image)"}</span>
+                                    <ExternalLink className="h-3 w-3 text-emerald-600" />
+                                  </Button>
+                                )}
+                              </div>
+
+                              {order.trackingAwb && (
+                                <div className="flex items-center gap-2">
+                                  <span className="text-[11px] font-bold text-[#6C5C54]">AWB Tracking:</span>
+                                  <span className="font-mono text-xs font-bold text-[#3A2B24] bg-white px-2.5 py-1 rounded-lg border border-[#EFE6DD] shadow-2xs">
+                                    {order.trackingAwb}
+                                  </span>
+                                </div>
+                              )}
+                            </div>
+                          )}
+
                           <div className="flex flex-col gap-4">
                             {order.items.map((item, idx) => {
                               const customUploadedPhotos = (item.photos || []).filter(
@@ -1498,9 +1705,48 @@ function ProfileContent() {
                     <Key className="h-3.5 w-3.5 mr-1.5 text-[#D89A86]" /> Change Password & Security
                   </Button>
                 </div>
+
+                <Separator className="bg-[#EFE6DD]" />
+
+                {/* Legal & Policies Section */}
+                <div>
+                  <h4 className="font-serif-brand font-bold text-base text-[#3A2B24] mb-3 flex items-center gap-2">
+                    <ShieldCheck className="h-4 w-4 text-[#D89A86]" /> Legal &amp; Policies
+                  </h4>
+                  <div className="bg-[#FFF8F2] border border-[#EFE6DD] rounded-2xl overflow-hidden">
+                    {[
+                      { label: "Terms & Conditions", href: "/terms", icon: FileText },
+                      { label: "Privacy Policy", href: "/terms#privacy", icon: Lock },
+                      { label: "Shipping Policy", href: "/terms#shipping", icon: Truck },
+                      { label: "Cancellation Policy", href: "/terms#cancellation", icon: X },
+                      { label: "Refund Policy", href: "/terms#refund", icon: RefreshCw },
+                    ].map((policy, idx, arr) => {
+                      const Icon = policy.icon;
+                      return (
+                        <Link
+                          key={policy.label}
+                          href={policy.href}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className={`flex items-center justify-between px-4 py-3.5 text-xs font-semibold text-[#3A2B24] hover:bg-[#FFF3EE] transition-colors group ${idx < arr.length - 1 ? "border-b border-[#EFE6DD]" : ""}`}
+                        >
+                          <span className="flex items-center gap-2.5">
+                            <Icon className="h-3.5 w-3.5 text-[#D89A86]" />
+                            {policy.label}
+                          </span>
+                          <ExternalLink className="h-3 w-3 text-[#D89A86] opacity-0 group-hover:opacity-100 transition-opacity" />
+                        </Link>
+                      );
+                    })}
+                  </div>
+                  <p className="text-[11px] text-[#6C5C54] mt-2 font-medium">
+                    Current version: <span className="font-bold text-[#3A2B24]">v1.0</span> · Last updated: October 2026
+                  </p>
+                </div>
               </CardContent>
             </Card>
           )}
+
         </div>
       </div>
 
@@ -2734,6 +2980,41 @@ function ProfileContent() {
                   </div>
                 </div>
 
+                {/* Attached Documents in Modal */}
+                {(orderDetailsModal.invoiceUrl || orderDetailsModal.shippingLabelUrl) && (
+                  <div className="p-4 bg-emerald-50/70 border border-emerald-200 rounded-2xl flex flex-col gap-2.5">
+                    <h4 className="font-bold text-xs uppercase tracking-wider text-emerald-900 flex items-center gap-1.5">
+                      <Package className="h-4 w-4 text-emerald-700" /> Attached Shipping Documents &amp; Invoices
+                    </h4>
+                    <div className="flex items-center gap-3 flex-wrap">
+                      {orderDetailsModal.invoiceUrl && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleViewDocument(orderDetailsModal.invoiceUrl, `Official Invoice - Order #${orderDetailsModal.id}`)}
+                          className="border-emerald-300 bg-white hover:bg-emerald-100 text-emerald-800 font-bold text-xs rounded-xl flex items-center gap-1.5 shadow-2xs"
+                        >
+                          <FileText className="h-3.5 w-3.5 text-emerald-600" />
+                          <span>View Invoice {orderDetailsModal.invoiceUrl.startsWith("data:application/pdf") ? "(PDF)" : "(Image)"}</span>
+                          <ExternalLink className="h-3 w-3 text-emerald-600" />
+                        </Button>
+                      )}
+                      {orderDetailsModal.shippingLabelUrl && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleViewDocument(orderDetailsModal.shippingLabelUrl, `Shipping Label - Order #${orderDetailsModal.id}`)}
+                          className="border-emerald-300 bg-white hover:bg-emerald-100 text-emerald-800 font-bold text-xs rounded-xl flex items-center gap-1.5 shadow-2xs"
+                        >
+                          <Truck className="h-3.5 w-3.5 text-emerald-600" />
+                          <span>View Shipping Label {orderDetailsModal.shippingLabelUrl.startsWith("data:application/pdf") ? "(PDF)" : "(Image)"}</span>
+                          <ExternalLink className="h-3 w-3 text-emerald-600" />
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                )}
+
                 {/* Items List */}
                 <div>
                   <h4 className="font-bold text-xs uppercase tracking-wider text-[#3A2B24] mb-3">
@@ -2800,7 +3081,7 @@ function ProfileContent() {
                   <div className="flex justify-between text-[#6C5C54]">
                     <span>Item Subtotal:</span>
                     <span className="font-bold text-[#3A2B24]">
-                      ₹{(orderDetailsModal.subtotal || orderDetailsModal.totalAmount + (orderDetailsModal.referralDiscount || 0)).toFixed(2)}
+                      ₹{(orderDetailsModal.items && orderDetailsModal.items.length > 0 ? orderDetailsModal.items.reduce((s: number, it: any) => s + (it.price * it.quantity), 0) : orderDetailsModal.totalAmount).toFixed(2)}
                     </span>
                   </div>
                   {orderDetailsModal.referralCode && (
@@ -2919,6 +3200,136 @@ function ProfileContent() {
                   <ExternalLink className="h-4 w-4" /> Fullscreen
                 </Button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MANDATORY TERMS & CONDITIONS ACCEPTANCE MODAL FOR POLICY UPDATES */}
+      {needsTermsAcceptance && (
+        <div className="fixed inset-0 top-0 left-0 w-screen h-screen z-[99999] bg-black/85 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="bg-white border border-[#EFE6DD] rounded-3xl p-6 sm:p-8 max-w-lg w-full shadow-2xl relative flex flex-col gap-4 animate-in zoom-in-95 my-auto max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center gap-3.5 pb-3 border-b border-[#EFE6DD]">
+              <div className="h-12 w-12 rounded-2xl bg-[#FFF8F2] border border-[#D89A86]/30 flex items-center justify-center text-[#D89A86] shrink-0">
+                <ShieldCheck className="h-6 w-6" />
+              </div>
+              <div>
+                <h3 className="font-serif-brand text-xl font-bold text-[#3A2B24]">
+                  Updated Terms &amp; Conditions
+                </h3>
+                <p className="text-[11px] text-[#6C5C54] font-medium">
+                  Pixello has updated its terms (version {CURRENT_TERMS_VERSION}). Please review and accept to continue accessing your Customer Portal.
+                </p>
+              </div>
+            </div>
+
+            {/* Complete list of 10 points */}
+            <div 
+              aria-label="PixelloStore Terms and Conditions points list"
+              className="bg-[#FFFDFB] border border-[#EFE6DD] rounded-2xl p-4 text-[11px] text-[#6C5C54] flex flex-col gap-2.5 divide-y divide-[#EFE6DD]/50"
+            >
+              {PIXELLO_TERMS_POINTS.map((pt) => (
+                <div key={pt.id} className={`flex items-start gap-2.5 leading-relaxed ${pt.id !== 1 ? "pt-2" : ""}`}>
+                  <span className="font-bold text-[#3A2B24] shrink-0 text-xs w-4">{pt.id}.</span>
+                  <p className="flex-1">
+                    <strong className="text-[#3A2B24] font-semibold">{pt.title}:</strong> {pt.text}
+                  </p>
+                </div>
+              ))}
+            </div>
+
+            {/* Mandatory Checkbox */}
+            <div className="flex flex-col gap-1.5 pt-1">
+              <label className="flex items-start gap-2.5 cursor-pointer group select-none">
+                <input
+                  type="checkbox"
+                  id="portal_terms_cb"
+                  checked={termsModalAccepted}
+                  onChange={(e) => {
+                    setTermsModalAccepted(e.target.checked);
+                    if (e.target.checked) setTermsModalError("");
+                  }}
+                  className="mt-0.5 h-4 w-4 rounded border-[#D89A86] accent-[#D89A86] flex-shrink-0 cursor-pointer"
+                />
+                <span className="text-[11px] text-[#6C5C54] leading-relaxed font-medium group-hover:text-[#3A2B24] transition-colors">
+                  I have read and agree to the PixelloStore{" "}
+                  <a href="/terms" target="_blank" rel="noopener noreferrer" className="text-[#D89A86] font-bold hover:underline" onClick={(e) => e.stopPropagation()}>Terms &amp; Conditions</a>{" "}
+                  and applicable{" "}
+                  <a href="/terms#privacy" target="_blank" rel="noopener noreferrer" className="text-[#D89A86] font-bold hover:underline" onClick={(e) => e.stopPropagation()}>Privacy</a>,{" "}
+                  <a href="/terms#cancellation" target="_blank" rel="noopener noreferrer" className="text-[#D89A86] font-bold hover:underline" onClick={(e) => e.stopPropagation()}>Cancellation</a>,{" "}
+                  <a href="/terms#refund" target="_blank" rel="noopener noreferrer" className="text-[#D89A86] font-bold hover:underline" onClick={(e) => e.stopPropagation()}>Refund</a>, and{" "}
+                  <a href="/terms#shipping" target="_blank" rel="noopener noreferrer" className="text-[#D89A86] font-bold hover:underline" onClick={(e) => e.stopPropagation()}>Shipping Policies</a>.
+                </span>
+              </label>
+              {termsModalError && (
+                <p className="text-[11px] text-rose-600 font-bold flex items-center gap-1 ml-6.5">
+                  <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+                  {termsModalError}
+                </p>
+              )}
+            </div>
+
+            {/* Actions */}
+            <div className="flex items-center gap-3 pt-2">
+              <Button
+                variant="outline"
+                className="flex-1 rounded-full border-[#EFE6DD] text-xs font-semibold text-[#3A2B24] hover:bg-[#FFF8F2] h-11"
+                onClick={async () => {
+                  try {
+                    await fetch("/api/auth/logout", { method: "POST" });
+                  } catch (e) {}
+                  if (typeof window !== "undefined") {
+                    localStorage.removeItem("pixello_user");
+                    localStorage.removeItem("pixello_auth_token");
+                    localStorage.setItem("pixello_logged_out", "true");
+                    window.dispatchEvent(new Event("auth_change"));
+                    window.dispatchEvent(new Event("storage"));
+                  }
+                  startTransitionTo("/login", "signing-out", "EXITING PIXELLO...");
+                }}
+              >
+                Sign Out
+              </Button>
+              <Button
+                disabled={!termsModalAccepted || isSubmittingTerms}
+                className="flex-1 rounded-full btn-pixello-primary text-xs font-bold h-11 shadow-xs cursor-pointer disabled:opacity-50"
+                onClick={async () => {
+                  if (!termsModalAccepted) {
+                    setTermsModalError("Please accept the Terms & Conditions to continue.");
+                    return;
+                  }
+                  setIsSubmittingTerms(true);
+                  try {
+                    const savedUser = typeof window !== "undefined" ? localStorage.getItem("pixello_user") : null;
+                    const parsed = savedUser ? JSON.parse(savedUser) : null;
+                    const res = await fetch("/api/terms/accept", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({
+                        userId: parsed?.id,
+                        version: CURRENT_TERMS_VERSION,
+                        context: "TERMS_UPDATE",
+                      }),
+                    });
+                    const d = await res.json();
+                    if (d.success) {
+                      setNeedsTermsAcceptance(false);
+                      if (parsed) {
+                        parsed.termsAcceptedVersion = CURRENT_TERMS_VERSION;
+                        localStorage.setItem("pixello_user", JSON.stringify(parsed));
+                      }
+                    } else {
+                      setTermsModalError(d.error || "Failed to record acceptance.");
+                    }
+                  } catch (e) {
+                    setTermsModalError("Network error. Please try again.");
+                  } finally {
+                    setIsSubmittingTerms(false);
+                  }
+                }}
+              >
+                {isSubmittingTerms ? "Saving..." : "Accept & Continue"}
+              </Button>
             </div>
           </div>
         </div>

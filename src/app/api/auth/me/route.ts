@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { getAuthenticatedUser } from "@/lib/session";
+import { prisma } from "@/lib/db";
+import { CURRENT_TERMS_VERSION } from "@/lib/termsData";
 
 export const dynamic = "force-dynamic";
 
@@ -9,6 +11,15 @@ export async function GET(req: Request) {
     if (!user) {
       return NextResponse.json({ success: false, authenticated: false, error: "Unauthenticated" }, { status: 401 });
     }
+
+    // Check if user has accepted the required terms version
+    const termsRecord = await prisma.termsAcceptance.findFirst({
+      where: {
+        userId: user.id,
+        version: CURRENT_TERMS_VERSION,
+      },
+      orderBy: { acceptedAt: "desc" },
+    });
 
     return NextResponse.json({
       success: true,
@@ -22,6 +33,9 @@ export async function GET(req: Request) {
         role: user.role,
         customerProfileId: user.customerProfile?.id,
       },
+      termsAccepted: !!termsRecord,
+      termsAcceptedAt: termsRecord?.acceptedAt ?? null,
+      currentTermsVersion: CURRENT_TERMS_VERSION,
     });
   } catch (error: any) {
     console.error("Error in /api/auth/me:", error);

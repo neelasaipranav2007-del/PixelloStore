@@ -313,8 +313,28 @@ export default function AdminDashboardPage() {
           </h3>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-          {/* Card 1: DELIVERED ORDERS (Green) */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4.5">
+          {/* Card 1: TOTAL ORDERS (Blue) */}
+          <Card className="border-2 border-blue-300 bg-blue-50/50 rounded-3xl shadow-2xs hover:shadow-md transition-all">
+            <CardContent className="p-5 flex flex-col justify-between h-full min-h-[120px]">
+              <div className="flex items-center justify-between gap-2 mb-1">
+                <span className="text-[11px] font-extrabold text-blue-800 uppercase tracking-wider flex items-center gap-1.5">
+                  <span className="text-xs">📦</span> TOTAL ORDERS
+                </span>
+              </div>
+              <div>
+                <div suppressHydrationWarning className="text-2xl sm:text-3xl font-black text-blue-700 tracking-tight flex items-baseline gap-1.5">
+                  <span>{orders.length}</span>
+                  <span className="text-base font-bold text-blue-600">Orders</span>
+                </div>
+                <div className="text-xs font-bold text-blue-600 mt-1">
+                  ₹{totalRevenue.toLocaleString("en-IN", { minimumFractionDigits: 0, maximumFractionDigits: 2 })} Total Volume
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Card 2: DELIVERED ORDERS (Green) */}
           <Card className="border-2 border-emerald-300 bg-emerald-50/50 rounded-3xl shadow-2xs hover:shadow-md transition-all">
             <CardContent className="p-5 flex flex-col justify-between h-full min-h-[120px]">
               <div className="flex items-center justify-between gap-2 mb-1">
@@ -333,7 +353,7 @@ export default function AdminDashboardPage() {
             </CardContent>
           </Card>
 
-          {/* Card 2: REPLACEMENT ORDERS (Purple) */}
+          {/* Card 3: REPLACEMENT ORDERS (Purple) */}
           <Card className="border-2 border-purple-300 bg-purple-50/50 rounded-3xl shadow-2xs hover:shadow-md transition-all">
             <CardContent className="p-5 flex flex-col justify-between h-full min-h-[120px]">
               <div className="flex items-center justify-between gap-2 mb-1">
@@ -352,7 +372,7 @@ export default function AdminDashboardPage() {
             </CardContent>
           </Card>
 
-          {/* Card 3: CANCELLED ORDERS (Red/Rose) */}
+          {/* Card 4: CANCELLED ORDERS (Red/Rose) */}
           <Card className="border-2 border-rose-300 bg-rose-50/50 rounded-3xl shadow-2xs hover:shadow-md transition-all">
             <CardContent className="p-5 flex flex-col justify-between h-full min-h-[120px]">
               <div className="flex items-center justify-between gap-2 mb-1">
@@ -371,7 +391,7 @@ export default function AdminDashboardPage() {
             </CardContent>
           </Card>
 
-          {/* Card 4: ACTIVE / PENDING ORDERS (Amber) */}
+          {/* Card 5: ACTIVE / PENDING ORDERS (Amber) */}
           <Card className="border-2 border-amber-300 bg-amber-50/50 rounded-3xl shadow-2xs hover:shadow-md transition-all">
             <CardContent className="p-5 flex flex-col justify-between h-full min-h-[120px]">
               <div className="flex items-center justify-between gap-2 mb-1">

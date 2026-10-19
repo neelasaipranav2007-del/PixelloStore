@@ -7,33 +7,11 @@ export const dynamic = "force-dynamic";
 export async function GET(req: Request) {
   try {
     const user = await getAuthenticatedUser(req);
-    const { searchParams } = new URL(req.url);
-    const userId = searchParams.get("userId");
-    const mobile = searchParams.get("mobile");
-    const cleanMobile = mobile ? mobile.replace(/\D/g, "").slice(-10) : undefined;
-
-    let customerProfileId = user?.customerProfile?.id;
-    if (!customerProfileId) {
-      if (userId) {
-        const found = await prisma.user.findUnique({
-          where: { id: userId },
-          include: { customerProfile: true },
-        });
-        customerProfileId = found?.customerProfile?.id;
-      } else if (cleanMobile) {
-        const found = await prisma.user.findFirst({
-          where: {
-            OR: [
-              { phone: `+91 ${cleanMobile}` },
-              { phone: cleanMobile },
-            ],
-          },
-          include: { customerProfile: true },
-        });
-        customerProfileId = found?.customerProfile?.id;
-      }
+    if (!user) {
+      return NextResponse.json({ success: false, error: "Authentication required to view addresses." }, { status: 401 });
     }
 
+    const customerProfileId = user.customerProfile?.id;
     const addresses = customerProfileId
       ? await prisma.address.findMany({ where: { customerProfileId } })
       : [];

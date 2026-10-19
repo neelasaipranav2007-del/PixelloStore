@@ -51,6 +51,10 @@ export default function CheckoutPage() {
 
   const subtotal = cartItems.reduce((acc, item) => acc + item.price * item.quantity, 0);
 
+  // Terms & Conditions acceptance for checkout
+  const [checkoutTermsAccepted, setCheckoutTermsAccepted] = useState(false);
+  const [checkoutTermsError, setCheckoutTermsError] = useState("");
+
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
   const [isAuthChecking, setIsAuthChecking] = useState<boolean>(true);
 
@@ -572,6 +576,15 @@ export default function CheckoutPage() {
       return;
     }
 
+    // Validate T&C acceptance BEFORE any processing
+    if (!checkoutTermsAccepted) {
+      setCheckoutTermsError("Please accept the Terms & Conditions to continue.");
+      // Scroll to terms checkbox
+      document.getElementById("checkout_terms_cb")?.scrollIntoView({ behavior: "smooth", block: "center" });
+      return;
+    }
+    setCheckoutTermsError("");
+
     if (cartItems.length === 0) {
       alert("Your cart is empty! Please add items to your cart before checking out.");
       router.push("/products");
@@ -725,6 +738,25 @@ export default function CheckoutPage() {
           address: confirmedOrder.shippingAddress || formattedAddressStr,
           paymentMethod: paymentMethod === "cod" ? "Cash on Delivery (COD)" : "UPI / Online Payment",
         });
+
+        // Record T&C acceptance for checkout context (non-blocking)
+        try {
+          const savedUser = typeof window !== "undefined" ? localStorage.getItem("pixello_user") : null;
+          const parsedUser = savedUser ? JSON.parse(savedUser) : null;
+          const userId = parsedUser?.id;
+          if (userId) {
+            fetch("/api/terms/accept", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                userId,
+                version: "v1.0",
+                context: "CHECKOUT",
+                orderId: confirmedOrder.id,
+              }),
+            }).catch(() => {});
+          }
+        } catch (e) {}
       };
 
       // If Cash on Delivery is selected, complete order placement directly
@@ -1313,15 +1345,46 @@ export default function CheckoutPage() {
                   <span suppressHydrationWarning className="font-extrabold text-2xl text-[#D89A86]">₹{total.toFixed(2)}</span>
                 </div>
 
-                <div className="bg-[#FFF8F2] text-[#3A2B24] text-xs p-3.5 rounded-2xl flex items-start gap-2.5 mb-6 border border-[#D89A86]/20">
+                <div className="bg-[#FFF8F2] text-[#3A2B24] text-xs p-3.5 rounded-2xl flex items-start gap-2.5 mb-5 border border-[#D89A86]/20">
                   <CheckCircle2 className="h-4 w-4 text-[#D89A86] flex-shrink-0 mt-0.5" />
                   <p>Your order will be printed by the nearest verified studio upon payment.</p>
                 </div>
 
-                <Button 
-                  size="lg" 
-                  disabled={isProcessingPayment}
-                  className="btn-pixello-primary w-full h-14 text-base rounded-full shadow-md cursor-pointer disabled:opacity-70 flex items-center justify-center gap-2"
+                {/* Terms & Conditions Checkbox */}
+                <div className="mb-5 p-4 bg-[#FFF8F2] border border-[#EFE6DD] rounded-2xl flex flex-col gap-2">
+                  <label id="checkout_terms_label" className="flex items-start gap-3 cursor-pointer group">
+                    <input
+                      type="checkbox"
+                      id="checkout_terms_cb"
+                      checked={checkoutTermsAccepted}
+                      onChange={(e) => {
+                        setCheckoutTermsAccepted(e.target.checked);
+                        if (e.target.checked) setCheckoutTermsError("");
+                      }}
+                      className="mt-0.5 h-4 w-4 rounded border-[#D89A86] accent-[#D89A86] flex-shrink-0 cursor-pointer"
+                    />
+                    <span className="text-[11px] text-[#6C5C54] leading-relaxed font-medium select-none group-hover:text-[#3A2B24] transition-colors">
+                      I have read and agree to the PixelloStore{" "}
+                      <a href="/terms" target="_blank" rel="noopener noreferrer" className="text-[#D89A86] font-bold hover:underline">Terms &amp; Conditions</a>{" "}
+                      and applicable{" "}
+                      <a href="/terms#privacy" target="_blank" rel="noopener noreferrer" className="text-[#D89A86] font-bold hover:underline">Privacy</a>,{" "}
+                      <a href="/terms#cancellation" target="_blank" rel="noopener noreferrer" className="text-[#D89A86] font-bold hover:underline">Cancellation</a>,{" "}
+                      <a href="/terms#refund" target="_blank" rel="noopener noreferrer" className="text-[#D89A86] font-bold hover:underline">Refund</a>, and{" "}
+                      <a href="/terms#shipping" target="_blank" rel="noopener noreferrer" className="text-[#D89A86] font-bold hover:underline">Shipping Policies</a>.
+                    </span>
+                  </label>
+                  {checkoutTermsError && (
+                    <p className="text-[11px] text-rose-600 font-bold flex items-center gap-1.5 ml-7">
+                      <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+                      {checkoutTermsError}
+                    </p>
+                  )}
+                </div>
+
+                <Button
+                  size="lg"
+                  disabled={isProcessingPayment || !checkoutTermsAccepted}
+                  className="btn-pixello-primary w-full h-14 text-base rounded-full shadow-md cursor-pointer disabled:opacity-50 flex items-center justify-center gap-2"
                   onClick={handlePayment}
                 >
                   {isProcessingPayment ? (

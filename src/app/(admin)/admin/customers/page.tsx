@@ -123,33 +123,46 @@ export default function AdminCustomersPage() {
         }
       } catch (e) {}
 
-      // 4. Aggregate actual customer order histories from OrderContext
+      // 4. Enhance with dynamic orders from OrderContext
+      const orderCountByPhone: Record<string, number> = {};
+      const orderSpentByPhone: Record<string, number> = {};
+      const orderNameByPhone: Record<string, string> = {};
+
       orders.forEach((o) => {
         const rawPhone = o.customerPhone || "";
-        const cleanPhone = rawPhone.replace(/\D/g, "").slice(-10) || "default";
-        const name = o.customerName || "Customer";
-        const amount = o.totalAmount || 0;
+        const cleanPhone = rawPhone.replace(/\D/g, "").slice(-10);
+        if (cleanPhone) {
+          orderCountByPhone[cleanPhone] = (orderCountByPhone[cleanPhone] || 0) + 1;
+          orderSpentByPhone[cleanPhone] = (orderSpentByPhone[cleanPhone] || 0) + Number(o.totalAmount || 0);
+          if (o.customerName && o.customerName !== "Customer") {
+            orderNameByPhone[cleanPhone] = o.customerName;
+          }
+        }
+      });
 
-        if (cleanPhone && cleanPhone !== "default") {
-          const currentStatus = statusOverrides[cleanPhone] || "Active";
-          if (!customerMap[cleanPhone]) {
-            customerMap[cleanPhone] = {
-              id: `CUST-${idCounter++}`,
-              name: name,
-              email: `${name.toLowerCase().replace(/\s+/g, ".")}@example.com`,
-              phone: rawPhone.includes("+91") ? rawPhone : `+91 ${cleanPhone}`,
-              orders: 1,
-              totalSpent: amount,
-              status: currentStatus,
-            };
-          } else {
-            if (customerMap[cleanPhone].orders === 0) {
-              customerMap[cleanPhone].orders = 1;
-              customerMap[cleanPhone].totalSpent = amount;
-            }
-            if (name && name !== "Customer") {
-              customerMap[cleanPhone].name = name;
-            }
+      Object.keys(orderCountByPhone).forEach((cleanPhone) => {
+        const currentStatus = statusOverrides[cleanPhone] || "Active";
+        const ctxCount = orderCountByPhone[cleanPhone];
+        const ctxSpent = orderSpentByPhone[cleanPhone];
+        const ctxName = orderNameByPhone[cleanPhone] || "Customer";
+
+        if (!customerMap[cleanPhone]) {
+          customerMap[cleanPhone] = {
+            id: `CUST-${idCounter++}`,
+            name: ctxName,
+            email: `${cleanPhone}@pixello.store`,
+            phone: `+91 ${cleanPhone}`,
+            orders: ctxCount,
+            totalSpent: ctxSpent,
+            status: currentStatus,
+          };
+        } else {
+          if (ctxCount > (customerMap[cleanPhone].orders || 0)) {
+            customerMap[cleanPhone].orders = ctxCount;
+            customerMap[cleanPhone].totalSpent = ctxSpent;
+          }
+          if (ctxName && ctxName !== "Customer") {
+            customerMap[cleanPhone].name = ctxName;
           }
         }
       });

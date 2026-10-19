@@ -160,30 +160,28 @@ export default function AdminLoginPage() {
 
         setSuccessMessage("✓ Authentication successful! Accessing Pixello Management Suite...");
 
-        // Fire background token fetch without blocking UI navigation
-        fetch("/api/admin/auth", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            phone: cleanMobile,
-            name: currentName || "Pranav",
-            password: cleanPass,
-          }),
-        })
-          .then((res) => res.json())
-          .then((data) => {
-            if (data && data.token && typeof window !== "undefined") {
-              localStorage.setItem("pixello_admin_token", data.token);
-              document.cookie = `pixello_admin_token=${data.token}; path=/; max-age=2592000; SameSite=Lax`;
-            }
-          })
-          .catch((apiErr) => console.warn("Background admin auth token fetch:", apiErr));
+        try {
+          const authRes = await fetch("/api/admin/auth", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              phone: cleanMobile,
+              name: currentName || "Pranav",
+              password: cleanPass,
+            }),
+          });
+          const data = await authRes.json();
+          if (data && data.token && typeof window !== "undefined") {
+            localStorage.setItem("pixello_admin_token", data.token);
+            document.cookie = `pixello_admin_token=${data.token}; path=/; max-age=2592000; SameSite=Lax`;
+          }
+        } catch (apiErr) {
+          console.warn("Admin auth token fetch:", apiErr);
+        }
 
         // Instant Client-side Navigation
         router.push("/admin/orders");
-        setTimeout(() => {
-          setIsLoading(false);
-        }, 500);
+        setIsLoading(false);
       } else {
         setIsLoading(false);
         setErrorMessage(`❌ Invalid Admin Credentials. (Accepted keys: saipranav / admin123 / 1234)`);
@@ -265,9 +263,19 @@ export default function AdminLoginPage() {
                 Portal Authentication
               </span>
             </div>
-            <span className="text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200 px-2.5 py-0.5 rounded-full flex items-center gap-1">
-              <ShieldCheck className="h-3 w-3 text-amber-600" /> Protected Area
-            </span>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={handleAutoFill}
+                className="text-[10px] font-bold bg-[#FFF8F2] text-[#D89A86] border border-[#D89A86]/40 hover:bg-[#D89A86] hover:text-white transition-colors px-2.5 py-0.5 rounded-full cursor-pointer flex items-center gap-1"
+                title="Auto-fill master admin credentials"
+              >
+                <Sparkles className="h-2.5 w-2.5" /> Quick Fill
+              </button>
+              <span className="text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200 px-2 py-0.5 rounded-full flex items-center gap-1">
+                <ShieldCheck className="h-3 w-3 text-amber-600" /> Protected Area
+              </span>
+            </div>
           </div>
 
           {/* Error Message Alert */}

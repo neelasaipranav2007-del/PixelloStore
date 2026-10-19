@@ -174,22 +174,38 @@ export default function AdminOrdersPage() {
     };
   }, []);
 
-  // Financial Breakdown calculations (Matching Pic 1 into Pic 2)
-  const deliveredOrders = orders.filter((o) => normalizeStatus(o.status) === "Delivered");
+  // Financial Breakdown calculations
+  const totalRevenue = orders
+    .filter((o) => {
+      const norm = normalizeStatus(o.status);
+      return norm !== "CANCELLED";
+    })
+    .reduce((sum, o) => sum + o.totalAmount, 0);
+
+  const deliveredOrders = orders.filter((o) => {
+    const norm = normalizeStatus(o.status);
+    return norm === "DELIVERED" || norm === "COMPLETED";
+  });
   const deliveredCount = deliveredOrders.length;
   const deliveredAmount = deliveredOrders.reduce((sum, o) => sum + o.totalAmount, 0);
 
-  const replacementOrders = orders.filter((o) => normalizeStatus(o.status) === "Replacement Requested");
+  const replacementOrders = orders.filter((o) => {
+    const norm = normalizeStatus(o.status);
+    return norm === "REPLACEMENT_REQUESTED";
+  });
   const replacementCount = replacementOrders.length;
   const replacementAmount = replacementOrders.reduce((sum, o) => sum + o.totalAmount, 0);
 
-  const cancelledOrders = orders.filter((o) => normalizeStatus(o.status) === "Cancelled");
+  const cancelledOrders = orders.filter((o) => {
+    const norm = normalizeStatus(o.status);
+    return norm === "CANCELLED";
+  });
   const cancelledCount = cancelledOrders.length;
   const cancelledAmount = cancelledOrders.reduce((sum, o) => sum + o.totalAmount, 0);
 
   const activeOrders = orders.filter((o) => {
     const norm = normalizeStatus(o.status);
-    return norm !== "Delivered" && norm !== "Cancelled" && norm !== "Replacement Requested";
+    return norm !== "DELIVERED" && norm !== "COMPLETED" && norm !== "CANCELLED" && norm !== "REPLACEMENT_REQUESTED";
   });
   const activeCount = activeOrders.length;
   const activeAmount = activeOrders.reduce((sum, o) => sum + o.totalAmount, 0);
@@ -376,16 +392,95 @@ export default function AdminOrdersPage() {
     URL.revokeObjectURL(url);
   };
 
+  const handleViewDocument = (url: string | undefined, title: string) => {
+    if (!url) return;
+    
+    // Check if PDF
+    const isPdf = url.startsWith("data:application/pdf") || url.toLowerCase().includes(".pdf");
+    if (isPdf) {
+      if (url.startsWith("data:application/pdf")) {
+        try {
+          const parts = url.split(";base64,");
+          const contentType = parts[0].split(":")[1] || "application/pdf";
+          const raw = window.atob(parts[1]);
+          const rawLength = raw.length;
+          const uInt8Array = new Uint8Array(rawLength);
+          for (let i = 0; i < rawLength; ++i) {
+            uInt8Array[i] = raw.charCodeAt(i);
+          }
+          const blob = new Blob([uInt8Array], { type: contentType });
+          const blobUrl = URL.createObjectURL(blob);
+          const newTab = window.open(blobUrl, "_blank");
+          if (!newTab) {
+            const a = document.createElement("a");
+            a.href = blobUrl;
+            a.download = `${title.replace(/\s+/g, "_")}.pdf`;
+            a.click();
+          }
+          return;
+        } catch (e) {
+          console.error("Failed to parse PDF data url:", e);
+        }
+      }
+      
+      const newTab = window.open(url, "_blank");
+      if (!newTab) {
+        alert("Please allow popups to view this document");
+      }
+      return;
+    }
+
+    // Check if Image
+    if (url.startsWith("data:image") || url.startsWith("http") || url.startsWith("/")) {
+      const w = window.open("");
+      if (w) {
+        w.document.title = title;
+        w.document.write(`
+          <!DOCTYPE html>
+          <html>
+            <head>
+              <title>${title}</title>
+              <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            </head>
+            <body style="margin:0;background:#18181b;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;padding:24px;box-sizing:border-box;font-family:system-ui,sans-serif;">
+              <div style="background:#ffffff;padding:16px;border-radius:16px;box-shadow:0 20px 40px rgba(0,0,0,0.5);max-width:96vw;max-height:92vh;display:flex;flex-direction:column;align-items:center;">
+                <div style="display:flex;justify-content:space-between;align-items:center;width:100%;margin-bottom:12px;border-bottom:1px solid #e4e4e7;padding-bottom:8px;">
+                  <span style="font-weight:700;color:#27272a;font-size:14px;">${title}</span>
+                  <a href="${url}" download="${title.replace(/\s+/g, "_")}.png" style="font-size:12px;color:#2563eb;text-decoration:none;font-weight:600;padding:4px 8px;background:#eff6ff;border-radius:6px;">Download</a>
+                </div>
+                <img src="${url}" style="max-width:100%;max-height:78vh;object-fit:contain;border-radius:8px;" alt="${title}"/>
+              </div>
+            </body>
+          </html>
+        `);
+      } else {
+        alert("Please allow popups to view this document");
+      }
+      return;
+    }
+
+    alert(`${title}: ${url}`);
+  };
+
   const handleFileUpload = (orderId: string, field: "invoiceUrl" | "shippingLabelUrl", event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
+    if (file.size > 15 * 1024 * 1024) {
+      alert("File size exceeds 15MB limit. Please upload a smaller file.");
+      return;
+    }
+
+    const inputElement = event.target;
     const reader = new FileReader();
     reader.onload = (e) => {
       const result = e.target?.result as string;
-      updateOrderDetails(orderId, {
-        [field]: result.startsWith("data:") ? file.name : result,
-      });
+      if (result) {
+        updateOrderDetails(orderId, {
+          [field]: result,
+        });
+      }
+      inputElement.value = "";
     };
     reader.readAsDataURL(file);
   };
@@ -394,9 +489,17 @@ export default function AdminOrdersPage() {
     const cleanPhone = order.customerPhone.replace(/[^0-9]/g, "");
     const formattedPhone = cleanPhone.startsWith("91") ? cleanPhone : `91${cleanPhone}`;
     const statusText = order.status;
-    const trackingInfo = order.trackingAwb ? `\nTracking AWB: ${order.trackingAwb}` : "";
+    const trackingInfo = order.trackingAwb ? `\n📦 *Tracking AWB:* ${order.trackingAwb}` : "";
+    const trackingUrlInfo = order.trackingUrl ? `\n🔗 *Live Tracking:* ${order.trackingUrl}` : "";
+    const estDelivery = order.deliveryInfo?.estimatedDeliveryDate ? `\n⏱️ *Est. Delivery:* ${order.deliveryInfo.estimatedDeliveryDate}` : "";
+    
+    const docsInfo: string[] = [];
+    if (order.invoiceUrl) docsInfo.push("🧾 Invoice Attached");
+    if (order.shippingLabelUrl) docsInfo.push("🏷️ Shipping Label Attached");
+    const docsText = docsInfo.length > 0 ? `\n\n📄 *Documents:* ${docsInfo.join(", ")}` : "";
+
     const msg = encodeURIComponent(
-      `Hello ${order.customerName},\n\nYour Pixello Order *#${order.id}* status has been updated to: *${statusText}*!${trackingInfo}\n\nTotal Amount: ₹${order.totalAmount.toFixed(2)}\nDelivery Address: ${order.deliveryAddress}\n\nThank you for choosing Pixello Store! ✨`
+      `Hello ${order.customerName},\n\nYour Pixello Order *#${order.id}* status has been updated to: *${statusText}*!${trackingInfo}${trackingUrlInfo}${estDelivery}${docsText}\n\n💰 *Total Amount:* ₹${order.totalAmount.toFixed(2)}\n📍 *Delivery Address:* ${order.deliveryAddress}\n\nThank you for choosing Pixello Store! ✨`
     );
     window.open(`https://wa.me/${formattedPhone}?text=${msg}`, "_blank");
   };
@@ -475,8 +578,28 @@ export default function AdminOrdersPage() {
           </h3>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-          {/* Card 1: DELIVERED ORDERS (Green) */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4.5">
+          {/* Card 1: TOTAL ORDERS (Blue) */}
+          <Card className="border-2 border-blue-300 bg-blue-50/50 rounded-3xl shadow-2xs hover:shadow-md transition-all">
+            <CardContent className="p-5 flex flex-col justify-between h-full min-h-[120px]">
+              <div className="flex items-center justify-between gap-2 mb-1">
+                <span className="text-[11px] font-extrabold text-blue-800 uppercase tracking-wider flex items-center gap-1.5">
+                  <span className="text-xs">📦</span> TOTAL ORDERS
+                </span>
+              </div>
+              <div>
+                <div suppressHydrationWarning className="text-2xl sm:text-3xl font-black text-blue-700 tracking-tight flex items-baseline gap-1.5">
+                  <span>{orders.length}</span>
+                  <span className="text-base font-bold text-blue-600">Orders</span>
+                </div>
+                <div className="text-xs font-bold text-blue-600 mt-1">
+                  ₹{totalRevenue.toLocaleString("en-IN", { minimumFractionDigits: 0, maximumFractionDigits: 2 })} Total Volume
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Card 2: DELIVERED ORDERS (Green) */}
           <Card className="border-2 border-emerald-300 bg-emerald-50/50 rounded-3xl shadow-2xs hover:shadow-md transition-all">
             <CardContent className="p-5 flex flex-col justify-between h-full min-h-[120px]">
               <div className="flex items-center justify-between gap-2 mb-1">
@@ -495,7 +618,7 @@ export default function AdminOrdersPage() {
             </CardContent>
           </Card>
 
-          {/* Card 2: REPLACEMENT ORDERS (Purple) */}
+          {/* Card 3: REPLACEMENT ORDERS (Purple) */}
           <Card className="border-2 border-purple-300 bg-purple-50/50 rounded-3xl shadow-2xs hover:shadow-md transition-all">
             <CardContent className="p-5 flex flex-col justify-between h-full min-h-[120px]">
               <div className="flex items-center justify-between gap-2 mb-1">
@@ -514,7 +637,7 @@ export default function AdminOrdersPage() {
             </CardContent>
           </Card>
 
-          {/* Card 3: CANCELLED ORDERS (Red/Rose) */}
+          {/* Card 4: CANCELLED ORDERS (Red/Rose) */}
           <Card className="border-2 border-rose-300 bg-rose-50/50 rounded-3xl shadow-2xs hover:shadow-md transition-all">
             <CardContent className="p-5 flex flex-col justify-between h-full min-h-[120px]">
               <div className="flex items-center justify-between gap-2 mb-1">
@@ -533,7 +656,7 @@ export default function AdminOrdersPage() {
             </CardContent>
           </Card>
 
-          {/* Card 4: ACTIVE / PENDING ORDERS (Amber) */}
+          {/* Card 5: ACTIVE / PENDING ORDERS (Amber) */}
           <Card className="border-2 border-amber-300 bg-amber-50/50 rounded-3xl shadow-2xs hover:shadow-md transition-all">
             <CardContent className="p-5 flex flex-col justify-between h-full min-h-[120px]">
               <div className="flex items-center justify-between gap-2 mb-1">
@@ -857,21 +980,16 @@ export default function AdminOrdersPage() {
                         <div className="p-2 bg-emerald-50 border border-emerald-200 rounded-lg flex items-center justify-between gap-2">
                           <span className="text-xs font-bold text-emerald-800 truncate flex items-center gap-1 max-w-[170px]">
                             <FileText className="h-3.5 w-3.5 text-emerald-600 flex-shrink-0" />
-                            {order.invoiceUrl.startsWith("data:") ? "Invoice Document Attached" : order.invoiceUrl}
+                            {order.invoiceUrl.startsWith("data:application/pdf")
+                              ? "Invoice (PDF Attached)"
+                              : order.invoiceUrl.startsWith("data:")
+                              ? "Invoice (Image Attached)"
+                              : order.invoiceUrl}
                           </span>
                           <div className="flex items-center gap-2 flex-shrink-0">
                             <button
                               type="button"
-                              onClick={() => {
-                                if (order.invoiceUrl?.startsWith("data:") || order.invoiceUrl?.startsWith("http")) {
-                                  const w = window.open("");
-                                  if (w) {
-                                    w.document.write(`<img src="${order.invoiceUrl}" style="max-width:100%;height:auto;"/>`);
-                                  }
-                                } else {
-                                  alert(`Invoice file: ${order.invoiceUrl}`);
-                                }
-                              }}
+                              onClick={() => handleViewDocument(order.invoiceUrl, `Invoice - Order #${order.id}`)}
                               className="text-xs font-bold text-[#3A2B24] hover:underline cursor-pointer"
                             >
                               View
@@ -915,21 +1033,16 @@ export default function AdminOrdersPage() {
                         <div className="p-2 bg-emerald-50 border border-emerald-200 rounded-lg flex items-center justify-between gap-2">
                           <span className="text-xs font-bold text-emerald-800 truncate flex items-center gap-1 max-w-[170px]">
                             <FileText className="h-3.5 w-3.5 text-emerald-600 flex-shrink-0" />
-                            {order.shippingLabelUrl.startsWith("data:") ? "Shipping Label Attached" : order.shippingLabelUrl}
+                            {order.shippingLabelUrl.startsWith("data:application/pdf")
+                              ? "Shipping Label (PDF)"
+                              : order.shippingLabelUrl.startsWith("data:")
+                              ? "Shipping Label (Image)"
+                              : order.shippingLabelUrl}
                           </span>
                           <div className="flex items-center gap-2 flex-shrink-0">
                             <button
                               type="button"
-                              onClick={() => {
-                                if (order.shippingLabelUrl?.startsWith("data:") || order.shippingLabelUrl?.startsWith("http")) {
-                                  const w = window.open("");
-                                  if (w) {
-                                    w.document.write(`<img src="${order.shippingLabelUrl}" style="max-width:100%;height:auto;"/>`);
-                                  }
-                                } else {
-                                  alert(`Shipping Label file: ${order.shippingLabelUrl}`);
-                                }
-                              }}
+                              onClick={() => handleViewDocument(order.shippingLabelUrl, `Shipping Label - Order #${order.id}`)}
                               className="text-xs font-bold text-[#3A2B24] hover:underline cursor-pointer"
                             >
                               View
@@ -972,8 +1085,22 @@ export default function AdminOrdersPage() {
                     <label className="text-[11px] font-bold text-[#6C5C54]">Courier Partner &amp; Tracking AWB #</label>
                     <Input
                       placeholder="e.g. Express Delivery - Tracking #123456789"
-                      value={order.trackingAwb || ""}
-                      onChange={(e) => updateOrderDetails(order.id, { trackingAwb: e.target.value })}
+                      defaultValue={order.trackingAwb || ""}
+                      key={`awb-${order.id}-${order.trackingAwb || ""}`}
+                      onBlur={(e) => {
+                        const val = e.target.value.trim();
+                        if (val !== (order.trackingAwb || "")) {
+                          updateOrderDetails(order.id, { trackingAwb: val });
+                        }
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          const val = (e.target as HTMLInputElement).value.trim();
+                          if (val !== (order.trackingAwb || "")) {
+                            updateOrderDetails(order.id, { trackingAwb: val });
+                          }
+                        }
+                      }}
                       className="rounded-xl border-[#EFE6DD] bg-white text-xs font-medium text-[#3A2B24] focus-visible:ring-[#D89A86] h-9"
                     />
                   </div>

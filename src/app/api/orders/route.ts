@@ -12,7 +12,14 @@ export async function GET(req: Request) {
     const admin = await getAuthenticatedAdmin(req);
     const user = await getAuthenticatedUser(req);
     
-    // Privacy Safeguard: Only Admin and the owning Customer can view uploaded photos
+    // Privacy Safeguard: Require authentication to access orders
+    if (!admin && !user) {
+      return NextResponse.json(
+        { success: false, error: "Authentication required to view orders." },
+        { status: 401 }
+      );
+    }
+
     const isAuthorizedForPhotos = Boolean(admin || user);
 
     let whereClause: Record<string, unknown> = {};
@@ -65,6 +72,8 @@ export async function GET(req: Request) {
         };
       });
 
+      const itemsSubtotal = parsedItems.reduce((s, it) => s + (it.price * it.quantity), 0);
+
       return {
         id: o.id,
         date: o.createdAt.toISOString().split("T")[0],
@@ -72,7 +81,7 @@ export async function GET(req: Request) {
         customerName: o.customerName,
         customerPhone: o.customerPhone,
         totalAmount: o.totalAmount,
-        subtotal: o.totalAmount,
+        subtotal: itemsSubtotal || o.totalAmount,
         status: mapped.customerStatus,
         rawStatus: o.status,
         stageIndex: mapped.stageIndex,
@@ -86,7 +95,7 @@ export async function GET(req: Request) {
           deliveryProvider: o.deliveryInfo?.deliveryProvider || o.deliveryInfo?.deliveryPartnerName || "Delhivery",
           trackingId: o.deliveryInfo?.trackingId || o.deliveryInfo?.awbNumber || null,
           awbNumber: o.deliveryInfo?.awbNumber || o.deliveryInfo?.trackingId || null,
-          estimatedDeliveryDate: o.deliveryInfo?.estimatedDeliveryDate ? new Date(o.deliveryInfo.estimatedDeliveryDate).toISOString().split("T")[0] : null,
+          estimatedDeliveryDate: o.deliveryInfo?.estimatedDelivery || (o.deliveryInfo?.estimatedDeliveryDate ? new Date(o.deliveryInfo.estimatedDeliveryDate).toISOString().split("T")[0] : null),
           shippedAt: o.deliveryInfo?.shippedAt ? new Date(o.deliveryInfo.shippedAt).toISOString() : (o.deliveryInfo?.pickupTime ? new Date(o.deliveryInfo.pickupTime).toISOString() : null),
           outForDeliveryAt: o.deliveryInfo?.outForDeliveryAt ? new Date(o.deliveryInfo.outForDeliveryAt).toISOString() : null,
           deliveredAt: o.deliveryInfo?.deliveredAt ? new Date(o.deliveryInfo.deliveredAt).toISOString() : (o.deliveryInfo?.deliveryTime ? new Date(o.deliveryInfo.deliveryTime).toISOString() : null),
@@ -95,6 +104,9 @@ export async function GET(req: Request) {
         deliveryPartner: o.deliveryInfo?.deliveryProvider || o.deliveryInfo?.deliveryPartnerName || "Delhivery",
         trackingUrl: o.deliveryInfo?.trackingUrl || null,
         waybill: o.deliveryInfo?.awbNumber || o.deliveryInfo?.trackingId || null,
+        trackingAwb: o.deliveryInfo?.awbNumber || o.deliveryInfo?.trackingId || null,
+        invoiceUrl: o.deliveryInfo?.notes || null,
+        shippingLabelUrl: o.deliveryInfo?.labelUrl || null,
         pickupTime: o.deliveryInfo?.pickupTime ? o.deliveryInfo.pickupTime.toISOString() : null,
         deliveryTime: o.deliveryInfo?.deliveryTime ? o.deliveryInfo.deliveryTime.toISOString() : null,
         referralCode: o.referralCode || undefined,
@@ -297,6 +309,20 @@ export async function POST(req: Request) {
           where: { id: customerProfileId },
         });
         if (cProfile?.userId) {
+          // Record checkout terms acceptance linked with order
+          try {
+            await tx.termsAcceptance.create({
+              data: {
+                userId: cProfile.userId,
+                version: "v1.0",
+                policyVersion: "v1.0",
+                context: "CHECKOUT",
+                orderId: newOrder.id,
+                acceptedAt: new Date(),
+              },
+            });
+          } catch (e) {}
+
           await tx.notification.create({
             data: {
               userId: cProfile.userId,
