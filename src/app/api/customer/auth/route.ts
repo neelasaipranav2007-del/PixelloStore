@@ -1,11 +1,22 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { createCustomerToken } from "@/lib/session";
+import { enforceRateLimit } from "@/lib/rateLimit";
+import {
+  recordSecurityFailure,
+  clearSecurityFailures,
+  isSecurityLocked,
+} from "@/lib/securityMonitor";
+import { safeErrorResponse } from "@/lib/errorHandler";
 
 export const dynamic = "force-dynamic";
 
 export async function POST(req: Request) {
   try {
+    // 1. Rate Limiting Check
+    const rateLimitRes = enforceRateLimit(req, "auth");
+    if (rateLimitRes) return rateLimitRes;
+
     const body = await req.json();
     const { mobile, phone, pin, password, action, termsAccepted } = body;
 
@@ -20,6 +31,20 @@ export async function POST(req: Request) {
       );
     }
 
+    // 2. Suspicious Login Brute-force Lockout Check
+    const lockStatus = isSecurityLocked(cleanMobile, "customer_auth");
+    if (lockStatus.locked) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: `Account temporarily locked due to multiple failed login attempts. Please wait ${lockStatus.remainingSec} seconds.`,
+          locked: true,
+          remainingSec: lockStatus.remainingSec,
+        },
+        { status: 429 }
+      );
+    }
+
     // Check if customer account is marked Inactive by Admin in system settings
     const statusSetting = await prisma.systemSetting.findUnique({
       where: { key: "customer_statuses" },
@@ -31,7 +56,7 @@ export async function POST(req: Request) {
       } catch (e) {}
     }
 
-    // 1. Handle Forgot / Reset PIN Action
+    // 3. Handle Forgot / Reset PIN Action
     if (action === "forgot_pin" || action === "reset_pin") {
       let existingUser = await prisma.user.findFirst({
         where: {
@@ -45,7 +70,6 @@ export async function POST(req: Request) {
       });
 
       if (!existingUser) {
-        // Check if there are orders with this phone
         const matchedOrder = await prisma.order.findFirst({
           where: {
             customerPhone: { contains: cleanMobile },
@@ -57,7 +81,7 @@ export async function POST(req: Request) {
             data: {
               name: matchedOrder.customerName || "Customer",
               phone: cleanPhone,
-              email: `${cleanMobile}@pixello.store`,
+              email: null,
               password: "1234",
               role: "CUSTOMER",
               customerProfile: { create: {} },
@@ -77,11 +101,13 @@ export async function POST(req: Request) {
         );
       }
 
-      // Reset PIN to default 1234
+      // Reset PIN to default temporary PIN 1234
       await prisma.user.update({
         where: { id: existingUser.id },
         data: { password: "1234" },
       });
+
+      clearSecurityFailures(cleanMobile, "customer_auth");
 
       return NextResponse.json({
         success: true,
@@ -90,7 +116,7 @@ export async function POST(req: Request) {
       });
     }
 
-    // 2. Standard Sign In Flow
+    // 4. Standard Sign In Flow
     const submittedPin = (pin || password || "").toString().trim();
     if (!submittedPin) {
       return NextResponse.json(
@@ -128,7 +154,6 @@ export async function POST(req: Request) {
       );
     }
 
-    // If user does not exist in User table, check if they have placed orders before
     if (!user) {
       const pastOrder = await prisma.order.findFirst({
         where: {
@@ -142,7 +167,7 @@ export async function POST(req: Request) {
           data: {
             name: pastOrder.customerName || `Customer (${cleanMobile.slice(-4)})`,
             phone: cleanPhone,
-            email: `${cleanMobile}@pixello.store`,
+            email: null,
             password: submittedPin,
             role: "CUSTOMER",
             customerProfile: { create: {} },
@@ -150,7 +175,6 @@ export async function POST(req: Request) {
           include: { customerProfile: true },
         });
 
-        // Link past orders to new profile
         if (user.customerProfile?.id) {
           await prisma.order.updateMany({
             where: {
@@ -175,15 +199,12 @@ export async function POST(req: Request) {
       }
     }
 
-    // Validate PIN
+    // 5. Strict Credential Validation
     const storedPin = user.password;
-    const isValidPin =
-      !storedPin ||
-      storedPin === submittedPin ||
-      submittedPin === "1234" ||
-      submittedPin === "pixello123";
+    const isValidPin = !storedPin || storedPin === submittedPin;
 
     if (!isValidPin) {
+      recordSecurityFailure(cleanMobile, "customer_auth", req);
       return NextResponse.json(
         {
           success: false,
@@ -194,7 +215,9 @@ export async function POST(req: Request) {
       );
     }
 
-    // If user didn't have password stored yet, save this pin
+    // Clear failed attempts on valid login
+    clearSecurityFailures(cleanMobile, "customer_auth");
+
     if (!user.password) {
       await prisma.user.update({
         where: { id: user.id },
@@ -202,7 +225,6 @@ export async function POST(req: Request) {
       });
     }
 
-    // Ensure customerProfile exists
     if (!user.customerProfile) {
       const profile = await prisma.customerProfile.create({
         data: { userId: user.id },
@@ -210,7 +232,7 @@ export async function POST(req: Request) {
       user.customerProfile = profile;
     }
 
-    // Validate Terms & Conditions acceptance
+    // Terms validation
     const existingTermsAcceptance = await prisma.termsAcceptance.findFirst({
       where: {
         userId: user.id,
@@ -230,7 +252,6 @@ export async function POST(req: Request) {
       );
     }
 
-    // Record acceptance if explicitly checked
     if (isExplicitlyAccepted) {
       try {
         await prisma.termsAcceptance.create({
@@ -242,17 +263,18 @@ export async function POST(req: Request) {
             acceptedAt: new Date(),
           },
         });
-      } catch (err) {
-        console.warn("Could not save terms acceptance record:", err);
-      }
+      } catch (err) {}
     }
 
-    // Generate authenticated customer token
+    const rawEmail = (user.email || "").trim();
+    const cleanUserEmail = rawEmail.endsWith("@pixello.store") ? "" : rawEmail;
+    const isEmailLocked = !!cleanUserEmail;
+
     const token = createCustomerToken({
       userId: user.id,
       role: user.role,
       phone: user.phone || cleanPhone,
-      email: user.email || `${cleanMobile}@pixello.store`,
+      email: cleanUserEmail,
       name: user.name || "Customer",
     });
 
@@ -261,7 +283,8 @@ export async function POST(req: Request) {
       user: {
         id: user.id,
         name: user.name || "Customer",
-        email: user.email || `${cleanMobile}@pixello.store`,
+        email: cleanUserEmail,
+        isEmailLocked,
         phone: user.phone || cleanPhone,
         mobile: cleanMobile,
         role: user.role,
@@ -274,14 +297,12 @@ export async function POST(req: Request) {
       path: "/",
       maxAge: 30 * 24 * 60 * 60,
       sameSite: "lax",
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
     });
 
     return response;
   } catch (error: any) {
-    console.error("Error in customer auth:", error);
-    return NextResponse.json(
-      { success: false, error: error.message || "Failed to authenticate customer." },
-      { status: 500 }
-    );
+    return safeErrorResponse(error, 500, "Failed to authenticate customer.");
   }
 }

@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { portalEvents } from "@/lib/events";
+import { getAuthenticatedAdmin } from "@/lib/session";
+import { logAudit } from "@/lib/auditLogger";
+import { safeErrorResponse } from "@/lib/errorHandler";
 
 export const dynamic = "force-dynamic";
 
@@ -40,6 +43,13 @@ function formatProduct(p: any) {
     } catch (e) {}
   }
 
+  let aboutPoints = undefined;
+  if (p.aboutPoints) {
+    try {
+      aboutPoints = typeof p.aboutPoints === "string" ? JSON.parse(p.aboutPoints) : p.aboutPoints;
+    } catch (e) {}
+  }
+
   return {
     id: p.id,
     name: p.name,
@@ -62,6 +72,9 @@ function formatProduct(p: any) {
     frameColors,
     polaroidSizes,
     variants,
+    aboutTitle: p.aboutTitle || undefined,
+    aboutPoints,
+    imageEmbedding: p.imageEmbedding || undefined,
   };
 }
 
@@ -95,6 +108,14 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   try {
+    const admin = await getAuthenticatedAdmin(req);
+    if (!admin) {
+      return NextResponse.json(
+        { success: false, error: "Unauthorized. Admin privileges required to create products." },
+        { status: 401 }
+      );
+    }
+
     const body = await req.json();
     const {
       name,
@@ -112,6 +133,8 @@ export async function POST(req: Request) {
       frameColors,
       polaroidSizes,
       variants,
+      aboutTitle,
+      aboutPoints,
     } = body;
 
     if (!name || price === undefined) {
@@ -141,15 +164,31 @@ export async function POST(req: Request) {
         frameColors: frameColors ? JSON.stringify(frameColors) : undefined,
         polaroidSizes: polaroidSizes ? JSON.stringify(polaroidSizes) : undefined,
         variants: variants ? JSON.stringify(variants) : undefined,
+        aboutTitle: aboutTitle || undefined,
+        aboutPoints: aboutPoints ? JSON.stringify(aboutPoints) : undefined,
       },
     });
 
     const formatted = formatProduct(created);
+
+    // Trigger visual index update in background
+    import("@/lib/visualSearch").then(({ indexCatalogProducts }) => {
+      indexCatalogProducts(false).catch(() => {});
+    }).catch(() => {});
+
     portalEvents.emit("product_change", { action: "CREATE", product: formatted });
+
+    logAudit({
+      userId: admin.user.id,
+      actorRole: "ADMIN",
+      action: "PRODUCT_CREATED",
+      targetId: created.id,
+      details: { name: created.name, basePrice: created.basePrice },
+      req,
+    }).catch(() => {});
 
     return NextResponse.json({ success: true, product: formatted });
   } catch (error: any) {
-    console.error("Error creating product:", error);
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+    return safeErrorResponse(error, 500, "Error creating product");
   }
 }

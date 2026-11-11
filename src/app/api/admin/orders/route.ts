@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getAuthenticatedAdmin } from "@/lib/session";
 import { mapDbStatusToUi, mapUiStatusToDb } from "@/lib/orderStatus";
+import { safeErrorResponse } from "@/lib/errorHandler";
 
 export const dynamic = "force-dynamic";
 
@@ -106,10 +107,14 @@ export async function GET(req: Request) {
     const orders = dbOrders.map((o) => {
       const parsedItems = o.items.map((it) => {
         let photos: string[] = [];
+        let isHamper = false;
+        let hamperData = null;
         if (it.customizationDetails) {
           try {
             const details = JSON.parse(it.customizationDetails);
             photos = details.photos || [];
+            isHamper = !!details.isHamper || (typeof it.name === "string" && it.name.toLowerCase().includes("hamper"));
+            hamperData = details.hamperData || null;
           } catch (e) {
             photos = [];
           }
@@ -123,6 +128,8 @@ export async function GET(req: Request) {
           image: it.image || "/images/wooden_frame_main.png",
           photos,
           customizationDetails: it.customizationDetails,
+          isHamper,
+          hamperData,
         };
       });
 
@@ -222,6 +229,6 @@ export async function GET(req: Request) {
     });
   } catch (error: any) {
     console.error("GET /api/admin/orders error:", error);
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+    return safeErrorResponse(error, 500, "Error fetching admin orders");
   }
 }

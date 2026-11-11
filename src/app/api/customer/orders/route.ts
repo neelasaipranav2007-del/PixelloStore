@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getAuthenticatedUser } from "@/lib/session";
 import { sanitizeCustomerOrderData, mapInternalToCustomerStatus } from "@/lib/orderStatusMapping";
+import { safeErrorResponse } from "@/lib/errorHandler";
 
 export const dynamic = "force-dynamic";
 
@@ -108,8 +109,6 @@ export async function GET(req: Request) {
 
     return NextResponse.json({ success: true, orders });
   } catch (error: unknown) {
-    const err = error as Error;
-    console.error("GET /api/customer/orders error:", err);
-    return NextResponse.json({ success: false, error: err.message }, { status: 500 });
+    return safeErrorResponse(error, 500, "Error fetching customer orders");
   }
 }

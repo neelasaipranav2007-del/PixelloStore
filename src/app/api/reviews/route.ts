@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { portalEvents } from "@/lib/events";
+import { getAuthenticatedAdmin } from "@/lib/session";
+import { sanitizeText } from "@/lib/validators";
+import { safeErrorResponse } from "@/lib/errorHandler";
 
 export const dynamic = "force-dynamic";
 
@@ -149,16 +152,16 @@ export async function POST(req: Request) {
     const newReview = {
       id: existingIdx >= 0 ? reviews[existingIdx].id : `rev-${Date.now()}`,
       orderId,
-      productName,
-      productSize: productSize || "Standard",
+      productName: sanitizeText(productName, 100),
+      productSize: sanitizeText(productSize || "Standard", 50),
       productImage: productImage || "/images/wooden_frame_main.png",
-      rating: Number(rating) || 5,
-      title: title || "Product Review",
-      comment: comment || "",
-      tags: Array.isArray(tags) ? tags : [],
+      rating: Math.max(1, Math.min(5, Number(rating) || 5)),
+      title: sanitizeText(title || "Product Review", 150),
+      comment: sanitizeText(comment || "", 1000),
+      tags: Array.isArray(tags) ? tags.map((t: any) => sanitizeText(String(t), 50)) : [],
       photoUrl: photoUrl || null,
-      reviewerName: reviewerName || "Verified Customer",
-      reviewerEmail: reviewerEmail || "",
+      reviewerName: sanitizeText(reviewerName || "Verified Customer", 100),
+      reviewerEmail: sanitizeText(reviewerEmail || "", 100),
       createdAt: new Date().toISOString(),
       status: "Published",
       featured: false,
@@ -200,6 +203,14 @@ export async function POST(req: Request) {
 
 export async function PATCH(req: Request) {
   try {
+    const admin = await getAuthenticatedAdmin(req);
+    if (!admin) {
+      return NextResponse.json(
+        { success: false, error: "Unauthorized. Admin privileges required to moderate reviews." },
+        { status: 401 }
+      );
+    }
+
     const body = await req.json();
     const { id, featured, status, adminReply } = body;
 
@@ -249,6 +260,14 @@ export async function PATCH(req: Request) {
 
 export async function DELETE(req: Request) {
   try {
+    const admin = await getAuthenticatedAdmin(req);
+    if (!admin) {
+      return NextResponse.json(
+        { success: false, error: "Unauthorized. Admin privileges required to delete reviews." },
+        { status: 401 }
+      );
+    }
+
     const { searchParams } = new URL(req.url);
     const id = searchParams.get("id");
 

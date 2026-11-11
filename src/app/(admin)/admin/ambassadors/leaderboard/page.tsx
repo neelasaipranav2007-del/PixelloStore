@@ -221,14 +221,12 @@ export default function AdminAmbassadorLeaderboardPage() {
             <span>Export Excel</span>
           </Button>
 
-          <Link href="/admin/ambassadors">
-            <Button
-              variant="outline"
-              className="rounded-full border-[#D89A86] text-[#D89A86] hover:bg-[#FFF8F2] font-bold text-xs h-9 px-4 shadow-2xs flex items-center gap-1.5 cursor-pointer"
-            >
-              <Users className="h-3.5 w-3.5" />
-              <span>Manage Ambassadors</span>
-            </Button>
+          <Link 
+            href="/admin/ambassadors"
+            className="rounded-full border border-[#D89A86] text-[#D89A86] hover:bg-[#FFF8F2] font-bold text-xs h-9 px-4 shadow-2xs flex items-center gap-1.5 cursor-pointer transition-colors"
+          >
+            <Users className="h-3.5 w-3.5" />
+            <span>Manage Ambassadors</span>
           </Link>
         </div>
       </div>
@@ -506,14 +504,11 @@ export default function AdminAmbassadorLeaderboardPage() {
                                 <MessageCircle className="h-3.5 w-3.5" />
                               </a>
                             )}
-                            <Link href="/admin/ambassadors">
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                className="h-8 px-2.5 rounded-full text-[11px] font-bold border-[#EFE6DD] text-[#3A2B24] hover:bg-[#FFF8F2]"
-                              >
-                                View
-                              </Button>
+                            <Link 
+                              href="/admin/ambassadors"
+                              className="h-8 px-2.5 rounded-full text-[11px] font-bold border border-[#EFE6DD] text-[#3A2B24] hover:bg-[#FFF8F2] flex items-center justify-center transition-colors cursor-pointer"
+                            >
+                              View
                             </Link>
                           </div>
                         </td>

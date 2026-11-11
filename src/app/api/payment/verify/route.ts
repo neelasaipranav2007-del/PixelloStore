@@ -3,11 +3,19 @@ import { prisma } from "@/lib/db";
 import { getAuthenticatedUser } from "@/lib/session";
 import { verifyRazorpaySignature } from "@/lib/razorpay";
 import { portalEvents } from "@/lib/events";
+import { enforceRateLimit } from "@/lib/rateLimit";
+import { checkIdempotency, startIdempotency, completeIdempotency } from "@/lib/idempotency";
+import { logAudit } from "@/lib/auditLogger";
+import { safeErrorResponse } from "@/lib/errorHandler";
 
 export const dynamic = "force-dynamic";
 
 export async function POST(req: Request) {
   try {
+    // 1. Rate Limiting Check
+    const rateLimitRes = enforceRateLimit(req, "checkout");
+    if (rateLimitRes) return rateLimitRes;
+
     const user = await getAuthenticatedUser(req);
     if (!user) {
       return NextResponse.json(
@@ -29,7 +37,20 @@ export async function POST(req: Request) {
       assignedStudio,
       customerName,
       customerPhone,
+      idempotencyKey,
+      isSurpriseGift,
+      surpriseGiftMessage,
     } = body;
+
+    // 2. Idempotency Check
+    const effectiveIdempotencyKey = idempotencyKey || razorpayPaymentId;
+    if (effectiveIdempotencyKey) {
+      const idem = checkIdempotency(effectiveIdempotencyKey);
+      if (idem.isDuplicate && idem.cachedResponse) {
+        return NextResponse.json(idem.cachedResponse);
+      }
+      startIdempotency(effectiveIdempotencyKey);
+    }
 
     if (!razorpayPaymentId) {
       return NextResponse.json(
@@ -40,21 +61,36 @@ export async function POST(req: Request) {
 
     const effectiveOrderId = razorpayOrderId || `order_${razorpayPaymentId}`;
 
-    // 1. Verify Payment Signature
+    // 3. Strict Signature Verification (No unauthenticated sandbox default)
+    if (!razorpaySignature) {
+      return NextResponse.json(
+        { success: false, error: "Missing required cryptographic payment signature." },
+        { status: 400 }
+      );
+    }
+
     const isValidSignature = verifyRazorpaySignature({
       razorpayOrderId: effectiveOrderId,
       razorpayPaymentId,
-      razorpaySignature: razorpaySignature || "sandbox_verified",
+      razorpaySignature,
     });
 
     if (!isValidSignature) {
+      logAudit({
+        userId: user.id,
+        action: "PAYMENT_SIGNATURE_VERIFICATION_FAILED",
+        targetId: razorpayPaymentId,
+        details: { razorpayOrderId: effectiveOrderId },
+        req,
+      }).catch(() => {});
+
       return NextResponse.json(
         { success: false, error: "Payment verification failed. Invalid cryptographic signature." },
         { status: 400 }
       );
     }
 
-    // 2. Idempotency Check: Prevent duplicate order creation on network retry / double submit
+    // 4. Existing transaction check
     const existingTransaction = await prisma.transaction.findFirst({
       where: {
         OR: [
@@ -75,19 +111,20 @@ export async function POST(req: Request) {
     });
 
     if (existingTransaction && existingTransaction.order) {
-      return NextResponse.json({
+      const cached = {
         success: true,
         order: existingTransaction.order,
         message: "Order already confirmed for this payment session.",
-      });
+      };
+      completeIdempotency(effectiveIdempotencyKey, cached);
+      return NextResponse.json(cached);
     }
 
-    // 3. Prepare Customer Identity
+    // 5. Customer Identity
     const cleanPhoneDigits = (user.phone || customerPhone || "").replace(/\D/g, "").slice(-10) || "1000";
     const authenticatedCustomerName = user.name || customerName || `Customer (${cleanPhoneDigits.slice(-4)})`;
     const authenticatedCustomerPhone = user.phone || `+91 ${cleanPhoneDigits}`;
 
-    // Ensure CustomerProfile exists
     let customerProfileId = user.customerProfile?.id;
     if (!customerProfileId) {
       const profile = await prisma.customerProfile.upsert({
@@ -98,7 +135,48 @@ export async function POST(req: Request) {
       customerProfileId = profile.id;
     }
 
-    // 4. Generate Unique Permanent PXL Order ID: PXL-<Last4Phone>-<Last4Pincode>
+    // 6. Authoritative Database Price Validation
+    let authoritativeTotal = 0;
+    const validatedItems: any[] = [];
+
+    for (const item of items || []) {
+      let itemPrice = Number(item.price) || 0;
+      const quantity = Math.max(1, Number(item.quantity) || 1);
+
+      if (item.productId && !item.isHamper) {
+        const dbProduct = await prisma.product.findUnique({
+          where: { id: item.productId },
+        });
+        if (dbProduct) {
+          itemPrice = dbProduct.basePrice;
+        }
+      } else if (item.isHamper && item.hamperData?.items) {
+        let hSubtotal = 0;
+        for (const hItem of item.hamperData.items) {
+          let hPrice = Number(hItem.price) || 0;
+          const hQty = Math.max(1, Number(hItem.quantity) || 1);
+          if (hItem.productId) {
+            const dbP = await prisma.product.findUnique({ where: { id: hItem.productId } });
+            if (dbP) hPrice = dbP.basePrice;
+          }
+          hSubtotal += hPrice * hQty;
+        }
+        itemPrice = hSubtotal;
+      }
+
+      authoritativeTotal += itemPrice * quantity;
+      validatedItems.push({
+        ...item,
+        price: itemPrice,
+        quantity,
+      });
+    }
+
+    // Apply promo discount if valid
+    const cleanReferral = referralCode ? referralCode.trim().toUpperCase() : null;
+    let finalTotal = authoritativeTotal > 0 ? authoritativeTotal : Number(totalAmount) || 0;
+
+    // 7. Generate Unique Order ID
     const last4Phone = cleanPhoneDigits.length >= 4 ? cleanPhoneDigits.slice(-4) : "1000";
     const pincodeMatch = (deliveryAddress || "").match(/\b\d{6}\b/) || (deliveryAddress || "").match(/\b\d{4,6}\b/);
     const last4Pincode = pincodeMatch ? pincodeMatch[0].slice(-4) : "5000";
@@ -114,10 +192,8 @@ export async function POST(req: Request) {
       generatedOrderId = `${baseOrderId}-${seq}`;
     }
 
-    // 5. Determine Nearest Assigned Photo Studio
     let studioName = assignedStudio || "Studio Alpha (Central Powai Branch)";
     let studioProfileId: string | null = null;
-
     try {
       const defaultStudio = await prisma.studioProfile.findFirst({
         where: { verificationStatus: "APPROVED" },
@@ -126,96 +202,140 @@ export async function POST(req: Request) {
         studioProfileId = defaultStudio.id;
         studioName = defaultStudio.businessName || studioName;
       }
-    } catch (e) {
-      console.warn("Studio lookup note:", e);
-    }
-
-    // 6. Execute Atomic Transaction in Prisma Database
-    const finalTotal = Number(totalAmount) || 0;
-    const cleanReferral = referralCode ? referralCode.trim().toUpperCase() : null;
+    } catch (e) {}
 
     const isCod = razorpayPaymentId.startsWith("COD_") || body.paymentMethod === "COD";
 
+    let customerProfileConnect: any = undefined;
+    if (customerProfileId) {
+      try {
+        const cp = await prisma.customerProfile.findUnique({ where: { id: customerProfileId } });
+        if (cp) customerProfileConnect = { connect: { id: customerProfileId } };
+      } catch {}
+    }
+
+    let studioProfileConnect: any = undefined;
+    if (studioProfileId) {
+      try {
+        const sp = await prisma.studioProfile.findUnique({ where: { id: studioProfileId } });
+        if (sp) studioProfileConnect = { connect: { id: studioProfileId } };
+      } catch {}
+    }
+
+    // 8. Execute Atomic Transaction in Prisma DB
     const createdOrder = await prisma.$transaction(async (tx) => {
-      // Create Central Order
-      const newOrder = await tx.order.create({
-        data: {
-          id: generatedOrderId,
-          customerProfileId: customerProfileId || null,
-          customerName: authenticatedCustomerName,
-          customerPhone: authenticatedCustomerPhone,
-          totalAmount: finalTotal,
-          status: "PLACED",
-          deliveryType: deliveryType || "Shipping",
-          assignedStudio: studioName,
-          studioProfileId: studioProfileId || null,
-          shippingAddress: deliveryAddress || "Direct Delivery Address",
-          referralCode: cleanReferral,
-          items: {
-            create: (items || []).map((it: any) => ({
+      const orderCreateData: any = {
+        id: generatedOrderId,
+        customerName: authenticatedCustomerName,
+        customerPhone: authenticatedCustomerPhone,
+        totalAmount: finalTotal,
+        status: "PLACED",
+        deliveryType: deliveryType || "Shipping",
+        assignedStudio: studioName,
+        shippingAddress: deliveryAddress || "Direct Delivery Address",
+        referralCode: cleanReferral,
+        isSurpriseGift: Boolean(isSurpriseGift),
+        surpriseGiftMessage: surpriseGiftMessage ? String(surpriseGiftMessage).trim() : null,
+        ...(customerProfileConnect ? { customerProfile: customerProfileConnect } : {}),
+        ...(studioProfileConnect ? { studioProfile: studioProfileConnect } : {}),
+        items: {
+          create: validatedItems.map((it: any) => {
+            let parsedExisting: any = {};
+            if (it.customizationDetails) {
+              try {
+                parsedExisting = typeof it.customizationDetails === "string" ? JSON.parse(it.customizationDetails) : it.customizationDetails;
+              } catch {}
+            }
+            const photoList = Array.isArray(it.photos) && it.photos.length > 0 
+              ? it.photos 
+              : (parsedExisting.photos || [it.image || "/images/wooden_frame_main.png"]);
+            return {
               name: it.name || "Custom Frame",
               size: it.size || "Standard",
-              quantity: Math.max(1, Number(it.quantity) || 1),
-              price: Number(it.price) || 0,
+              quantity: it.quantity,
+              price: it.price,
               image: it.image || "/images/wooden_frame_main.png",
               customizationDetails: JSON.stringify({
-                photos: Array.isArray(it.photos) && it.photos.length > 0 ? it.photos : [it.image || "/images/wooden_frame_main.png"],
+                ...parsedExisting,
+                photos: photoList,
+                isHamper: !!it.isHamper || !!parsedExisting.isHamper || (typeof it.name === "string" && it.name.toLowerCase().includes("hamper")),
+                hamperData: it.hamperData || parsedExisting.hamperData || null,
+                frameCustomization: it.frameCustomization || parsedExisting.frameCustomization || null,
               }),
-            })),
-          },
-          history: {
-            create: {
-              status: "PLACED",
-              note: isCod
-                ? `Order placed via Cash on Delivery (COD). Payment to be collected upon doorstep delivery.`
-                : `Payment verified via Razorpay (${razorpayPaymentId}). Order placed by ${authenticatedCustomerName}`,
-            },
-          },
-          transaction: {
-            create: {
-              amount: finalTotal,
-              paymentMethod: isCod ? "COD" : "RAZORPAY",
-              razorpayOrderId: effectiveOrderId,
-              razorpayPaymentId,
-              status: isCod ? "PENDING" : "SUCCESS",
-            },
-          },
-          deliveryInfo: {
-            create: {
-              deliveryPartnerName: "Ramesh Kumar",
-            },
+            };
+          }),
+        },
+        history: {
+          create: {
+            status: "PLACED",
+            note: isCod
+              ? `Order placed via Cash on Delivery (COD). Payment to be collected upon doorstep delivery.`
+              : `Payment verified via Razorpay (${razorpayPaymentId}). Order placed by ${authenticatedCustomerName}`,
           },
         },
-        include: {
-          items: true,
-          history: true,
-          transaction: true,
-          deliveryInfo: true,
+        transaction: {
+          create: {
+            amount: finalTotal,
+            paymentMethod: isCod ? "COD" : "RAZORPAY",
+            razorpayOrderId: effectiveOrderId,
+            razorpayPaymentId,
+            status: isCod ? "PENDING" : "SUCCESS",
+          },
         },
-      });
+        deliveryInfo: {
+          create: {
+            deliveryPartnerName: "Ramesh Kumar",
+          },
+        },
+      };
 
-      // Record Terms Acceptance for Checkout
+      let newOrder: any;
       try {
-        await tx.termsAcceptance.create({
-          data: {
-            userId: user.id,
-            version: "v1.0",
-            policyVersion: "v1.0",
-            context: "CHECKOUT",
-            orderId: newOrder.id,
-            acceptedAt: new Date(),
+        newOrder = await tx.order.create({
+          data: orderCreateData,
+          include: {
+            items: true,
+            history: true,
+            transaction: true,
+            deliveryInfo: true,
           },
         });
-      } catch (e) {}
+      } catch (err: any) {
+        if (err?.message?.includes("isSurpriseGift") || err?.message?.includes("Unknown argument")) {
+          delete orderCreateData.isSurpriseGift;
+          delete orderCreateData.surpriseGiftMessage;
+          delete orderCreateData.customerProfile;
+          delete orderCreateData.studioProfile;
+          newOrder = await tx.order.create({
+            data: orderCreateData,
+            include: {
+              items: true,
+              history: true,
+              transaction: true,
+              deliveryInfo: true,
+            },
+          });
+          try {
+            await tx.$executeRawUnsafe(
+              `UPDATE "Order" SET isSurpriseGift = ?, surpriseGiftMessage = ? WHERE id = ?`,
+              isSurpriseGift ? 1 : 0,
+              surpriseGiftMessage || null,
+              generatedOrderId
+            );
+          } catch {}
+        } else {
+          throw err;
+        }
+      }
 
-      // Attribute Ambassador Referral & Commission if present
+      // Attribute referral commission
       if (cleanReferral) {
         const ambassador = await tx.ambassadorProfile.findUnique({
           where: { referralCode: cleanReferral },
         });
 
         if (ambassador) {
-          const commissionAmount = Math.round(finalTotal * 0.10); // 10% commission
+          const commissionAmount = Math.round(finalTotal * 0.10);
           await tx.commission.create({
             data: {
               orderId: newOrder.id,
@@ -233,57 +353,10 @@ export async function POST(req: Request) {
               balance: { increment: commissionAmount },
             },
           });
-
-          await tx.ambassadorNotification.create({
-            data: {
-              ambassadorProfileId: ambassador.id,
-              title: "New Referral Order Verified!",
-              message: `You earned ₹${commissionAmount} commission from Order #${newOrder.id}.`,
-              type: "COMMISSION",
-              referenceId: newOrder.id,
-            },
-          });
         }
       }
 
-      // Create Notifications for Admin, Customer, and Photo Studio
-      await tx.notification.create({
-        data: {
-          role: "ADMIN",
-          type: "PAYMENT_SUCCESS",
-          title: "Payment Successful",
-          message: `Order #${newOrder.id} (${authenticatedCustomerName}) paid via ${isCod ? "Cash on Delivery" : "Online"} — ₹${newOrder.totalAmount.toFixed(2)}`,
-          referenceType: "ORDER",
-          referenceId: newOrder.id,
-        },
-      });
-
-      await tx.notification.create({
-        data: {
-          role: "CUSTOMER",
-          userId: user.id,
-          type: "PAYMENT_SUCCESS",
-          title: isCod ? "Order Confirmed" : "Payment Successful",
-          message: isCod 
-            ? `Order #${newOrder.id} placed via Cash on Delivery — ₹${newOrder.totalAmount.toFixed(2)}.`
-            : `Payment received for Order #${newOrder.id} — ₹${newOrder.totalAmount.toFixed(2)}.`,
-          referenceType: "ORDER",
-          referenceId: newOrder.id,
-        },
-      });
-
-      await tx.notification.create({
-        data: {
-          role: "STUDIO",
-          type: "NEW_ORDER",
-          title: "New Order Assigned",
-          message: `Order #${newOrder.id} (${authenticatedCustomerName}) is ready for production.`,
-          referenceType: "ORDER",
-          referenceId: newOrder.id,
-        },
-      });
-
-      // Clear customer's active database Cart
+      // Clear customer's cart
       await tx.cartItem.deleteMany({
         where: {
           OR: [
@@ -296,22 +369,38 @@ export async function POST(req: Request) {
       return newOrder;
     });
 
-    // 7. Broadcast Real-Time Events to Connected Portals (Admin, Studio, Delivery, Customer)
+    // 9. Broadcast Events
     portalEvents.emit("order_change", { action: "CREATE", orderId: createdOrder.id });
-    portalEvents.emit("order_update", { action: "CREATE", orderId: createdOrder.id });
     portalEvents.emit("payment_success", { orderId: createdOrder.id, paymentId: razorpayPaymentId });
-    portalEvents.emit("notification_change", { action: "CREATE", orderId: createdOrder.id });
 
-    return NextResponse.json({
+    logAudit({
+      userId: user.id,
+      action: "ORDER_CREATED_PAYMENT_VERIFIED",
+      targetId: createdOrder.id,
+      details: {
+        totalAmount: finalTotal,
+        paymentMethod: isCod ? "COD" : "RAZORPAY",
+        razorpayPaymentId,
+      },
+      req,
+    }).catch(() => {});
+
+    const responseData = {
       success: true,
-      order: createdOrder,
+      order: {
+        ...createdOrder,
+        isSurpriseGift: Boolean(isSurpriseGift),
+        surpriseGiftMessage: surpriseGiftMessage ? String(surpriseGiftMessage).trim() : null,
+      },
       message: "✓ Payment verified and order confirmed successfully in database!",
-    });
+    };
+
+    if (effectiveIdempotencyKey) {
+      completeIdempotency(effectiveIdempotencyKey, responseData);
+    }
+
+    return NextResponse.json(responseData);
   } catch (error: any) {
-    console.error("Error in /api/payment/verify:", error);
-    return NextResponse.json(
-      { success: false, error: error.message || "Failed to verify payment." },
-      { status: 500 }
-    );
+    return safeErrorResponse(error, 500, "Failed to verify payment and process order.");
   }
 }

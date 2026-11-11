@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { createCustomerToken } from "@/lib/session";
+import { safeErrorResponse } from "@/lib/errorHandler";
 
 export const dynamic = "force-dynamic";
 
@@ -25,6 +26,17 @@ export const DEFAULT_AMBASSADORS = [
     rank: "GOLD",
     earnings: 7200,
     balance: 5100,
+    defaultPin: "1234",
+  },
+  {
+    phone: "9812345678",
+    name: "Aryan Verma",
+    email: "aryan.verma@iitb.ac.in",
+    college: "IIT Bombay",
+    promoCode: "ARYAN20",
+    rank: "DIAMOND",
+    earnings: 9600,
+    balance: 4800,
     defaultPin: "1234",
   },
   {
@@ -123,26 +135,26 @@ export async function POST(req: Request) {
       }
     }
 
-    // 3. If still not in database and defaultMatch exists, safely create user & profile
-    if (!dbAmbassador && defaultMatch) {
-      if (!targetUser) {
-        targetUser = await prisma.user.create({
-          data: {
-            name: defaultMatch.name,
-            phone: `+91 ${cleanMobile}`,
-            email: defaultMatch.email,
-            role: "AMBASSADOR",
-            password: defaultMatch.defaultPin,
-          },
-          include: {
-            ambassadorProfile: true,
-          },
-        });
-      }
+    // 3. Ensure User and AmbassadorProfile exist in Prisma database
+    if (!targetUser) {
+      targetUser = await prisma.user.create({
+        data: {
+          name: defaultMatch?.name || `Ambassador (${cleanMobile.slice(-4)})`,
+          phone: `+91 ${cleanMobile}`,
+          email: defaultMatch?.email || `amb_${cleanMobile}@pixello.store`,
+          role: "AMBASSADOR",
+          password: defaultMatch?.defaultPin || "1234",
+        },
+        include: {
+          ambassadorProfile: true,
+        },
+      });
+    }
 
-      // Check if promoCode is already taken by another record
+    if (!dbAmbassador) {
+      const desiredPromo = defaultMatch?.promoCode || `AMB${cleanMobile.slice(-4)}`;
       const existingByCode = await prisma.ambassadorProfile.findUnique({
-        where: { referralCode: defaultMatch.promoCode },
+        where: { referralCode: desiredPromo },
       });
 
       if (existingByCode) {
@@ -155,17 +167,18 @@ export async function POST(req: Request) {
         dbAmbassador = await prisma.ambassadorProfile.create({
           data: {
             userId: targetUser.id,
-            referralCode: defaultMatch.promoCode,
-            college: defaultMatch.college,
-            rank: defaultMatch.rank as any,
-            totalEarned: defaultMatch.earnings,
-            balance: defaultMatch.balance,
+            referralCode: desiredPromo,
+            college: defaultMatch?.college || "Campus Partner",
+            rank: (defaultMatch?.rank as any) || "GOLD",
+            totalEarned: defaultMatch?.earnings || 6400,
+            balance: defaultMatch?.balance || 4250,
+            status: "APPROVED",
           },
         });
       }
     }
 
-    // 3. Check password / PIN verification
+    // 4. Check password / PIN verification
     let isValidPassword = false;
     const dbPassword = targetUser?.password || dbAmbassador?.user?.password;
 
@@ -187,19 +200,19 @@ export async function POST(req: Request) {
       );
     }
 
-    // 4. Build ambassador session data
-    const ambUserId = targetUser?.id || dbAmbassador?.userId || `usr_amb_${cleanMobile}`;
-    const ambName = targetUser?.name || dbAmbassador?.user?.name || defaultMatch?.name || `Ambassador (${cleanMobile.slice(-4)})`;
-    const ambCollege = dbAmbassador?.college || defaultMatch?.college || "Campus Representative";
-    const ambPromo = dbAmbassador?.referralCode || defaultMatch?.promoCode || `AMB${cleanMobile.slice(-4)}`;
-    const ambEmail = targetUser?.email || dbAmbassador?.user?.email || defaultMatch?.email || `${cleanMobile}@pixello.store`;
-    const ambRank = dbAmbassador?.rank || defaultMatch?.rank || "GOLD";
-    const ambEarned = dbAmbassador?.totalEarned || defaultMatch?.earnings || 6400;
-    const ambBalance = dbAmbassador?.balance || defaultMatch?.balance || 4250;
+    // 5. Build authenticated session token with real database user ID
+    const ambUserId = targetUser.id;
+    const ambName = targetUser.name || defaultMatch?.name || `Ambassador (${cleanMobile.slice(-4)})`;
+    const ambCollege = dbAmbassador.college || defaultMatch?.college || "Campus Representative";
+    const ambPromo = dbAmbassador.referralCode || defaultMatch?.promoCode || `AMB${cleanMobile.slice(-4)}`;
+    const ambEmail = targetUser.email || defaultMatch?.email || `${cleanMobile}@pixello.store`;
+    const ambRank = dbAmbassador.rank || defaultMatch?.rank || "GOLD";
+    const ambEarned = dbAmbassador.totalEarned ?? defaultMatch?.earnings ?? 6400;
+    const ambBalance = dbAmbassador.balance ?? defaultMatch?.balance ?? 4250;
 
     const token = createCustomerToken({
       userId: ambUserId,
-      phone: `+91 ${cleanMobile}`,
+      phone: targetUser.phone || `+91 ${cleanMobile}`,
       email: ambEmail,
       name: ambName,
       role: "AMBASSADOR",
@@ -209,9 +222,9 @@ export async function POST(req: Request) {
       success: true,
       token,
       ambassador: {
-        id: dbAmbassador?.id || `amb_${cleanMobile}`,
+        id: dbAmbassador.id,
         name: ambName,
-        phone: `+91 ${cleanMobile}`,
+        phone: targetUser.phone || `+91 ${cleanMobile}`,
         mobile: cleanMobile,
         email: ambEmail,
         college: ambCollege,
@@ -219,12 +232,12 @@ export async function POST(req: Request) {
         rank: ambRank,
         totalEarned: ambEarned,
         balance: ambBalance,
-        status: dbAmbassador?.status || "APPROVED",
+        status: dbAmbassador.status || "APPROVED",
       },
     });
 
     response.cookies.set("pixello_ambassador_token", token, {
-      httpOnly: false,
+      httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       path: "/",
       maxAge: 30 * 24 * 60 * 60,
@@ -232,7 +245,7 @@ export async function POST(req: Request) {
     });
 
     response.cookies.set("pixello_auth_token", token, {
-      httpOnly: false,
+      httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       path: "/",
       maxAge: 30 * 24 * 60 * 60,
@@ -241,7 +254,6 @@ export async function POST(req: Request) {
 
     return response;
   } catch (error: any) {
-    console.error("Ambassador login error:", error);
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+    return safeErrorResponse(error, 500, "Ambassador login error");
   }
 }

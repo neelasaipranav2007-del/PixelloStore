@@ -2,7 +2,9 @@
 
 import { useState, useEffect, Suspense } from "react";
 import Link from "next/link";
-import { User, Package, MapPin, Heart, Settings, LogOut, ShieldCheck, Check, Plus, Edit2, Key, Bell, CreditCard, ExternalLink, Download, Eye, EyeOff, CheckCircle2, Truck, Sparkles, Clock, PhoneCall, MessageSquare, FileText, Image as ImageIcon, X, Ticket, RefreshCw, Star, Upload, AlertTriangle, AlertCircle, CheckCircle, MessageSquareQuote, Copy, PackageCheck, ShoppingBag, Lock } from "lucide-react";
+import { User, Package, MapPin, Heart, Settings, LogOut, ShieldCheck, Check, Plus, Edit2, Key, Bell, CreditCard, ExternalLink, Download, Eye, EyeOff, CheckCircle2, Truck, Sparkles, Clock, PhoneCall, MessageSquare, FileText, Image as ImageIcon, X, Ticket, RefreshCw, Star, Upload, AlertTriangle, AlertCircle, CheckCircle, MessageSquareQuote, Copy, PackageCheck, ShoppingBag, Lock, Cake, Gift, PartyPopper, Users, Trash2 } from "lucide-react";
+import { OrderStatusBadge } from "@/components/ui/status-badge";
+import { getBirthdayStatus, BirthdayStatus, LovedOneBirthday, getLovedOnesStatus } from "@/lib/birthdayHelper";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -18,6 +20,19 @@ import { usePixelloTransition } from "@/components/customer/PixelloPageTransitio
 import { isDeliveryPortalEnabled } from "@/lib/deliveryConfig";
 import { isStudioPortalEnabled } from "@/lib/studioConfig";
 import { PIXELLO_TERMS_POINTS, CURRENT_TERMS_VERSION } from "@/lib/termsData";
+import { BorderTrail } from "@/components/core/border-trail";
+import { mapDbStatusToUi } from "@/lib/orderStatus";
+
+function getSafeStatusString(status: any): string {
+  let raw = "";
+  if (typeof status === "string") raw = status;
+  else if (status && typeof status.customerStatus === "string") raw = status.customerStatus;
+  else if (status && typeof status.label === "string") raw = status.label;
+  else if (status && typeof status.name === "string") raw = status.name;
+  else if (status && typeof status.status === "string") raw = status.status;
+  else if (status) raw = String(status);
+  return mapDbStatusToUi(raw);
+}
 
 function ProfileContent() {
   const { startTransitionTo } = usePixelloTransition();
@@ -174,8 +189,58 @@ function ProfileContent() {
     name: "",
     email: "",
     phone: "",
-    college: ""
+    college: "",
+    birthday: ""
   });
+  const [isEmailLocked, setIsEmailLocked] = useState(false);
+
+  // Loved Ones' Birthdays State
+  const [lovedOnes, setLovedOnes] = useState<LovedOneBirthday[]>([]);
+  const [showAddLovedOneModal, setShowAddLovedOneModal] = useState(false);
+  const [editingLovedOneId, setEditingLovedOneId] = useState<string | null>(null);
+  const [lovedOneForm, setLovedOneForm] = useState({
+    name: "",
+    relationship: "Partner / Spouse",
+    birthday: "",
+  });
+
+  const persistLovedOnes = async (updatedList: LovedOneBirthday[]) => {
+    setLovedOnes(updatedList);
+    if (typeof window !== "undefined") {
+      const cleanMobile = (profileData.phone || "").replace(/\D/g, "").slice(-10);
+      const savedUserStr = localStorage.getItem("pixello_user");
+      let userObj = savedUserStr ? JSON.parse(savedUserStr) : {};
+      const updatedUser = {
+        ...userObj,
+        lovedOnes: updatedList,
+      };
+      localStorage.setItem("pixello_user", JSON.stringify(updatedUser));
+      if (cleanMobile) {
+        localStorage.setItem(`pixello_loved_ones_${cleanMobile}`, JSON.stringify(updatedList));
+        localStorage.setItem(`pixello_profile_${cleanMobile}`, JSON.stringify(updatedUser));
+      }
+      window.dispatchEvent(new Event("pixello_loved_ones_updated"));
+      window.dispatchEvent(new Event("storage"));
+
+      // Also persist to backend
+      try {
+        const authToken = localStorage.getItem("pixello_auth_token");
+        const headers: Record<string, string> = { "Content-Type": "application/json" };
+        if (authToken) headers["Authorization"] = `Bearer ${authToken}`;
+
+        await fetch("/api/auth/me", {
+          method: "PATCH",
+          credentials: "same-origin",
+          headers,
+          body: JSON.stringify({
+            lovedOnes: updatedList,
+          }),
+        });
+      } catch (err) {
+        console.warn("Failed to persist loved ones to backend:", err);
+      }
+    }
+  };
 
   // Saved Addresses State per customer with localStorage persistence
   const [addresses, setAddresses] = useState<any[]>([]);
@@ -677,19 +742,48 @@ function ProfileContent() {
                 </tr>
               </thead>
               <tbody>
-                ${order.items.map((item: any, idx: number) => `
+                ${order.items.map((item: any, idx: number) => {
+                  const photos = Array.isArray(item.photos) && item.photos.length > 0
+                    ? item.photos.filter((p: any) => typeof p === "string" && (p.startsWith("data:") || p.startsWith("blob:") || p.startsWith("http") || p.startsWith("/")))
+                    : ((item.image && (item.image.startsWith("data:") || item.image.startsWith("blob:") || item.image.startsWith("http") || item.image.startsWith("/"))) ? [item.image] : []);
+                  
+                  const mainThumb = photos[0] || item.image || "/images/wooden_frame_main.png";
+                  const hasCustomPhoto = photos.length > 0;
+
+                  return `
                   <tr>
                     <td style="text-align: center; font-weight: bold; color: #3A2B24;">${idx + 1}</td>
                     <td>
-                      <strong style="color: #3A2B24;">${item.name}</strong>
-                      ${item.photos && item.photos.length > 0 ? `<span class="photo-tag">📷 Attached: ${item.photos.join(", ")}</span>` : ""}
+                      <div style="display: flex; align-items: center; gap: 12px;">
+                        <div style="width: 52px; height: 52px; border-radius: 8px; border: 1.5px solid #D89A86; overflow: hidden; flex-shrink: 0; background: #FFF8F2; box-shadow: 0 1px 3px rgba(0,0,0,0.08);">
+                          <img src="${mainThumb}" alt="${item.name}" style="width: 100%; height: 100%; object-fit: cover; display: block;" />
+                        </div>
+                        <div style="flex: 1; min-width: 0;">
+                          <strong style="color: #3A2B24; font-size: 13px; display: block; margin-bottom: 2px;">${item.name}</strong>
+                          ${hasCustomPhoto ? `
+                            <div style="display: inline-flex; align-items: center; gap: 4px; font-size: 10px; font-weight: 700; color: #047857; background: #ECFDF5; border: 1px solid #A7F3D0; padding: 2px 7px; border-radius: 6px; margin-top: 2px;">
+                              <span>📷 Customer Photo Attached (${photos.length > 1 ? `${photos.length} Photos` : 'Memory Print'})</span>
+                            </div>
+                            ${photos.length > 1 ? `
+                              <div style="display: flex; gap: 4px; margin-top: 5px; flex-wrap: wrap;">
+                                ${photos.map((pUrl: string, pIdx: number) => `
+                                  <div style="display: inline-flex; align-items: center; border: 1px solid #D89A86; border-radius: 4px; overflow: hidden; width: 26px; height: 26px;" title="Photo #${pIdx + 1}">
+                                    <img src="${pUrl}" alt="Photo #${pIdx + 1}" style="width: 100%; height: 100%; object-fit: cover;" />
+                                  </div>
+                                `).join("")}
+                              </div>
+                            ` : ""}
+                          ` : ""}
+                        </div>
+                      </div>
                     </td>
                     <td><span class="size-pill">${item.size}</span></td>
                     <td style="text-align: center; font-weight: 600;">${item.quantity}</td>
                     <td style="text-align: right;">₹${item.price}</td>
                     <td style="text-align: right; font-weight: 700; color: #3A2B24;">₹${(item.price * item.quantity).toFixed(2)}</td>
                   </tr>
-                `).join("")}
+                `;
+                }).join("")}
               </tbody>
             </table>
 
@@ -763,10 +857,17 @@ function ProfileContent() {
             const authData = await res.json();
             if (authData?.success && authData.user) {
               const u = authData.user;
+              const uEmail = (u.email || "").trim();
+              const isDummy = !uEmail || uEmail.endsWith("@pixello.store");
+              const cleanU = isDummy ? "" : uEmail;
+              const locked = !isDummy && u.isEmailLocked !== false;
+              setIsEmailLocked(locked);
+
               const restoredUser = {
                 id: u.id,
                 name: u.name || "Customer",
-                email: u.email || "",
+                email: cleanU,
+                isEmailLocked: locked,
                 phone: u.phone || (u.mobile ? `+91 ${u.mobile}` : ""),
                 mobile: u.mobile || (u.phone ? u.phone.replace(/\D/g, "").slice(-10) : ""),
                 role: u.role,
@@ -791,14 +892,25 @@ function ProfileContent() {
             console.warn("Could not auto-restore session from /api/auth/me:", e);
           }
         } else if (savedUser && !isLoggedOut) {
-          // Verify with backend if current terms version is accepted
+          // Verify with backend if current terms version is accepted and sync email status
           try {
             const headers: Record<string, string> = {};
             if (authToken) headers["Authorization"] = `Bearer ${authToken}`;
             fetch("/api/auth/me", { credentials: "same-origin", headers })
               .then((r) => r.json())
               .then((authData) => {
-                if (authData?.success) {
+                if (authData?.success && authData.user) {
+                  const u = authData.user;
+                  const uEmail = (u.email || "").trim();
+                  const isDummy = !uEmail || uEmail.endsWith("@pixello.store");
+                  const cleanU = isDummy ? "" : uEmail;
+                  const locked = !isDummy && u.isEmailLocked !== false;
+                  setIsEmailLocked(locked);
+                  setProfileData((prev) => ({
+                    ...prev,
+                    email: cleanU,
+                  }));
+
                   if (authData.termsAccepted === false) {
                     setNeedsTermsAcceptance(true);
                   } else {
@@ -818,6 +930,7 @@ function ProfileContent() {
             email: "",
             phone: "",
             college: "",
+            birthday: "",
           });
           setAddresses([]);
           return;
@@ -842,14 +955,45 @@ function ProfileContent() {
             ? parsed.name
             : (parsedProf && parsedProf.name && !parsedProf.name.startsWith("New Customer") ? parsedProf.name : (finalData.name || "Customer"));
 
+          const rawEmail = (finalData.email || "").trim();
+          const isDummyEmail = !rawEmail || rawEmail.endsWith("@pixello.store");
+          const cleanEmail = isDummyEmail ? "" : rawEmail;
+          const locked = !isDummyEmail && (finalData.isEmailLocked !== false);
+
+          // Purge auto-generated dummy @pixello.store email if previously stored
+          if (parsed.email && parsed.email.endsWith("@pixello.store")) {
+            parsed.email = "";
+            parsed.isEmailLocked = false;
+            localStorage.setItem("pixello_user", JSON.stringify(parsed));
+          }
+
           setIsLoggedIn(true);
           setIsCheckingAuth(false);
+          setIsEmailLocked(locked);
           setProfileData({
             name: resolvedName,
-            email: finalData.email || "",
+            email: cleanEmail,
             phone: finalData.mobile ? (finalData.mobile.startsWith("+91") ? finalData.mobile : `+91 ${finalData.mobile}`) : (finalData.phone || ""),
-            college: finalData.college || ""
+            college: parsed.college || parsedProf?.college || finalData.college || "",
+            birthday: parsed.birthday || parsedProf?.birthday || finalData.birthday || ""
           });
+
+          let loadedLovedOnes: LovedOneBirthday[] = [];
+          if (Array.isArray(finalData.lovedOnes)) {
+            loadedLovedOnes = finalData.lovedOnes;
+          }
+          if (cleanMob) {
+            try {
+              const savedLoved = localStorage.getItem(`pixello_loved_ones_${cleanMob}`);
+              if (savedLoved) {
+                const parsedLoved = JSON.parse(savedLoved);
+                if (Array.isArray(parsedLoved) && parsedLoved.length > 0) {
+                  loadedLovedOnes = parsedLoved;
+                }
+              }
+            } catch (e) {}
+          }
+          setLovedOnes(loadedLovedOnes);
         } catch (e) {
           console.error(e);
           setIsLoggedIn(false);
@@ -888,14 +1032,32 @@ function ProfileContent() {
       const cleanMobile = (profileData.phone || "").replace(/\D/g, "").slice(-10);
       const savedUserStr = localStorage.getItem("pixello_user");
       let userObj = savedUserStr ? JSON.parse(savedUserStr) : {};
+
+      const cleanEmailInput = (profileData.email || "").trim().toLowerCase();
+
+      // One-time writing check: validate customer-entered email
+      if (!isEmailLocked && cleanEmailInput) {
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(cleanEmailInput) || cleanEmailInput.endsWith("@pixello.store")) {
+          alert("Please enter a valid personal email address (e.g. yourname@gmail.com).");
+          return;
+        }
+        setIsEmailLocked(true);
+      }
+
+      const emailToPersist = isEmailLocked ? (profileData.email || "") : cleanEmailInput;
+      const finalLockedState = !!emailToPersist && !emailToPersist.endsWith("@pixello.store");
       
       const updatedUser = {
         ...userObj,
         name: profileData.name,
-        email: profileData.email,
+        email: emailToPersist,
+        isEmailLocked: finalLockedState,
         mobile: cleanMobile,
         phone: profileData.phone,
         college: profileData.college,
+        birthday: profileData.birthday,
+        lovedOnes: lovedOnes,
         isLoggedIn: true
       };
 
@@ -911,8 +1073,9 @@ function ProfileContent() {
             name: profileData.name,
             mobile: cleanMobile,
             phone: profileData.phone,
-            email: profileData.email,
+            email: emailToPersist,
             college: profileData.college,
+            birthday: profileData.birthday,
             status: "Active"
           };
           if (index >= 0) {
@@ -925,19 +1088,50 @@ function ProfileContent() {
           console.error(e);
         }
 
-        // Persist to backend database
+        // Persist to backend database via PATCH /api/auth/me
         try {
-          await fetch("/api/customers", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
+          const authToken = localStorage.getItem("pixello_auth_token");
+          const headers: Record<string, string> = { "Content-Type": "application/json" };
+          if (authToken) headers["Authorization"] = `Bearer ${authToken}`;
+
+          const res = await fetch("/api/auth/me", {
+            method: "PATCH",
+            credentials: "same-origin",
+            headers,
             body: JSON.stringify({
               name: profileData.name,
-              email: profileData.email,
+              email: emailToPersist,
               mobile: cleanMobile,
               phone: profileData.phone,
               college: profileData.college,
+              birthday: profileData.birthday,
+              lovedOnes: lovedOnes,
             }),
           });
+          const resData = await res.json();
+          if (resData.success && resData.user) {
+            if (resData.token) {
+              localStorage.setItem("pixello_auth_token", resData.token);
+              document.cookie = `pixello_auth_token=${resData.token}; path=/; max-age=2592000; SameSite=Lax`;
+            }
+            const cleanReturnedEmail = (resData.user.email || "").trim();
+            const safeReturnedEmail = cleanReturnedEmail.endsWith("@pixello.store") ? "" : cleanReturnedEmail;
+            const isReturnedLocked = !!safeReturnedEmail && resData.user.isEmailLocked !== false;
+            setIsEmailLocked(isReturnedLocked);
+
+            const merged = {
+              ...updatedUser,
+              ...resData.user,
+              email: safeReturnedEmail,
+              isEmailLocked: isReturnedLocked,
+              college: profileData.college || resData.user.college || "",
+              birthday: profileData.birthday || resData.user.birthday || "",
+            };
+            localStorage.setItem("pixello_user", JSON.stringify(merged));
+            if (cleanMobile) {
+              localStorage.setItem(`pixello_profile_${cleanMobile}`, JSON.stringify(merged));
+            }
+          }
         } catch (err) {
           console.error("Failed to save profile to database:", err);
         }
@@ -1007,13 +1201,34 @@ function ProfileContent() {
                   {profileData.name || "Customer"}
                 </h3>
                 <p className="text-xs text-[#6C5C54] truncate font-medium">
-                  {profileData.email || profileData.phone || "No email added"}
+                  {profileData.email && !profileData.email.endsWith("@pixello.store") ? profileData.email : (profileData.phone || "No email set yet")}
                 </p>
               </div>
             </div>
           </div>
 
-          <div className="bg-white border border-[#EFE6DD] rounded-3xl p-3 shadow-xs">
+          {/* Mobile Horizontal Tab Navigation */}
+          <div className="md:hidden flex items-center gap-2 overflow-x-auto p-2 no-scrollbar bg-white rounded-2xl border border-[#EFE6DD] shadow-xs mb-6">
+            {TABS.map((tab) => (
+              <button
+                key={tab.id}
+                type="button"
+                className={cn(
+                  "px-3.5 py-2 rounded-xl font-bold text-xs whitespace-nowrap flex items-center gap-1.5 transition-all shrink-0 cursor-pointer",
+                  activeTab === tab.id
+                    ? "bg-[#D89A86] text-white shadow-xs"
+                    : "bg-[#FFF8F2] text-[#3A2B24] hover:bg-[#F2C8B5]/40"
+                )}
+                onClick={() => setActiveTab(tab.id)}
+              >
+                <tab.icon className={cn("h-4 w-4", activeTab === tab.id ? "text-white" : "text-[#D89A86]")} />
+                <span>{tab.label}</span>
+              </button>
+            ))}
+          </div>
+
+          {/* Desktop Vertical Tab Navigation */}
+          <div className="hidden md:block bg-white border border-[#EFE6DD] rounded-3xl p-3 shadow-xs">
             <nav className="flex flex-col space-y-1.5">
               {TABS.map(tab => (
                 <Button 
@@ -1048,17 +1263,51 @@ function ProfileContent() {
         {/* Content Area */}
         <div className="flex-1">
           {/* TAB 1: PROFILE */}
-          {activeTab === "profile" && (
-            <Card className="border border-[#EFE6DD] bg-white rounded-3xl p-6 sm:p-8 md:p-10 shadow-xs relative overflow-hidden">
+          {activeTab === "profile" && (() => {
+            const bdayStatus = getBirthdayStatus(profileData.birthday);
+            return (
+              <div className="space-y-6">
+                <Card className="border border-[#EFE6DD] bg-white rounded-3xl p-6 sm:p-8 md:p-10 shadow-xs relative overflow-hidden">
               <CardHeader className="p-0 mb-6 pb-5 border-b border-[#EFE6DD]">
                 <CardTitle className="font-serif-brand text-2xl font-bold text-[#3A2B24] flex items-center gap-2.5">
                   <User className="h-6 w-6 text-[#D89A86]" /> Personal Information
                 </CardTitle>
                 <CardDescription className="text-xs text-[#6C5C54] font-medium mt-1">
-                  Update your personal account details and college information.
+                  Update your personal account details, college information, and birthday for special milestone gifts.
                 </CardDescription>
               </CardHeader>
               <CardContent className="p-0">
+                {/* Active 72-Hour Birthday Celebration Banner in Priority Gifting Express Theme */}
+                {bdayStatus.hasBirthday && bdayStatus.isWithin72Hours && (
+                  <div className="mb-6 p-5 sm:p-6 rounded-3xl bg-[#2C201C] border border-[#3E2D27] shadow-xl text-white flex flex-col md:flex-row md:items-center justify-between gap-4 animate-in fade-in">
+                    <div className="flex-1">
+                      <div className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-[#FCE182] text-[#2C201C] text-[11px] font-extrabold uppercase tracking-wider mb-2.5 shadow-sm">
+                        <Clock className="h-3 w-3 text-[#2C201C]" />
+                        <span>Ordering Deadline Active</span>
+                      </div>
+                      <h4 className="font-serif-brand text-xl sm:text-2xl font-bold text-white tracking-tight leading-snug">
+                        Birthday &amp; Anniversary Priority Gifting Express
+                      </h4>
+                      <p className="text-xs text-[#C4B5AC] mt-1 max-w-lg leading-relaxed">
+                        {bdayStatus.isToday
+                          ? "Today is your milestone day! Order before the priority deadline to guarantee custom laser engraving and on-time delivery with code BDAY25 (25% OFF)."
+                          : `Order before the deadline (${bdayStatus.countdownText}) to guarantee custom engraving, laser prints, and on-time doorstep hostel delivery.`}
+                      </p>
+                    </div>
+
+                    <div className="flex items-center gap-2 shrink-0">
+                      <Button
+                        type="button"
+                        onClick={() => window.dispatchEvent(new Event("open_birthday_celebration_popup"))}
+                        className="bg-[#DC7C72] hover:bg-[#CF6F65] text-white text-xs font-bold rounded-full h-11 px-6 shadow-md flex items-center gap-2 cursor-pointer active:scale-95 transition-transform"
+                      >
+                        <Gift className="h-4 w-4" />
+                        <span>Shop Birthday Gifts</span>
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
                 <form onSubmit={handleProfileSave} className="flex flex-col gap-5 max-w-xl">
                   {savedSuccess && (
                     <div className="p-3.5 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-2xl text-xs font-bold flex items-center gap-2">
@@ -1075,23 +1324,68 @@ function ProfileContent() {
                     />
                   </div>
                   <div>
-                    <label className="text-xs font-bold text-[#3A2B24] uppercase tracking-wider mb-2 block">Email Address</label>
-                    <Input 
-                      type="email" 
-                      value={profileData.email} 
-                      onChange={e => setProfileData({ ...profileData, email: e.target.value })} 
-                      className="rounded-2xl border-[#EFE6DD] bg-[#FFF8F2]/60 text-sm font-medium text-[#3A2B24] h-12 px-4 focus-visible:ring-[#D89A86]"
-                      placeholder="Enter your email address"
-                    />
+                    <div className="flex items-center justify-between mb-2">
+                      <label className="text-xs font-bold text-[#3A2B24] uppercase tracking-wider">Email Address</label>
+                      {isEmailLocked ? (
+                        <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 rounded-full shadow-2xs">
+                          <CheckCircle2 className="h-3 w-3 text-emerald-600" /> Verified
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-800 bg-amber-50 border border-amber-300 px-2.5 py-0.5 rounded-full shadow-2xs">
+                          <Sparkles className="h-3 w-3 text-amber-600" /> One-Time Setup
+                        </span>
+                      )}
+                    </div>
+                    <div className="relative flex items-center">
+                      <Input 
+                        type="email" 
+                        readOnly={isEmailLocked}
+                        disabled={isEmailLocked}
+                        value={profileData.email} 
+                        onChange={(e) => setProfileData({ ...profileData, email: e.target.value })}
+                        className={cn(
+                          "rounded-2xl text-sm font-medium h-12 pl-4 pr-10",
+                          isEmailLocked
+                            ? "border-[#EFE6DD] bg-stone-100/90 text-[#6C5C54] cursor-not-allowed select-none opacity-85"
+                            : "border-[#EFE6DD] bg-[#FFF8F2]/60 text-[#3A2B24] focus-visible:ring-[#D89A86]"
+                        )}
+                        placeholder="Enter your Gmail address (e.g. name@gmail.com)"
+                      />
+                      {isEmailLocked && (
+                        <Lock className="h-4 w-4 text-[#A89A90] absolute right-3.5 pointer-events-none" />
+                      )}
+                    </div>
+                    {isEmailLocked ? (
+                      <p className="text-[11px] text-[#8C7C74] mt-1 font-medium flex items-center gap-1">
+                        <Lock className="h-3 w-3 text-[#A89A90]" /> Account Email &bull; Permanently locked for account security (One-time setup completed)
+                      </p>
+                    ) : (
+                      <p className="text-[11px] text-amber-800 font-medium mt-1.5 flex items-start sm:items-center gap-1.5 leading-tight">
+                        <AlertCircle className="h-3.5 w-3.5 text-amber-600 shrink-0 mt-0.5 sm:mt-0" />
+                        <span><strong>One-Time Entry:</strong> Enter your Gmail or personal email address. For account security, this can only be written once and will be locked permanently upon saving.</span>
+                      </p>
+                    )}
                   </div>
                   <div>
-                    <label className="text-xs font-bold text-[#3A2B24] uppercase tracking-wider mb-2 block">Phone Number</label>
-                    <Input 
-                      value={profileData.phone} 
-                      onChange={e => setProfileData({ ...profileData, phone: e.target.value })} 
-                      className="rounded-2xl border-[#EFE6DD] bg-[#FFF8F2]/60 text-sm font-medium text-[#3A2B24] h-12 px-4 focus-visible:ring-[#D89A86]"
-                      placeholder="Enter 10-digit phone number"
-                    />
+                    <div className="flex items-center justify-between mb-2">
+                      <label className="text-xs font-bold text-[#3A2B24] uppercase tracking-wider">Phone Number</label>
+                      <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 rounded-full shadow-2xs">
+                        <CheckCircle2 className="h-3 w-3 text-emerald-600" /> Verified
+                      </span>
+                    </div>
+                    <div className="relative flex items-center">
+                      <Input 
+                        readOnly
+                        disabled
+                        value={profileData.phone} 
+                        className="rounded-2xl border-[#EFE6DD] bg-stone-100/90 text-sm font-medium text-[#6C5C54] h-12 pl-4 pr-10 cursor-not-allowed select-none opacity-85"
+                        placeholder="Verified 10-digit phone number"
+                      />
+                      <Lock className="h-4 w-4 text-[#A89A90] absolute right-3.5 pointer-events-none" />
+                    </div>
+                    <p className="text-[11px] text-[#8C7C74] mt-1 font-medium flex items-center gap-1">
+                      <Lock className="h-3 w-3 text-[#A89A90]" /> Registered Login Phone &bull; Cannot be edited
+                    </p>
                   </div>
                   <div>
                     <label className="text-xs font-bold text-[#3A2B24] uppercase tracking-wider mb-2 block">College / Campus</label>
@@ -1102,13 +1396,534 @@ function ProfileContent() {
                       placeholder="Enter your college or campus name"
                     />
                   </div>
+
+                  {/* DATE OF BIRTH / BIRTHDAY WITH 72-HOUR POPUP MILESTONE */}
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <label className="text-xs font-bold text-[#3A2B24] uppercase tracking-wider flex items-center gap-1.5">
+                        <Cake className="h-4 w-4 text-[#D89A86]" /> Date of Birth / Birthday
+                      </label>
+                      {bdayStatus.hasBirthday && (
+                        <span className={cn(
+                          "inline-flex items-center gap-1 text-[10px] font-bold px-2.5 py-0.5 rounded-full shadow-2xs",
+                          bdayStatus.isWithin72Hours
+                            ? "bg-amber-100 text-amber-900 border border-amber-300 animate-pulse"
+                            : "bg-[#FFF2EB] text-[#D89A86] border border-[#F3DACF]"
+                        )}>
+                          <Cake className="h-3 w-3" />
+                          {bdayStatus.isToday
+                            ? "Birthday Today! 🎉"
+                            : bdayStatus.isWithin72Hours
+                            ? `Within 72h Celebration Window (${bdayStatus.hoursLeftInWindow}h left)`
+                            : `Next: ${bdayStatus.formattedBirthday} (${bdayStatus.daysUntil} days)`}
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
+                      {/* Unrestricted Calendar Date Picker - Select Any Day / Month / Year */}
+                      <div className="relative flex-1">
+                        <Input 
+                          type="date"
+                          value={profileData.birthday || ""} 
+                          onChange={e => setProfileData({ ...profileData, birthday: e.target.value })} 
+                          className="rounded-2xl border-[#EFE6DD] bg-[#FFF8F2]/60 text-sm font-medium text-[#3A2B24] h-12 px-4 focus-visible:ring-[#D89A86] cursor-pointer"
+                        />
+                      </div>
+
+                      {/* Direct Month & Day Dropdown Selectors for Quick Date Selection */}
+                      <div className="flex items-center gap-2">
+                        <select
+                          value={profileData.birthday && profileData.birthday.includes('-') ? parseInt(profileData.birthday.split('-')[1] || '1', 10) : ''}
+                          onChange={e => {
+                            const m = String(e.target.value).padStart(2, '0');
+                            const parts = (profileData.birthday || '2000-01-01').split('-');
+                            const y = parts[0] || '2000';
+                            const d = parts[2] || '01';
+                            setProfileData({ ...profileData, birthday: `${y}-${m}-${d}` });
+                          }}
+                          className="h-12 px-3 rounded-2xl border border-[#EFE6DD] bg-[#FFF8F2]/60 text-xs font-bold text-[#3A2B24] focus:outline-none focus:ring-2 focus:ring-[#D89A86] cursor-pointer"
+                          aria-label="Select Birth Month"
+                        >
+                          <option value="" disabled>Month</option>
+                          {['Jan (01)', 'Feb (02)', 'Mar (03)', 'Apr (04)', 'May (05)', 'Jun (06)', 'Jul (07)', 'Aug (08)', 'Sep (09)', 'Oct (10)', 'Nov (11)', 'Dec (12)'].map((mName, idx) => (
+                            <option key={mName} value={idx + 1}>{mName}</option>
+                          ))}
+                        </select>
+
+                        <select
+                          value={profileData.birthday && profileData.birthday.includes('-') ? parseInt(profileData.birthday.split('-')[2] || '1', 10) : ''}
+                          onChange={e => {
+                            const d = String(e.target.value).padStart(2, '0');
+                            const parts = (profileData.birthday || '2000-01-01').split('-');
+                            const y = parts[0] || '2000';
+                            const m = parts[1] || '01';
+                            setProfileData({ ...profileData, birthday: `${y}-${m}-${d}` });
+                          }}
+                          className="h-12 px-3 rounded-2xl border border-[#EFE6DD] bg-[#FFF8F2]/60 text-xs font-bold text-[#3A2B24] focus:outline-none focus:ring-2 focus:ring-[#D89A86] cursor-pointer"
+                          aria-label="Select Birth Day"
+                        >
+                          <option value="" disabled>Day</option>
+                          {Array.from({ length: 31 }, (_, i) => i + 1).map(day => (
+                            <option key={day} value={day}>{day}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mt-2">
+                      <p className="text-[11px] text-[#6C5C54] font-medium leading-relaxed">
+                        🎂 You can select <strong>any date</strong>. The 25% celebratory gift pop-up unlocks <strong>72 hours before</strong> your birthday!
+                      </p>
+                      
+                      <div className="flex items-center gap-2 shrink-0">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            // Quick 72-Hour Test: Sets date to tomorrow
+                            const tmr = new Date();
+                            tmr.setDate(tmr.getDate() + 1);
+                            const tmrStr = tmr.toISOString().split("T")[0];
+                            setProfileData(prev => ({ ...prev, birthday: tmrStr }));
+                          }}
+                          className="rounded-full border-[#EFE6DD] bg-white hover:bg-[#FFF2EB] text-[#6C5C54] text-[10px] font-bold h-8 px-2.5 shadow-2xs cursor-pointer"
+                          title="Set date to tomorrow to test 72h window immediately"
+                        >
+                          Set Tomorrow (72h Test)
+                        </Button>
+
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            if (!profileData.birthday) {
+                              const tmr = new Date();
+                              tmr.setDate(tmr.getDate() + 1);
+                              const tmrStr = tmr.toISOString().split("T")[0];
+                              setProfileData(prev => ({ ...prev, birthday: tmrStr }));
+                            }
+                            window.dispatchEvent(new Event("open_birthday_celebration_popup"));
+                          }}
+                          className="rounded-full border-[#D89A86] text-[#D89A86] hover:bg-[#FFF2EB] text-[11px] font-bold h-8 px-3 shrink-0 shadow-2xs flex items-center gap-1.5 cursor-pointer"
+                          title="Preview how your 72-hour celebratory birthday popup appears"
+                        >
+                          <PartyPopper className="h-3.5 w-3.5 text-[#D89A86]" />
+                          <span>Preview Pop-up</span>
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+
                   <Button type="submit" className="btn-pixello-primary text-xs font-bold rounded-full h-11 px-8 shadow-xs w-fit mt-2">
                     Save Changes
                   </Button>
                 </form>
               </CardContent>
             </Card>
-          )}
+
+            {/* CARD 2: LOVED ONES' BIRTHDAYS & MILESTONE REMINDERS */}
+            <Card className="border border-[#EFE6DD] bg-white rounded-3xl p-6 sm:p-8 md:p-10 shadow-xs relative overflow-hidden">
+              <div className="mb-6 pb-5 border-b border-[#EFE6DD] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <div className="h-11 w-11 rounded-2xl bg-gradient-to-br from-[#D89A86] to-[#C97B63] text-white flex items-center justify-center shadow-xs shrink-0">
+                    <Heart className="h-5 w-5 fill-white/20 text-white" />
+                  </div>
+                  <div>
+                    <h3 className="font-serif-brand text-2xl font-bold text-[#3A2B24] flex items-center gap-2">
+                      <span>Loved Ones&apos; Birthdays</span>
+                      <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-[#FFF2EB] text-[#D89A86] border border-[#F3DACF]">
+                        {lovedOnes.length} Saved
+                      </span>
+                    </h3>
+                    <p className="text-xs text-[#6C5C54] font-medium mt-0.5">
+                      Never miss a special milestone! Add your partner, family, and best friends. Pixello triggers 72-hour celebratory reminders and gift recommendations.
+                    </p>
+                  </div>
+                </div>
+
+                <Button
+                  type="button"
+                  onClick={() => {
+                    setLovedOneForm({ name: "", relationship: "Partner / Spouse", birthday: "" });
+                    setEditingLovedOneId(null);
+                    setShowAddLovedOneModal(true);
+                  }}
+                  className="btn-pixello-primary text-xs font-bold rounded-full h-10 px-5 shadow-xs flex items-center gap-1.5 cursor-pointer shrink-0"
+                >
+                  <Plus className="h-4 w-4" />
+                  <span>Add Loved One</span>
+                </Button>
+              </div>
+
+              {lovedOnes.length === 0 ? (
+                <div className="p-8 text-center bg-[#FFF8F2]/60 rounded-3xl border border-dashed border-[#EFE6DD] flex flex-col items-center">
+                  <div className="h-14 w-14 rounded-full bg-[#FFF0E6] flex items-center justify-center text-[#D89A86] mb-3">
+                    <Users className="h-7 w-7" />
+                  </div>
+                  <h4 className="font-serif-brand text-lg font-bold text-[#3A2B24]">No loved ones added yet</h4>
+                  <p className="text-xs text-[#6C5C54] mt-1 max-w-md font-medium leading-relaxed">
+                    Add birthdays of your partner, mother, father, siblings, or best friends. You&apos;ll get an automatic reminder pop-up on the home page 72 hours before their birthday to prepare a bespoke hamper box or custom photo frame!
+                  </p>
+                  <Button
+                    type="button"
+                    onClick={() => {
+                      setLovedOneForm({ name: "", relationship: "Partner / Spouse", birthday: "" });
+                      setEditingLovedOneId(null);
+                      setShowAddLovedOneModal(true);
+                    }}
+                    className="btn-pixello-primary text-xs font-bold rounded-full h-10 px-6 mt-4 shadow-xs flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <Plus className="h-4 w-4" />
+                    <span>Add Your First Loved One</span>
+                  </Button>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {lovedOnes.map((lo) => {
+                    const status = getBirthdayStatus(lo.birthday);
+                    return (
+                      <div
+                        key={lo.id}
+                        className={cn(
+                          "p-4 rounded-2xl border transition-all flex flex-col justify-between gap-3 shadow-2xs",
+                          status.isWithin72Hours
+                            ? "bg-gradient-to-br from-[#FFF5ED] via-[#FFF9F5] to-[#FFF0E6] border-[#D89A86] ring-1 ring-[#D89A86]/30"
+                            : "bg-[#FFFDFB] border-[#EFE6DD] hover:border-[#D89A86]/50"
+                        )}
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex items-center gap-3 min-w-0">
+                            <div className="h-11 w-11 rounded-2xl bg-gradient-to-br from-[#FAF0E6] to-[#F5DCD2] border border-[#EBD0C2] flex items-center justify-center text-[#9E6350] font-black text-base shrink-0 shadow-2xs">
+                              {lo.name.charAt(0).toUpperCase()}
+                            </div>
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <h5 className="font-bold text-sm text-[#3A2B24] truncate">{lo.name}</h5>
+                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#FAF0E6] text-[#8C5D4B] border border-[#E8D5C8]">
+                                  {lo.relationship}
+                                </span>
+                              </div>
+                              <p className="text-[11px] text-[#6C5C54] mt-0.5 flex items-center gap-1">
+                                <Cake className="h-3 w-3 text-[#D89A86]" />
+                                <span>{status.formattedBirthday || lo.birthday}</span>
+                              </p>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-1 shrink-0">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setLovedOneForm({
+                                  name: lo.name,
+                                  relationship: lo.relationship,
+                                  birthday: lo.birthday,
+                                });
+                                setEditingLovedOneId(lo.id);
+                                setShowAddLovedOneModal(true);
+                              }}
+                              className="h-8 w-8 rounded-full hover:bg-stone-100 text-[#6C5C54] hover:text-[#3A2B24] flex items-center justify-center transition-colors cursor-pointer"
+                              title="Edit Loved One"
+                            >
+                              <Edit2 className="h-3.5 w-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (confirm(`Remove ${lo.name}'s birthday reminder?`)) {
+                                  const updated = lovedOnes.filter((item) => item.id !== lo.id);
+                                  persistLovedOnes(updated);
+                                }
+                              }}
+                              className="h-8 w-8 rounded-full hover:bg-rose-50 text-[#6C5C54] hover:text-rose-600 flex items-center justify-center transition-colors cursor-pointer"
+                              title="Delete Loved One"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Milestone Status & Action */}
+                        <div className="pt-2 border-t border-[#F0E6DC] flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                          <span
+                            className={cn(
+                              "inline-flex items-center gap-1 text-[10px] font-bold px-2.5 py-0.5 rounded-full w-fit",
+                              status.isWithin72Hours
+                                ? "bg-amber-100 text-amber-900 border border-amber-300 animate-pulse"
+                                : "bg-[#FFF2EB] text-[#D89A86] border border-[#F3DACF]"
+                            )}
+                          >
+                            <Sparkles className="h-3 w-3" />
+                            {status.isToday
+                              ? "Birthday Today! 🎉"
+                              : status.isWithin72Hours
+                              ? `Within 72h Window (${status.countdownText})`
+                              : `In ${status.daysUntil} days (${status.countdownText})`}
+                          </span>
+
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                              if (typeof window !== "undefined") {
+                                window.dispatchEvent(
+                                  new CustomEvent("open_birthday_celebration_popup", {
+                                    detail: { targetLovedOne: lo },
+                                  })
+                                );
+                              }
+                            }}
+                            className="h-7 rounded-full border-[#D89A86] text-[#D89A86] hover:bg-[#FFF2EB] text-[10px] font-bold px-2.5 shadow-2xs flex items-center gap-1 cursor-pointer w-fit"
+                            title="Preview how this loved one's reminder pop-up looks"
+                          >
+                            <PartyPopper className="h-3 w-3 text-[#D89A86]" />
+                            <span>Preview Pop-up</span>
+                          </Button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </Card>
+
+            {/* ADD / EDIT LOVED ONE MODAL */}
+            {showAddLovedOneModal && (
+              <div
+                role="dialog"
+                aria-modal="true"
+                className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200"
+                onClick={() => {
+                  setShowAddLovedOneModal(false);
+                  setEditingLovedOneId(null);
+                }}
+              >
+                <div
+                  className="relative w-full max-w-md bg-white rounded-3xl border border-[#EFE6DD] shadow-2xl p-6 sm:p-7 overflow-hidden my-auto animate-in zoom-in-95 duration-200"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowAddLovedOneModal(false);
+                      setEditingLovedOneId(null);
+                    }}
+                    className="absolute top-4 right-4 h-8 w-8 rounded-full bg-stone-100 hover:bg-stone-200 text-[#6C5C54] flex items-center justify-center cursor-pointer transition-colors"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="h-10 w-10 rounded-2xl bg-[#FFF0E6] text-[#D89A86] flex items-center justify-center shadow-2xs shrink-0">
+                      <Heart className="h-5 w-5 fill-[#D89A86]/20" />
+                    </div>
+                    <div>
+                      <h4 className="font-serif-brand text-xl font-bold text-[#3A2B24]">
+                        {editingLovedOneId ? "Edit Loved One's Birthday" : "Add Loved One's Birthday"}
+                      </h4>
+                      <p className="text-[11px] text-[#6C5C54] font-medium">
+                        Set up their milestone reminder for early gifting.
+                      </p>
+                    </div>
+                  </div>
+
+                  <form
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      if (!lovedOneForm.name.trim()) {
+                        alert("Please enter your loved one's name.");
+                        return;
+                      }
+                      if (!lovedOneForm.birthday) {
+                        alert("Please select a birth date.");
+                        return;
+                      }
+
+                      let updated: LovedOneBirthday[] = [];
+                      if (editingLovedOneId) {
+                        updated = lovedOnes.map((item) =>
+                          item.id === editingLovedOneId
+                            ? {
+                                ...item,
+                                name: lovedOneForm.name.trim(),
+                                relationship: lovedOneForm.relationship,
+                                birthday: lovedOneForm.birthday,
+                              }
+                            : item
+                        );
+                      } else {
+                        const newEntry: LovedOneBirthday = {
+                          id: `lo_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+                          name: lovedOneForm.name.trim(),
+                          relationship: lovedOneForm.relationship,
+                          birthday: lovedOneForm.birthday,
+                          createdAt: new Date().toISOString(),
+                        };
+                        updated = [...lovedOnes, newEntry];
+                      }
+
+                      persistLovedOnes(updated);
+                      setShowAddLovedOneModal(false);
+                      setEditingLovedOneId(null);
+                    }}
+                    className="space-y-4"
+                  >
+                    <div>
+                      <label className="text-xs font-bold text-[#3A2B24] uppercase tracking-wider mb-1.5 block">
+                        Name of Loved One *
+                      </label>
+                      <Input
+                        required
+                        value={lovedOneForm.name}
+                        onChange={(e) => setLovedOneForm({ ...lovedOneForm, name: e.target.value })}
+                        placeholder="e.g. Arjun, Mom, Sreeja, Dad"
+                        className="rounded-2xl border-[#EFE6DD] bg-[#FFF8F2]/60 text-sm font-medium text-[#3A2B24] h-11 px-4 focus-visible:ring-[#D89A86]"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-xs font-bold text-[#3A2B24] uppercase tracking-wider mb-1.5 block">
+                        Relationship
+                      </label>
+                      <select
+                        value={lovedOneForm.relationship}
+                        onChange={(e) => setLovedOneForm({ ...lovedOneForm, relationship: e.target.value })}
+                        className="w-full h-11 px-3 rounded-2xl border border-[#EFE6DD] bg-[#FFF8F2]/60 text-xs font-bold text-[#3A2B24] focus:outline-none focus:ring-2 focus:ring-[#D89A86] cursor-pointer"
+                      >
+                        <option value="Partner / Spouse">Partner / Spouse</option>
+                        <option value="Mother">Mother</option>
+                        <option value="Father">Father</option>
+                        <option value="Brother">Brother</option>
+                        <option value="Sister">Sister</option>
+                        <option value="Best Friend">Best Friend</option>
+                        <option value="Child">Child</option>
+                        <option value="Grandparent">Grandparent</option>
+                        <option value="Other Loved One">Other Loved One</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <label className="text-xs font-bold text-[#3A2B24] uppercase tracking-wider block">
+                          Date of Birth *
+                        </label>
+                        {lovedOneForm.birthday && (
+                          <span className="text-[10px] font-bold text-[#D89A86]">
+                            Selected: {getBirthdayStatus(lovedOneForm.birthday).formattedBirthday}
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                        <div className="relative flex-1">
+                          <Input
+                            type="date"
+                            required
+                            value={lovedOneForm.birthday}
+                            onChange={(e) => setLovedOneForm({ ...lovedOneForm, birthday: e.target.value })}
+                            className="rounded-2xl border-[#EFE6DD] bg-[#FFF8F2]/60 text-sm font-medium text-[#3A2B24] h-11 px-4 focus-visible:ring-[#D89A86] cursor-pointer"
+                          />
+                        </div>
+
+                        {/* Dropdown selectors for quick Month and Day */}
+                        <div className="flex items-center gap-2">
+                          <select
+                            value={
+                              lovedOneForm.birthday && lovedOneForm.birthday.includes("-")
+                                ? parseInt(lovedOneForm.birthday.split("-")[1] || "1", 10)
+                                : ""
+                            }
+                            onChange={(e) => {
+                              const m = String(e.target.value).padStart(2, "0");
+                              const parts = (lovedOneForm.birthday || "2000-01-01").split("-");
+                              const y = parts[0] || "2000";
+                              const d = parts[2] || "01";
+                              setLovedOneForm({ ...lovedOneForm, birthday: `${y}-${m}-${d}` });
+                            }}
+                            className="h-11 px-2.5 rounded-2xl border border-[#EFE6DD] bg-[#FFF8F2]/60 text-xs font-bold text-[#3A2B24] focus:outline-none focus:ring-2 focus:ring-[#D89A86] cursor-pointer"
+                            aria-label="Select Birth Month"
+                          >
+                            <option value="" disabled>Month</option>
+                            {[
+                              "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+                              "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
+                            ].map((mName, idx) => (
+                              <option key={mName} value={idx + 1}>{mName}</option>
+                            ))}
+                          </select>
+
+                          <select
+                            value={
+                              lovedOneForm.birthday && lovedOneForm.birthday.includes("-")
+                                ? parseInt(lovedOneForm.birthday.split("-")[2] || "1", 10)
+                                : ""
+                            }
+                            onChange={(e) => {
+                              const d = String(e.target.value).padStart(2, "0");
+                              const parts = (lovedOneForm.birthday || "2000-01-01").split("-");
+                              const y = parts[0] || "2000";
+                              const m = parts[1] || "01";
+                              setLovedOneForm({ ...lovedOneForm, birthday: `${y}-${m}-${d}` });
+                            }}
+                            className="h-11 px-2.5 rounded-2xl border border-[#EFE6DD] bg-[#FFF8F2]/60 text-xs font-bold text-[#3A2B24] focus:outline-none focus:ring-2 focus:ring-[#D89A86] cursor-pointer"
+                            aria-label="Select Birth Day"
+                          >
+                            <option value="" disabled>Day</option>
+                            {Array.from({ length: 31 }, (_, i) => i + 1).map((day) => (
+                              <option key={day} value={day}>{day}</option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-between mt-2">
+                        <p className="text-[11px] text-[#6C5C54]">
+                          Any date can be selected freely.
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const tmr = new Date();
+                            tmr.setDate(tmr.getDate() + 1);
+                            setLovedOneForm((prev) => ({ ...prev, birthday: tmr.toISOString().split("T")[0] }));
+                          }}
+                          className="text-[10px] font-bold text-[#D89A86] hover:underline cursor-pointer"
+                        >
+                          Set Tomorrow (72h Test)
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="pt-2 flex items-center justify-end gap-2">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        onClick={() => {
+                          setShowAddLovedOneModal(false);
+                          setEditingLovedOneId(null);
+                        }}
+                        className="rounded-full text-xs font-bold h-10 px-4 text-[#6C5C54]"
+                      >
+                        Cancel
+                      </Button>
+                      <Button
+                        type="submit"
+                        className="btn-pixello-primary text-xs font-bold rounded-full h-10 px-6 shadow-xs cursor-pointer"
+                      >
+                        {editingLovedOneId ? "Update Loved One" : "Save Loved One"}
+                      </Button>
+                    </div>
+                  </form>
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      })()}
 
           {/* TAB 2: ORDERS */}
           {activeTab === "orders" && (() => {
@@ -1152,27 +1967,52 @@ function ProfileContent() {
                     <p className="text-xs text-[#6C5C54] mt-1 max-w-sm mx-auto font-medium">
                       Explore our custom photo frames, polaroids, and acrylic lamps to place your first order.
                     </p>
-                    <Link href="/products" className="inline-block mt-5">
-                      <Button className="btn-pixello-primary px-6 rounded-full text-xs font-bold shadow-xs">
-                        Browse & Order Products
-                      </Button>
+                    <Link 
+                      href="/products" 
+                      className="inline-block mt-5 btn-pixello-primary px-6 h-9 leading-9 rounded-full text-xs font-bold shadow-xs cursor-pointer text-center"
+                    >
+                      Browse & Order Products
                     </Link>
                   </Card>
                 ) : (
                   customerOrders.map((order, orderIdx) => {
                     const orderTimestamp = order.createdAt || new Date(order.date).getTime();
                     const hoursElapsed = (Date.now() - orderTimestamp) / (1000 * 60 * 60);
-                    const cleanStatus = (order.status || "").trim().toUpperCase();
+                    const cleanStatus = getSafeStatusString(order.status).trim().toUpperCase();
                     const isCancelled = cleanStatus === "CANCELLED" || cleanStatus === "CANCELED";
-                    const isDelivered = cleanStatus === "DELIVERED";
-                    const isPrintingStarted = cleanStatus === "PRINTING" || cleanStatus === "PACKED" || cleanStatus === "DELIVERY PICKED UP" || cleanStatus === "OUT FOR DELIVERY" || cleanStatus === "DELIVERED" || cleanStatus === "QUALITY_CHECK" || cleanStatus === "PICKED_UP";
+                    const isDelivered = cleanStatus === "DELIVERED" || cleanStatus === "COMPLETED";
+                    const isPrintingStarted = [
+                      "IN PRODUCTION", "IN_PRODUCTION", "PROCESSING", "PRINTING", "FRAMING", 
+                      "QUALITY_CHECK", "PACKED", "READY FOR DELIVERY", "READY_FOR_DELIVERY", 
+                      "DELIVERY ASSIGNED", "DELIVERY_ASSIGNED", "PICKED UP", "PICKED_UP", 
+                      "IN TRANSIT", "IN_TRANSIT", "SHIPPED", "OUT FOR DELIVERY", "OUT_FOR_DELIVERY", 
+                      "DELIVERED", "COMPLETED"
+                    ].includes(cleanStatus);
                     const isCancelEligible = !isCancelled && !isDelivered && !isPrintingStarted && hoursElapsed < 24;
-                    const isReplacementEligible = isDelivered && order.status !== "Replacement Requested" && hoursElapsed < 24;
+                    const isReplacementEligible = isDelivered && getSafeStatusString(order.status) !== "Replacement Requested" && hoursElapsed < 24;
                     const hoursRemaining = Math.max(0, Math.floor(24 - hoursElapsed));
                     const minsRemaining = Math.max(0, Math.floor((24 - hoursElapsed) * 60 % 60));
+                    const isReplacement = cleanStatus.includes("REPLACEMENT") || (order.history && order.history.some((h: any) => h.status === "Replacement Requested" || (h.note && h.note.includes("Replacement"))));
+                    const isStatusActivelyMoving = !isCancelled && !isDelivered;
+                    const shouldAnimateBorder = (isStatusActivelyMoving || isReplacement) && orderIdx === 0;
 
                     return (
-                      <div key={`${order.id}-${orderIdx}`} className="border border-[#EFE6DD] bg-white rounded-3xl shadow-xs overflow-hidden">
+                      <div key={`${order.id}-${orderIdx}`} className="relative border border-[#EFE6DD] bg-white rounded-3xl shadow-xs overflow-hidden">
+                        {shouldAnimateBorder && (
+                          <BorderTrail
+                            className={cn(
+                              isReplacement
+                                ? "bg-gradient-to-r from-purple-300 via-purple-500 to-purple-300 shadow-[0_0_12px_rgba(168,85,247,0.5)]"
+                                : "bg-gradient-to-r from-emerald-300 via-emerald-500 to-emerald-300 shadow-[0_0_12px_rgba(16,185,129,0.5)]"
+                            )}
+                            size={120}
+                            transition={{
+                              ease: [0, 0.5, 0.8, 0.5],
+                              duration: 4,
+                              repeat: Infinity,
+                            }}
+                          />
+                        )}
                         <div className="bg-[#FFF8F2] border-b border-[#EFE6DD] p-4 sm:p-5 flex flex-wrap justify-between items-center gap-4 text-sm rounded-t-3xl">
                           <div className="flex flex-wrap gap-6 sm:gap-8">
                             <div>
@@ -1231,33 +2071,27 @@ function ProfileContent() {
                           <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center mb-6 gap-4 border-b border-[#EFE6DD] pb-5">
                             {/* Left: Status & Ambassador Info */}
                             <div className="space-y-1.5 min-w-0">
-                              <div className="flex flex-wrap items-center gap-2">
-                                <Badge className={cn(
-                                  "border-none px-3 py-1 rounded-full text-xs font-bold shadow-2xs",
-                                  isDelivered ? "bg-emerald-100 text-emerald-900 border border-emerald-300" : (isCancelled ? "bg-rose-100 text-rose-900 border border-rose-300" : (isPrintingStarted ? "bg-amber-100 text-amber-900 border border-amber-300" : "bg-[#FFF8F2] text-[#D89A86] border border-[#D89A86]/30"))
-                                )}>
-                                  {isCancelled ? "Cancelled" : order.status}
-                                </Badge>
+                              {(() => {
+                                const isReplacementOrder = getSafeStatusString(order.status) === "Replacement Requested" || (order.history && order.history.some((h: any) => h.status === "Replacement Requested" || (h.note && h.note.includes("Replacement"))));
+                                return (
+                                  <div className="flex flex-wrap items-center gap-2">
+                                    <OrderStatusBadge status={order.status} isReplacement={isReplacementOrder} />
 
-                                {order.referralCode && (
-                                  <span className="text-[11px] font-bold text-emerald-900 bg-emerald-50 border border-emerald-200 px-3 py-0.5 rounded-full flex items-center gap-1.5 shadow-2xs">
-                                    🎟️ Ambassador: <span className="font-mono">{order.referralCode}</span> {order.referralDiscount ? `(-₹${order.referralDiscount.toFixed(2)})` : ""}
-                                  </span>
-                                )}
+                                    {order.referralCode && (
+                                      <span className="text-[11px] font-bold text-emerald-900 bg-emerald-50 border border-emerald-200 px-3 py-0.5 rounded-full flex items-center gap-1.5 shadow-2xs">
+                                        🎟️ Ambassador: <span className="font-mono">{order.referralCode}</span> {order.referralDiscount ? `(-₹${order.referralDiscount.toFixed(2)})` : ""}
+                                      </span>
+                                    )}
 
-                                {(() => {
-                                  const isReplacementOrder = order.status === "Replacement Requested" || (order.history && order.history.some((h: any) => h.status === "Replacement Requested" || (h.note && h.note.includes("Replacement"))));
-                                  if (isReplacementOrder) {
-                                    return (
+                                    {isReplacementOrder && (
                                       <span className="text-[11px] font-bold text-purple-900 bg-purple-100 border border-purple-300 px-3 py-0.5 rounded-full flex items-center gap-1.5 shadow-2xs">
                                         <RefreshCw className="h-3 w-3 text-purple-700 animate-spin" style={{ animationDuration: "3s" }} />
                                         <span>Replacement In Progress</span>
                                       </span>
-                                    );
-                                  }
-                                  return null;
-                                })()}
-                              </div>
+                                    )}
+                                  </div>
+                                );
+                              })()}
 
                               <h3 className="font-bold text-base text-[#3A2B24]">
                                 Pixello Handcrafted Express Delivery • Doorstep Tracking
@@ -1628,10 +2462,11 @@ function ProfileContent() {
                         </div>
 
                         <div className="flex flex-col gap-2 flex-shrink-0">
-                          <Link href={`/product/${itemId}`}>
-                            <Button className="btn-pixello-primary px-4 h-9 text-xs rounded-full font-bold shadow-xs">
-                              Customize
-                            </Button>
+                          <Link 
+                            href={`/product/${itemId}`}
+                            className="btn-pixello-primary px-4 h-9 leading-9 text-xs rounded-full font-bold shadow-xs flex items-center justify-center cursor-pointer"
+                          >
+                            Customize
                           </Link>
                           <Button 
                             variant="ghost" 
@@ -1754,85 +2589,98 @@ function ProfileContent() {
       {trackingOrder && (
         (() => {
           const trackOrderObj = orders.find(o => o.id === trackingOrder);
-          const rawStatus = (trackOrderObj?.status || "").toUpperCase();
+          const rawStatus = getSafeStatusString(trackOrderObj?.status).toUpperCase();
           const isReplacementTrack = rawStatus.includes("REPLACEMENT") || (trackOrderObj?.history && trackOrderObj.history.some((h: any) => h.status === "Replacement Requested" || (h.note && h.note.includes("Replacement"))));
 
-          // Calculate current active stage index for 8 customer stages:
+          // Calculate current active stage index for 10 admin-synchronized delivery stages:
           // 0: Order Placed
-          // 1: Preparing Your Order
-          // 2: Printing & Product Preparation
-          // 3: Quality Check & Packed
+          // 1: Payment Confirmed
+          // 2: Order Confirmed
+          // 3: In Production
           // 4: Ready for Delivery
-          // 5: Shipped
-          // 6: Out for Delivery
-          // 7: Delivered
+          // 5: Delivery Assigned
+          // 6: Picked Up
+          // 7: In Transit
+          // 8: Out for Delivery
+          // 9: Delivered
           let currentStepIdx = 0;
           if (rawStatus === "DELIVERED" || rawStatus === "COMPLETED") {
-            currentStepIdx = 7;
+            currentStepIdx = 9;
           } else if (rawStatus === "OUT_FOR_DELIVERY" || rawStatus === "OUT FOR DELIVERY") {
+            currentStepIdx = 8;
+          } else if (rawStatus === "IN_TRANSIT" || rawStatus === "SHIPPED") {
+            currentStepIdx = 7;
+          } else if (rawStatus === "PICKED_UP" || rawStatus === "DELIVERY_PICKED_UP") {
             currentStepIdx = 6;
-          } else if (rawStatus === "SHIPPED" || rawStatus === "IN_TRANSIT" || rawStatus === "PICKED_UP" || rawStatus === "DELIVERY_PICKED_UP" || rawStatus === "DELIVERY_ASSIGNED" || rawStatus === "ASSIGNED_DELIVERY") {
+          } else if (rawStatus === "DELIVERY_ASSIGNED" || rawStatus === "ASSIGNED_DELIVERY") {
             currentStepIdx = 5;
-          } else if (rawStatus === "READY_FOR_DELIVERY" || rawStatus === "READY_FOR_PICKUP" || rawStatus === "READY FOR DELIVERY") {
+          } else if (rawStatus === "READY_FOR_DELIVERY" || rawStatus === "READY_FOR_PICKUP") {
             currentStepIdx = 4;
-          } else if (rawStatus === "QUALITY_CHECK" || rawStatus === "PACKED") {
+          } else if (rawStatus === "IN_PRODUCTION" || rawStatus === "PROCESSING" || rawStatus === "PRINTING" || rawStatus === "PRODUCT_PREPARATION" || rawStatus === "FRAMING" || rawStatus === "QUALITY_CHECK" || rawStatus === "PACKED") {
             currentStepIdx = 3;
-          } else if (rawStatus === "PRINTING" || rawStatus === "PRODUCT_PREPARATION" || rawStatus === "FRAMING") {
+          } else if (rawStatus === "ORDER_CONFIRMED" || rawStatus === "ACCEPTED_BY_STUDIO" || rawStatus === "DESIGNING") {
             currentStepIdx = 2;
-          } else if (rawStatus === "PROCESSING" || rawStatus === "PAYMENT_CONFIRMED" || rawStatus === "ORDER_CONFIRMED" || rawStatus === "ACCEPTED_BY_STUDIO" || rawStatus === "STUDIO ACCEPTED" || rawStatus === "DESIGNING" || rawStatus === "IN_PRODUCTION") {
+          } else if (rawStatus === "PAYMENT_CONFIRMED") {
             currentStepIdx = 1;
           } else {
             currentStepIdx = 0;
           }
 
-          const progressPercent = currentStepIdx === 0 ? 12.5 : (currentStepIdx === 1 ? 25 : (currentStepIdx === 2 ? 37.5 : (currentStepIdx === 3 ? 50 : (currentStepIdx === 4 ? 62.5 : (currentStepIdx === 5 ? 75 : (currentStepIdx === 6 ? 87.5 : 100))))));
+          const progressPercent = currentStepIdx === 9 ? 100 : Math.round(((currentStepIdx + 1) / 10) * 100);
+
+          const providerName = trackOrderObj?.deliveryInfo?.deliveryProvider || trackOrderObj?.deliveryPartner || "Express Courier";
+          const awbNo = trackOrderObj?.deliveryInfo?.awbNumber || trackOrderObj?.trackingAwb || trackOrderObj?.waybill;
 
           const steps = isReplacementTrack ? [
             {
-              title: "🔄 Replacement Requested",
+              title: "Order Placed",
               desc: "Replacement request registered and queued for preparation.",
               time: "Stage 1",
             },
             {
-              title: "⚙️ Preparing Replacement",
-              desc: "Our team is preparing your replacement order.",
+              title: "Payment Confirmed",
+              desc: "Warranty replacement approved with zero additional fee.",
               time: "Stage 2",
             },
             {
-              title: "🖨️ Printing & Product Preparation",
-              desc: "Your replacement photo is being printed and prepared.",
+              title: "Order Confirmed",
+              desc: "Replacement verified and assigned for precision reproduction.",
               time: "Stage 3",
             },
             {
-              title: "📦 Quality Check & Packed",
-              desc: "Replacement inspected and double bubble-wrapped for dispatch.",
+              title: "In Production",
+              desc: "Replacement keepsake is being custom printed, framed & inspected.",
               time: "Stage 4",
             },
             {
-              title: "🚀 Ready for Delivery",
-              desc: "Your replacement is ready and will be handed over for delivery.",
+              title: "Ready for Delivery",
+              desc: "Replacement packaged in protective packaging and ready for courier.",
               time: "Stage 5",
             },
             {
-              title: "🚚 Shipped",
-              desc: !isDeliveryPortalEnabled()
-                ? "Doorstep delivery temporarily paused. Replacement will be handed over once delivery operations reopen."
-                : "Your replacement has been picked up by the delivery partner.",
+              title: "Delivery Assigned",
+              desc: `Courier assigned (${providerName}) for urgent replacement dispatch.`,
               time: "Stage 6",
             },
             {
-              title: "📍 Replacement Out for Doorstep Delivery",
-              desc: !isDeliveryPortalEnabled()
-                ? "Doorstep delivery temporarily paused. Replacement will be dispatched once delivery operations reopen."
-                : `Rider: ${trackOrderObj?.deliveryPartner || "Express Courier"} • Direct doorstep dispatch.`,
+              title: "Picked Up",
+              desc: `Replacement package picked up by ${providerName}.`,
               time: "Stage 7",
             },
             {
-              title: "✅ Replacement Delivered Successfully",
-              desc: !isDeliveryPortalEnabled()
-                ? "Handover will take place upon redelivery dispatch once operations reopen."
-                : "Fresh replacement delivered to your doorstep. Enjoy!",
+              title: "In Transit",
+              desc: `Replacement is in transit${awbNo ? ` (AWB: ${awbNo})` : ""} to your hub.`,
               time: "Stage 8",
+            },
+            {
+              title: "Out for Delivery",
+              desc: "Replacement is out with the delivery rider for doorstep handover.",
+              time: "Stage 9",
+            },
+            {
+              title: "Delivered",
+              desc: "Fresh replacement delivered to your doorstep. Enjoy!",
+              time: "Stage 10",
             }
           ] : [
             {
@@ -1841,45 +2689,49 @@ function ProfileContent() {
               time: "Stage 1",
             },
             {
-              title: "Preparing Your Order",
-              desc: "Our team is preparing your personalized order.",
+              title: "Payment Confirmed",
+              desc: "Payment verified successfully. Order queued for preparation.",
               time: "Stage 2",
             },
             {
-              title: "Printing & Product Preparation",
-              desc: "Your personalized product is being printed and prepared.",
+              title: "Order Confirmed",
+              desc: "Order verified and accepted for custom crafting & framing.",
               time: "Stage 3",
             },
             {
-              title: "Quality Check & Packed",
-              desc: "Your order has passed quality checking and has been securely packed.",
+              title: "In Production",
+              desc: "Your personalized photo keepsake is being custom printed & framed.",
               time: "Stage 4",
             },
             {
               title: "Ready for Delivery",
-              desc: "Your order is ready and will be handed over for delivery.",
+              desc: "Quality check passed & securely packaged. Ready for courier handover.",
               time: "Stage 5",
             },
             {
-              title: "Shipped",
-              desc: !isDeliveryPortalEnabled() 
-                ? "Doorstep delivery temporarily paused. Order will be handed over once delivery operations reopen."
-                : "Your order has been picked up by the delivery partner.",
+              title: "Delivery Assigned",
+              desc: `Courier partner (${providerName}) assigned for pickup & dispatch.`,
               time: "Stage 6",
             },
             {
-              title: "Out for Delivery",
-              desc: !isDeliveryPortalEnabled() 
-                ? "Doorstep delivery temporarily paused. Order will be dispatched once delivery operations reopen." 
-                : (trackOrderObj?.deliveryPartner ? `Rider: ${trackOrderObj.deliveryPartner} • Direct doorstep dispatch.` : "Your order is out for delivery."),
+              title: "Picked Up",
+              desc: `Package picked up by courier partner (${providerName}) from fulfillment center.`,
               time: "Stage 7",
             },
             {
-              title: "Delivered",
-              desc: !isDeliveryPortalEnabled()
-                ? "Handover will take place upon redelivery dispatch once operations reopen."
-                : "Your order has been delivered successfully.",
+              title: "In Transit",
+              desc: `Package is in transit with ${providerName}${awbNo ? ` (AWB: ${awbNo})` : ""} on its way to your destination hub.`,
               time: "Stage 8",
+            },
+            {
+              title: "Out for Delivery",
+              desc: "Your package is with the delivery rider and will arrive today!",
+              time: "Stage 9",
+            },
+            {
+              title: "Delivered",
+              desc: "Order delivered successfully to your doorstep. Enjoy your memories!",
+              time: "Stage 10",
             }
           ];
 
@@ -2875,10 +3727,16 @@ function ProfileContent() {
       {orderDetailsModal && (() => {
         const orderTimestamp = orderDetailsModal.createdAt || new Date(orderDetailsModal.date).getTime();
         const hoursElapsed = (Date.now() - orderTimestamp) / (1000 * 60 * 60);
-        const cleanStatus = (orderDetailsModal.status || "").trim().toUpperCase();
+        const cleanStatus = getSafeStatusString(orderDetailsModal.status).trim().toUpperCase();
         const isCancelled = cleanStatus === "CANCELLED" || cleanStatus === "CANCELED";
-        const isDelivered = cleanStatus === "DELIVERED";
-        const isPrintingStarted = cleanStatus === "PRINTING" || cleanStatus === "PACKED" || cleanStatus === "DELIVERY PICKED UP" || cleanStatus === "OUT FOR DELIVERY" || cleanStatus === "DELIVERED" || cleanStatus === "QUALITY_CHECK" || cleanStatus === "PICKED_UP";
+        const isDelivered = cleanStatus === "DELIVERED" || cleanStatus === "COMPLETED";
+        const isPrintingStarted = [
+          "IN PRODUCTION", "IN_PRODUCTION", "PROCESSING", "PRINTING", "FRAMING", 
+          "QUALITY_CHECK", "PACKED", "READY FOR DELIVERY", "READY_FOR_DELIVERY", 
+          "DELIVERY ASSIGNED", "DELIVERY_ASSIGNED", "PICKED UP", "PICKED_UP", 
+          "IN TRANSIT", "IN_TRANSIT", "SHIPPED", "OUT FOR DELIVERY", "OUT_FOR_DELIVERY", 
+          "DELIVERED", "COMPLETED"
+        ].includes(cleanStatus);
         const isCancelEligible = !isCancelled && !isDelivered && !isPrintingStarted && hoursElapsed < 24;
         const hoursRemaining = Math.max(0, Math.floor(24 - hoursElapsed));
         const minsRemaining = Math.max(0, Math.floor((24 - hoursElapsed) * 60 % 60));
@@ -2896,12 +3754,7 @@ function ProfileContent() {
               <div className="p-6 bg-[#FFF8F2] border-b border-[#EFE6DD] flex items-center justify-between">
                 <div>
                   <div className="flex items-center gap-2 mb-1">
-                    <Badge className={cn(
-                      "border-none px-3 py-0.5 rounded-full text-xs font-bold",
-                      isDelivered ? "bg-emerald-100 text-emerald-800" : (isCancelled ? "bg-rose-100 text-rose-800" : (isPrintingStarted ? "bg-amber-100 text-amber-900 border border-amber-300" : "bg-[#3A2B24] text-white"))
-                    )}>
-                      {isCancelled ? "Cancelled" : orderDetailsModal.status}
-                    </Badge>
+                    <OrderStatusBadge status={orderDetailsModal.status} />
                     <span className="text-xs text-[#6C5C54] font-semibold">Placed on {orderDetailsModal.date}</span>
                   </div>
                   <h3 className="font-serif-brand font-bold text-2xl text-[#3A2B24]">
@@ -2975,7 +3828,10 @@ function ProfileContent() {
                       <MapPin className="h-4 w-4 text-[#D89A86]" /> Fulfillment & Support
                     </h4>
                     <p className="font-bold text-[#D89A86]">Pixello Express Quality Dispatch</p>
-                    <p className="text-[#6C5C54] mt-0.5">Order Status: <strong className="text-[#3A2B24]">{orderDetailsModal.status}</strong></p>
+                    <div className="flex items-center gap-2 mt-1">
+                      <span className="text-[#6C5C54]">Order Status:</span>
+                      <OrderStatusBadge status={orderDetailsModal.status} />
+                    </div>
                     <p className="text-[#6C5C54] mt-1 font-medium">Helpline: +91 7989856610 / 8074589949</p>
                   </div>
                 </div>
@@ -3024,21 +3880,66 @@ function ProfileContent() {
                     {orderDetailsModal.items?.map((item: any, idx: number) => {
                       const itemRevKey = `${orderDetailsModal.id}_${item.name}`;
                       const existingRev = userReviews[itemRevKey];
+                      const customPhotos = (item.photos || []).filter(
+                        (p: any) => typeof p === "string" && (p.startsWith("data:") || p.startsWith("blob:") || (p.startsWith("http") && !p.includes("images.unsplash.com") && !p.includes("wooden_frame")))
+                      );
+                      const hasCustom = customPhotos.length > 0 || (item.image && item.image.startsWith("data:"));
+                      const photoList = hasCustom ? (customPhotos.length > 0 ? customPhotos : [item.image]) : [];
+                      const displayThumb = hasCustom ? photoList[0] : (item.image || "/images/wooden_frame_main.png");
 
                       return (
                         <div key={idx} className="p-3.5 bg-white border border-[#EFE6DD] rounded-2xl flex flex-col gap-2.5">
                           <div className="flex items-center justify-between gap-3">
                             <div className="flex items-center gap-3">
-                              <div className="h-14 w-14 rounded-xl bg-[#FFF8F2] border border-[#EFE6DD] overflow-hidden flex-shrink-0">
-                                <img src={item.image} alt={item.name} className="h-full w-full object-cover" />
+                              <div 
+                                className="h-14 w-14 rounded-xl bg-[#FFF8F2] border border-[#EFE6DD] overflow-hidden flex-shrink-0 relative group cursor-pointer shadow-2xs"
+                                onClick={() => setPhotoPreviewModal({
+                                  isOpen: true,
+                                  photoUrl: displayThumb,
+                                  photoName: `${item.name} Customer Photo`,
+                                  itemName: item.name,
+                                  orderId: orderDetailsModal.id
+                                })}
+                                title="Click to view photo in high resolution"
+                              >
+                                <img src={displayThumb} alt={item.name} className="h-full w-full object-cover group-hover:scale-105 transition-transform" />
+                                <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity text-white">
+                                  <Eye className="h-4 w-4" />
+                                </div>
                               </div>
                               <div>
                                 <h5 className="font-bold text-sm text-[#3A2B24]">{item.name}</h5>
                                 <p className="text-[#6C5C54] text-xs">Size: <span className="font-semibold text-[#D89A86]">{item.size}</span> • Qty: {item.quantity}</p>
-                                {item.photos && item.photos.length > 0 && (
-                                  <span className="inline-block mt-1 text-[10px] font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 rounded-full">
-                                    ✓ Photo #{idx+1}: Custom Uploaded Photo Attached
-                                  </span>
+                                {hasCustom && (
+                                  <div className="flex flex-wrap items-center gap-1.5 mt-1">
+                                    <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-md">
+                                      📷 {photoList.length > 1 ? `${photoList.length} Customer Photos Attached` : 'Customer Memory Photo Attached'}
+                                    </span>
+                                    {photoList.length > 1 && (
+                                      <div className="flex gap-1 items-center">
+                                        {photoList.map((pUrl: string, pIdx: number) => (
+                                          <button
+                                            key={pIdx}
+                                            type="button"
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              setPhotoPreviewModal({
+                                                isOpen: true,
+                                                photoUrl: pUrl,
+                                                photoName: `${item.name} - Photo #${pIdx + 1}`,
+                                                itemName: item.name,
+                                                orderId: orderDetailsModal.id
+                                              });
+                                            }}
+                                            className="h-6 w-6 rounded border border-[#D89A86] overflow-hidden hover:opacity-80 transition-opacity"
+                                            title={`View Photo #${pIdx + 1}`}
+                                          >
+                                            <img src={pUrl} alt={`#${pIdx + 1}`} className="h-full w-full object-cover" />
+                                          </button>
+                                        ))}
+                                      </div>
+                                    )}
+                                  </div>
                                 )}
                               </div>
                             </div>
@@ -3416,7 +4317,7 @@ function OrderTrackerModalContent({
             </Badge>
             <Badge className="bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-bold text-[10px] px-3 py-1 rounded-full flex items-center gap-1.5 shadow-2xs backdrop-blur-xs">
               <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
-              STATUS: {trackOrderObj?.status || "Processing"}
+              STATUS: {getSafeStatusString(trackOrderObj?.status) || "Processing"}
             </Badge>
           </div>
 
@@ -3445,7 +4346,7 @@ function OrderTrackerModalContent({
               </button>
             </div>
             <p className="text-xs sm:text-sm text-[#EFE6DD]/80 font-medium flex items-center gap-2 leading-relaxed">
-              <Clock className="h-3.5 w-3.5 text-[#DF8673]" /> Current Phase: <strong className="text-amber-300 font-bold">{trackOrderObj?.status || "Processing"} ⚡</strong>
+              <Clock className="h-3.5 w-3.5 text-[#DF8673]" /> Current Phase: <strong className="text-amber-300 font-bold">{getSafeStatusString(trackOrderObj?.status) || "Processing"} ⚡</strong>
             </p>
           </div>
         </div>

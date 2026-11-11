@@ -295,10 +295,11 @@ export default function AmbassadorDashboard() {
               >
                 <Share2 className="h-4 w-4 mr-2" /> Share on WhatsApp
               </Button>
-              <Link href="/ambassador/links">
-                <Button variant="outline" className="border-[#D89A86] text-[#3A2B24] hover:bg-[#FFF8F2] font-bold text-xs h-10 px-5 rounded-full">
-                  <QrCode className="h-4 w-4 mr-2 text-[#D89A86]" /> Download QR Poster
-                </Button>
+              <Link 
+                href="/ambassador/links"
+                className="border border-[#D89A86] text-[#3A2B24] hover:bg-[#FFF8F2] font-bold text-xs h-10 px-5 rounded-full flex items-center justify-center transition-colors cursor-pointer"
+              >
+                <QrCode className="h-4 w-4 mr-2 text-[#D89A86]" /> Download QR Poster
               </Link>
             </div>
           </div>

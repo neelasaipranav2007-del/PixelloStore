@@ -2,10 +2,11 @@ import { OrderStatus } from "@prisma/client";
 
 /**
  * Maps database enum status to human-readable UI label
+ * Synchronized with Admin Delivery Statuses
  */
 export function mapDbStatusToUi(dbStatus?: string | null): string {
   if (!dbStatus) return "Order Placed";
-  const s = dbStatus.trim().toUpperCase();
+  const s = dbStatus.trim().toUpperCase().replace(/\s+/g, "_");
 
   switch (s) {
     case "COMPLETED":
@@ -15,41 +16,36 @@ export function mapDbStatusToUi(dbStatus?: string | null): string {
     case "CANCELED":
       return "Cancelled";
     case "OUT_FOR_DELIVERY":
-    case "OUT FOR DELIVERY":
       return "Out for Delivery";
-    case "SHIPPED":
     case "IN_TRANSIT":
-    case "IN TRANSIT":
+    case "SHIPPED":
+      return "In Transit";
     case "PICKED_UP":
     case "DELIVERY_PICKED_UP":
-    case "DELIVERY PICKED UP":
+      return "Picked Up";
     case "DELIVERY_ASSIGNED":
     case "ASSIGNED_DELIVERY":
-      return "Shipped";
+      return "Delivery Assigned";
     case "READY_FOR_DELIVERY":
     case "READY_FOR_PICKUP":
-    case "READY FOR PICKUP":
-    case "READY FOR DELIVERY":
       return "Ready for Delivery";
-    case "QUALITY_CHECK":
-    case "PACKED":
-      return "Quality Check & Packed";
+    case "IN_PRODUCTION":
     case "PRINTING":
     case "PRODUCT_PREPARATION":
     case "FRAMING":
-      return "Printing & Product Preparation";
-    case "IN_PRODUCTION":
+    case "QUALITY_CHECK":
+    case "PACKED":
     case "PROCESSING":
+      return "In Production";
     case "ORDER_CONFIRMED":
     case "ACCEPTED_BY_STUDIO":
     case "STUDIO_ACCEPTED":
     case "ASSIGNED_STUDIO":
     case "DESIGNING":
-      return "Preparing Your Order";
+      return "Order Confirmed";
     case "PAYMENT_CONFIRMED":
       return "Payment Confirmed";
     case "REPLACEMENT_REQUESTED":
-    case "REPLACEMENT REQUESTED":
     case "REPLACEMENT":
       return "Replacement Requested";
     case "REFUNDED":
@@ -80,8 +76,8 @@ export function mapUiStatusToDb(uiStatus?: string | null): OrderStatus {
       return "CANCELLED";
     case "OUT_FOR_DELIVERY":
       return "OUT_FOR_DELIVERY";
-    case "SHIPPED":
     case "IN_TRANSIT":
+    case "SHIPPED":
       return "IN_TRANSIT";
     case "PICKED_UP":
     case "DELIVERY_PICKED_UP":
@@ -92,12 +88,12 @@ export function mapUiStatusToDb(uiStatus?: string | null): OrderStatus {
     case "READY_FOR_DELIVERY":
     case "READY_FOR_PICKUP":
       return "READY_FOR_DELIVERY";
-    case "QUALITY_CHECK":
-    case "PACKED":
+    case "IN_PRODUCTION":
     case "PRINTING":
     case "PRODUCT_PREPARATION":
     case "FRAMING":
-    case "IN_PRODUCTION":
+    case "QUALITY_CHECK":
+    case "PACKED":
     case "PROCESSING":
       return "IN_PRODUCTION";
     case "ORDER_CONFIRMED":

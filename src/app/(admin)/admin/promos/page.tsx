@@ -6,6 +6,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
+import { cn } from "@/lib/utils";
+import { sharedSSE } from "@/lib/sseClient";
+import {
+  getWelcomePromoConfig,
+  saveWelcomePromoConfig,
+  WelcomePromoBannerConfig,
+  DEFAULT_WELCOME_PROMO_CONFIG,
+} from "@/lib/spotlightConfig";
 
 export interface PromoCodeItem {
   id: string;
@@ -195,13 +203,9 @@ export default function AdminPromosPage() {
   useEffect(() => {
     fetchPromosFromBackend();
 
-    let eventSource: EventSource | null = null;
-    try {
-      eventSource = new EventSource("/api/events");
-      eventSource.addEventListener("promo_update", () => {
-        fetchPromosFromBackend();
-      });
-    } catch (e) {}
+    const unsubPromo = sharedSSE.subscribe("promo_update", () => {
+      fetchPromosFromBackend();
+    });
 
     const syncFromStorage = () => {
       if (typeof window !== "undefined") {
@@ -221,8 +225,18 @@ export default function AdminPromosPage() {
     window.addEventListener("pixello_promos_updated", syncFromStorage);
     window.addEventListener("storage", syncFromStorage);
 
+    setWelcomeForm(getWelcomePromoConfig());
+    fetch("/api/settings/spotlight")
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.success && data.banners?.welcomePromo) {
+          setWelcomeForm(data.banners.welcomePromo);
+        }
+      })
+      .catch(() => {});
+
     return () => {
-      if (eventSource) eventSource.close();
+      unsubPromo();
       window.removeEventListener("pixello_promos_updated", syncFromStorage);
       window.removeEventListener("storage", syncFromStorage);
     };
@@ -233,6 +247,8 @@ export default function AdminPromosPage() {
 
   // Modal states
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [isWelcomeModalOpen, setIsWelcomeModalOpen] = useState(false);
+  const [welcomeForm, setWelcomeForm] = useState<WelcomePromoBannerConfig>(getWelcomePromoConfig);
   const [editingPromo, setEditingPromo] = useState<PromoCodeItem | null>(null);
   const [deleteConfirmModal, setDeleteConfirmModal] = useState<PromoCodeItem | null>(null);
   const [quickLimitModal, setQuickLimitModal] = useState<{
@@ -274,6 +290,19 @@ export default function AdminPromosPage() {
   const showToast = (msg: string) => {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(null), 3500);
+  };
+
+  const handleSaveWelcomeBanner = async () => {
+    saveWelcomePromoConfig(welcomeForm);
+    try {
+      await fetch("/api/settings/spotlight", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ banners: { welcomePromo: welcomeForm } }),
+      });
+    } catch {}
+    setIsWelcomeModalOpen(false);
+    showToast("✓ Homepage Welcome Promo banner updated & synced live!");
   };
 
   const handleOpenAddModal = () => {
@@ -529,12 +558,21 @@ export default function AdminPromosPage() {
           <h2 className="font-serif-brand text-3xl font-bold text-[#3A2B24]">Store Promo Codes &amp; Discounts</h2>
           <p className="text-xs text-[#6C5C54] mt-1">Manage coupon codes, set max customer redemption limits, percentage &amp; flat discounts.</p>
         </div>
-        <Button 
-          onClick={handleOpenAddModal}
-          className="btn-pixello-primary text-xs font-bold rounded-full px-6 h-11 shadow-sm flex items-center gap-2 cursor-pointer self-start sm:self-auto"
-        >
-          <Plus className="h-4 w-4" /> Create New Promo Code
-        </Button>
+        <div className="flex items-center gap-2.5 flex-wrap">
+          <Button 
+            onClick={() => setIsWelcomeModalOpen(true)}
+            variant="outline"
+            className="border-[#D89A86] bg-white text-[#D89A86] hover:bg-[#FFF8F2] hover:text-[#C58572] text-xs font-bold rounded-full px-4 h-11 shadow-xs flex items-center gap-1.5 cursor-pointer transition-all duration-200"
+          >
+            <Sparkles className="h-4 w-4 text-[#D89A86]" /> Edit Welcome Banner
+          </Button>
+          <Button 
+            onClick={handleOpenAddModal}
+            className="btn-pixello-primary text-xs font-bold rounded-full px-6 h-11 shadow-sm flex items-center gap-2 cursor-pointer self-start sm:self-auto"
+          >
+            <Plus className="h-4 w-4" /> Create New Promo Code
+          </Button>
+        </div>
       </div>
 
       {/* Summary Cards */}
@@ -1173,6 +1211,222 @@ export default function AdminPromosPage() {
                 className="bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs rounded-full px-6 h-10 shadow-xs flex items-center gap-1.5 cursor-pointer"
               >
                 <Trash2 className="h-4 w-4" /> Yes, Delete Code
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* WELCOME PROMO BANNER EDIT MODAL */}
+      {isWelcomeModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto animate-in fade-in duration-200">
+          <div className="bg-white border border-[#EFE6DD] rounded-3xl max-w-2xl w-full shadow-2xl flex flex-col max-h-[90vh] overflow-hidden animate-in zoom-in-95 duration-200">
+            {/* Header */}
+            <div className="p-6 pb-4 border-b border-[#EFE6DD] flex items-center justify-between bg-[#FFF8F2]">
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 rounded-2xl bg-white border border-[#EFE6DD] flex items-center justify-center text-[#D89A86] shadow-2xs">
+                  <Sparkles className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="font-serif-brand text-xl font-bold text-[#3A2B24]">
+                    Edit Homepage Welcome Promo Banner
+                  </h3>
+                  <p className="text-xs text-[#6C5C54]">
+                    Featured on the customer landing page at <span className="font-bold text-[#3A2B24]">/</span>.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsWelcomeModalOpen(false)}
+                className="h-8 w-8 rounded-full bg-white border border-[#EFE6DD] flex items-center justify-center text-[#6C5C54] hover:text-[#3A2B24] cursor-pointer"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            {/* Content Form */}
+            <div className="p-6 overflow-y-auto space-y-4">
+              {/* Banner Visibility */}
+              <div className="flex items-center justify-between p-3.5 bg-[#FFFDFB] rounded-2xl border border-[#F2C8B5]/60">
+                <div>
+                  <span className="text-xs font-bold text-[#3A2B24] block">Welcome Banner Visibility</span>
+                  <span className="text-[11px] text-[#6C5C54]">Turn ON to display on the homepage</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setWelcomeForm({ ...welcomeForm, enabled: !welcomeForm.enabled })}
+                  className={cn(
+                    "text-xs font-extrabold px-4 py-1.5 rounded-full cursor-pointer transition-all border",
+                    welcomeForm.enabled
+                      ? "bg-emerald-100 text-emerald-800 border-emerald-300"
+                      : "bg-rose-100 text-rose-800 border-rose-300"
+                  )}
+                >
+                  {welcomeForm.enabled ? "✓ Visible / Active" : "✕ Hidden"}
+                </button>
+              </div>
+
+              {/* Quick Select from existing active promos */}
+              <div className="p-3 bg-[#FFF8F2]/70 rounded-xl border border-[#EFE6DD]">
+                <label className="text-[11px] font-bold text-[#6C5C54] mb-1 block">
+                  ⚡ Autofill code &amp; discount from existing promo:
+                </label>
+                <select
+                  defaultValue=""
+                  onChange={(e) => {
+                    const promo = promos.find((p) => p.code === e.target.value);
+                    if (promo) {
+                      const discountStr = promo.type === "percentage" ? `${promo.value}% OFF` : `₹${promo.value} OFF`;
+                      setWelcomeForm({
+                        ...welcomeForm,
+                        code: promo.code,
+                        discountLabel: discountStr,
+                        description: promo.description || welcomeForm.description,
+                      });
+                      showToast(`Autofilled welcome promo from "${promo.code}" (${discountStr})`);
+                    }
+                  }}
+                  className="w-full text-xs rounded-xl border-[#EFE6DD] bg-white p-2 font-medium text-[#3A2B24] focus:ring-[#D89A86]"
+                >
+                  <option value="" disabled>Select a promo code to auto-populate...</option>
+                  {promos.filter(p => p.status === "Active").map((p) => (
+                    <option key={p.id} value={p.code}>
+                      {p.code} ({p.type === "percentage" ? `${p.value}% OFF` : `₹${p.value} Flat`} • {p.description})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-bold text-[#3A2B24] mb-1 block">Special Badge</label>
+                  <Input
+                    value={welcomeForm.badge}
+                    onChange={(e) => setWelcomeForm({ ...welcomeForm, badge: e.target.value })}
+                    placeholder="Special Offer"
+                    className="rounded-xl border-[#EFE6DD] text-xs bg-white h-10"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-[#3A2B24] mb-1 block">Verified Badge</label>
+                  <Input
+                    value={welcomeForm.verifiedBadge}
+                    onChange={(e) => setWelcomeForm({ ...welcomeForm, verifiedBadge: e.target.value })}
+                    placeholder="Verified Deal"
+                    className="rounded-xl border-[#EFE6DD] text-xs bg-white h-10"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-[#3A2B24] mb-1 block">Offer Title *</label>
+                <Input
+                  value={welcomeForm.title}
+                  onChange={(e) => setWelcomeForm({ ...welcomeForm, title: e.target.value })}
+                  placeholder="Exclusive Pixello Welcome Offer"
+                  className="rounded-xl border-[#EFE6DD] text-xs font-bold text-[#3A2B24] bg-white h-10"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div>
+                  <label className="text-xs font-bold text-[#3A2B24] mb-1 block">Discount Label *</label>
+                  <Input
+                    value={welcomeForm.discountLabel}
+                    onChange={(e) => setWelcomeForm({ ...welcomeForm, discountLabel: e.target.value })}
+                    placeholder="10% OFF"
+                    className="rounded-xl border-[#EFE6DD] text-xs font-bold text-[#D89A86] bg-white h-10"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-[#3A2B24] mb-1 block">Coupon Promo Code *</label>
+                  <Input
+                    value={welcomeForm.code}
+                    onChange={(e) => setWelcomeForm({ ...welcomeForm, code: e.target.value.toUpperCase().replace(/\s+/g, '') })}
+                    placeholder="WELCOME10"
+                    className="rounded-xl border-[#EFE6DD] text-xs font-mono font-bold text-[#3A2B24] bg-white h-10"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-[#3A2B24] mb-1 block">Claim Button Text</label>
+                  <Input
+                    value={welcomeForm.buttonText}
+                    onChange={(e) => setWelcomeForm({ ...welcomeForm, buttonText: e.target.value })}
+                    placeholder="Claim & Copy Code"
+                    className="rounded-xl border-[#EFE6DD] text-xs font-semibold text-[#3A2B24] bg-white h-10"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-[#3A2B24] mb-1 block">Description</label>
+                <Input
+                  value={welcomeForm.description}
+                  onChange={(e) => setWelcomeForm({ ...welcomeForm, description: e.target.value })}
+                  placeholder="Offer details..."
+                  className="rounded-xl border-[#EFE6DD] text-xs text-[#3A2B24] bg-white h-10"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-[#3A2B24] mb-1 block">Shop Button Link</label>
+                <Input
+                  value={welcomeForm.shopLink}
+                  onChange={(e) => setWelcomeForm({ ...welcomeForm, shopLink: e.target.value })}
+                  placeholder="/products"
+                  className="rounded-xl border-[#EFE6DD] text-xs font-mono text-[#3A2B24] bg-white h-10"
+                />
+              </div>
+
+              {/* Live Preview */}
+              <div className="p-3 bg-[#FFFDFB] rounded-xl border border-[#EFE6DD] space-y-1.5">
+                <span className="text-[10px] font-extrabold uppercase tracking-wider text-[#6C5C54]">Preview:</span>
+                <div className="p-3.5 rounded-xl bg-gradient-to-br from-white via-[#FFF9F5] to-[#FFF4ED] border border-[#F2C8B5] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                  <div className="space-y-1 max-w-sm">
+                    <div className="flex items-center gap-1.5">
+                      <span className="inline-flex items-center gap-1 rounded-full bg-[#D89A86]/15 px-2 py-0.5 text-[9px] font-extrabold text-[#D89A86] border border-[#D89A86]/30">
+                        ✨ {welcomeForm.badge || "Special Offer"}
+                      </span>
+                      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[9px] font-bold text-emerald-700 border border-emerald-200">
+                        🛡️ {welcomeForm.verifiedBadge || "Verified Deal"}
+                      </span>
+                    </div>
+                    <div className="font-serif-brand text-sm font-bold text-[#3A2B24]">
+                      {welcomeForm.title} — <span className="text-[#D89A86]">{welcomeForm.discountLabel}</span>
+                    </div>
+                    <p className="text-[11px] text-[#6C5C54] line-clamp-1">{welcomeForm.description}</p>
+                  </div>
+                  <div className="flex flex-col sm:items-end gap-1.5 shrink-0">
+                    <div className="flex items-center gap-1 rounded-lg border-2 border-dashed border-[#D89A86] bg-white px-2.5 py-1">
+                      <span className="font-mono text-xs font-black tracking-widest text-[#3A2B24]">
+                        {welcomeForm.code}
+                      </span>
+                    </div>
+                    <span className="btn-pixello-primary text-[11px] font-bold rounded-full px-3 py-1">
+                      {welcomeForm.buttonText || "Claim & Copy Code"}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Footer Buttons */}
+            <div className="p-4 border-t border-[#EFE6DD] flex items-center justify-end gap-2.5 bg-[#FFF8F2]/50">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setIsWelcomeModalOpen(false)}
+                className="rounded-full border-[#EFE6DD] text-xs font-bold h-10 px-5 text-[#3A2B24] hover:bg-white"
+              >
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                onClick={handleSaveWelcomeBanner}
+                className="btn-pixello-primary rounded-full text-xs font-bold h-10 px-6 shadow-sm flex items-center gap-2"
+              >
+                <Sparkles className="h-4 w-4 text-white" />
+                <span>Save Welcome Banner &amp; Sync</span>
               </Button>
             </div>
           </div>

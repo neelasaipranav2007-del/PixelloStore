@@ -23,6 +23,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { sharedSSE } from "@/lib/sseClient";
 
 export interface MobileDbNotification {
   id: string;
@@ -174,26 +175,22 @@ export function useMobileNotifications(role: "ADMIN" | "STUDIO" | "DELIVERY" | "
     return () => clearInterval(interval);
   }, [fetchNotifications]);
 
-  // Real-Time SSE Listener
+  // Real-Time Singleton SSE Listener
   useEffect(() => {
-    let eventSource: EventSource | null = null;
-    try {
-      eventSource = new EventSource("/api/events");
-      eventSource.addEventListener("notification_update", () => {
-        fetchNotifications();
-      });
-      eventSource.addEventListener("order_update", () => {
-        fetchNotifications();
-      });
-      eventSource.addEventListener("commission_update", () => {
-        fetchNotifications();
-      });
-    } catch (e) {
-      console.error("SSE connection error in notifications:", e);
-    }
+    const unsubNotif = sharedSSE.subscribe("notification_update", () => {
+      fetchNotifications();
+    });
+    const unsubOrder = sharedSSE.subscribe("order_update", () => {
+      fetchNotifications();
+    });
+    const unsubComm = sharedSSE.subscribe("commission_update", () => {
+      fetchNotifications();
+    });
 
     return () => {
-      if (eventSource) eventSource.close();
+      unsubNotif();
+      unsubOrder();
+      unsubComm();
     };
   }, [fetchNotifications]);
 

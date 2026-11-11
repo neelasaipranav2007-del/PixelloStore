@@ -3,90 +3,65 @@
 import { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
-import { Search, ShoppingCart, Heart, User, Menu, Sparkles, LogIn, LogOut, X, Phone, Camera, ArrowRight, Bell, MessageSquareQuote, Check, CheckCheck, Trash2 } from "lucide-react";
+import { 
+  Search, 
+  ShoppingCart, 
+  Heart, 
+  User, 
+  Menu, 
+  Sparkles, 
+  LogIn, 
+  LogOut, 
+  X, 
+  Camera, 
+  ArrowRight, 
+  Gift 
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { useCart } from "@/context/CartContext";
 import { useWishlist } from "@/context/WishlistContext";
+import { useHamper } from "@/context/HamperContext";
+import { useProducts } from "@/context/ProductContext";
+import { getHamperConfig, DEFAULT_HAMPER_CONFIG, HamperStoreConfig } from "@/lib/hamperConfig";
+import { getSearchableText, isFuzzyMatch } from "@/lib/catalogSearch";
 import { useRouter } from "next/navigation";
 import { usePixelloTransition } from "@/components/customer/PixelloPageTransition";
-import { motion } from "framer-motion";
 import { 
   useMobileNotifications, 
   MobileNotificationToast, 
   CompactNotificationCenter 
 } from "@/components/common/MobileNotificationSystem";
+import VisualSearchModal from "@/components/customer/VisualSearchModal";
 
-export interface CustomerNotification {
-  id: string;
-  title: string;
-  desc: string;
-  time: string;
-  read: boolean;
-  type: "reply" | "order" | "promo";
-  adminReply?: string;
-  productName?: string;
-  orderId?: string;
-}
-
-const MOCK_SEARCH_PRODUCTS = [
-  { id: "1", name: "Premium Wooden Frame", category: "Frames", price: 499, image: "/images/wooden_frame_main.png" },
-  { id: "2", name: "Classic Custom Polaroid Prints (24 prints)", category: "Polaroids", price: 399, image: "/images/polaroid_set.png" },
-  { id: "3", name: "Custom Magic Photo Mug", category: "Gifts", price: 349, image: "/images/custom_mug.png" },
-  { id: "4", name: "LED Acrylic Photo Lamp", category: "LED", price: 1299, image: "/images/led_acrylic_lamp.png" },
-  { id: "5", name: "Spotify Acrylic Music Plaque", category: "Gifts", price: 799, image: "/images/wooden_frame_angle.png" },
-  { id: "6", name: "Collage Wall Photo Frame Set", category: "Frames", price: 1499, image: "/images/wooden_frame_wall.png" },
+const FALLBACK_SEARCH_PRODUCTS = [
+  { id: "PRD-01", name: "Premium Wooden Frame", category: "Frames", price: 149, image: "/images/wooden_frame_main.png" },
+  { id: "PRD-02", name: "Classic Custom Polaroid Set (24 prints)", category: "Polaroids", price: 399, image: "/images/polaroid_set.png" },
+  { id: "PRD-03", name: "Custom Magic Photo Mug", category: "Gifts", price: 349, image: "/images/custom_mug.png" },
+  { id: "PRD-04", name: "LED Acrylic Photo Lamp", category: "LED", price: 1299, image: "/images/led_acrylic_lamp.png" },
+  { id: "PRD-05", name: "Spotify Acrylic Music Plaque", category: "Gifts", price: 799, image: "/images/wooden_frame_angle.png" },
+  { id: "PRD-07", name: "Collage Wall Photo Frame Set", category: "Frames", price: 1499, image: "/images/wooden_frame_wall.png" },
 ];
-
-const TYPO_MAP: Record<string, string> = {
-  poloroid: "polaroid",
-  poloroids: "polaroid",
-  polroid: "polaroid",
-  polroids: "polaroid",
-  plaroid: "polaroid",
-  fraem: "frame",
-  freme: "frame",
-  fram: "frame",
-  mugg: "mug",
-  spotifi: "spotify",
-  spotfy: "spotify",
-  colage: "collage",
-};
-
-function isNavbarFuzzyMatch(targetStr: string, queryInput: string): boolean {
-  const cleanTarget = targetStr.toLowerCase();
-  const cleanInput = queryInput.toLowerCase().trim();
-  if (!cleanInput) return true;
-  if (cleanTarget.includes(cleanInput)) return true;
-  const normalizedInput = TYPO_MAP[cleanInput] || cleanInput;
-  if (cleanTarget.includes(normalizedInput)) return true;
-
-  const inputWords = cleanInput.split(/\s+/);
-  const targetWords = cleanTarget.split(/\s+/);
-
-  for (const iWord of inputWords) {
-    const norm = TYPO_MAP[iWord] || iWord;
-    for (const tWord of targetWords) {
-      if (tWord.includes(norm) || norm.includes(tWord)) return true;
-    }
-  }
-  return false;
-}
 
 export default function Navbar() {
   const router = useRouter();
-  const { startTransitionTo, isTransitioning } = usePixelloTransition();
+  const { startTransitionTo } = usePixelloTransition();
   const { cartCount } = useCart();
   const { wishlistCount } = useWishlist();
+  const { itemCount: hamperItemCount } = useHamper();
+  const { products } = useProducts();
   const [showSignOutModal, setShowSignOutModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [isVisualSearchOpen, setIsVisualSearchOpen] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
   const searchContainerRef = useRef<HTMLDivElement>(null);
 
+  const activeCatalog = products && products.length > 0 ? products : FALLBACK_SEARCH_PRODUCTS;
+
   const [currentUser, setCurrentUser] = useState<any>(null);
+  const [hamperConfig, setHamperConfig] = useState<HamperStoreConfig>(DEFAULT_HAMPER_CONFIG);
 
   // Real Database Notifications System for Customer Portal
   const {
@@ -102,6 +77,33 @@ export default function Navbar() {
 
   useEffect(() => {
     setMounted(true);
+    setHamperConfig(getHamperConfig());
+
+    fetch("/api/settings/hamper")
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.success && d.config) setHamperConfig(d.config);
+      })
+      .catch(() => {});
+
+    const handleHamperConfigUpdate = () => {
+      setHamperConfig(getHamperConfig());
+    };
+
+    const handleOpenVisualSearch = () => {
+      setIsVisualSearchOpen(true);
+    };
+
+    window.addEventListener("open_visual_search", handleOpenVisualSearch);
+    window.addEventListener("open_pixello_visual_search", handleOpenVisualSearch);
+    window.addEventListener("pixello_hamper_config_updated", handleHamperConfigUpdate);
+    window.addEventListener("storage", handleHamperConfigUpdate);
+    return () => {
+      window.removeEventListener("open_visual_search", handleOpenVisualSearch);
+      window.removeEventListener("open_pixello_visual_search", handleOpenVisualSearch);
+      window.removeEventListener("pixello_hamper_config_updated", handleHamperConfigUpdate);
+      window.removeEventListener("storage", handleHamperConfigUpdate);
+    };
   }, []);
 
   useEffect(() => {
@@ -168,16 +170,15 @@ export default function Navbar() {
   }, []);
 
   const matchingSearchResults = searchQuery.trim() 
-    ? MOCK_SEARCH_PRODUCTS.filter(p => isNavbarFuzzyMatch(`${p.name} ${p.category} polaroid frame mug gift lamp`, searchQuery))
+    ? activeCatalog.filter(p => isFuzzyMatch(getSearchableText(p), searchQuery)).slice(0, 8)
     : [];
 
   const handleExecuteSearch = (queryVal: string) => {
     if (!queryVal.trim()) return;
     setIsSearchOpen(false);
+    setIsMobileMenuOpen(false);
     const targetUrl = `/products?search=${encodeURIComponent(queryVal.trim())}`;
-    if (typeof window !== "undefined") {
-      window.location.href = targetUrl;
-    }
+    router.push(targetUrl);
   };
 
   const handleSignOut = async () => {
@@ -205,58 +206,85 @@ export default function Navbar() {
 
   return (
     <nav className="sticky top-0 z-50 w-full border-b border-[#EFE6DD] bg-white/95 backdrop-blur-md shadow-xs">
-      <div className="container mx-auto flex h-20 items-center justify-between px-4 md:px-6 gap-3">
-        <div className="flex items-center gap-4 lg:gap-8">
-          <Link href="/" className="flex items-center gap-2.5 group flex-shrink-0">
-            <div className="h-10 w-10 md:h-12 md:w-12 rounded-full overflow-hidden border border-[#D89A86]/30 shadow-sm group-hover:scale-105 transition-transform bg-white">
+      <div className="w-full max-w-[1536px] mx-auto flex h-20 items-center justify-between px-3 sm:px-4 md:px-6 gap-2 sm:gap-3">
+        {/* LEFT BRAND & NAVIGATION LINKS */}
+        <div className="flex items-center gap-2 sm:gap-4 lg:gap-5 xl:gap-7 shrink-0 min-w-0">
+          {/* MOBILE HAMBURGER MENU BUTTON (VISIBLE ON < LG) */}
+          <button
+            type="button"
+            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+            className="lg:hidden p-2 rounded-xl text-[#3A2B24] hover:bg-[#FFF8F2] transition-colors border border-[#EFE6DD] flex items-center justify-center shrink-0 cursor-pointer"
+            aria-label="Open Navigation Menu"
+          >
+            {isMobileMenuOpen ? <X className="h-5 w-5 text-[#D89A86]" /> : <Menu className="h-5 w-5 text-[#3A2B24]" />}
+          </button>
+
+          <Link href="/" className="flex items-center gap-2 group shrink-0">
+            <div className="h-9 w-9 sm:h-10 sm:w-10 md:h-11 md:w-11 rounded-full overflow-hidden border border-[#D89A86]/30 shadow-sm group-hover:scale-105 transition-transform bg-white shrink-0">
               <img src="/images/pixello_logo.png" alt="Pixello Logo" className="h-full w-full object-cover" />
             </div>
-            <div className="flex flex-col">
-              <span className="font-serif-brand text-xl sm:text-2xl font-bold tracking-tight text-[#3A2B24]">
+            <div className="flex flex-col shrink-0">
+              <span className="font-serif-brand text-base sm:text-lg md:text-xl font-bold tracking-tight text-[#3A2B24] leading-tight">
                 Pixello
               </span>
-              <span className="text-[10px] font-bold text-[#D89A86] tracking-widest uppercase -mt-1">
+              <span className="hidden xs:block text-[9px] sm:text-[10px] font-bold text-[#D89A86] tracking-widest uppercase">
                 Thoughtfully Yours
               </span>
             </div>
           </Link>
 
-          <div className="hidden lg:flex items-center gap-6">
+          {/* DESKTOP NAV LINKS WITH GUARANTEED SHRINK-0 & NO-WRAP */}
+          <div className="hidden lg:flex items-center gap-2.5 xl:gap-4.5 shrink-0">
             <Link 
               href="/products" 
-              className="text-sm font-semibold transition-colors hover:text-[#D89A86] text-[#6C5C54]"
+              className="text-xs xl:text-sm font-semibold transition-colors hover:text-[#D89A86] text-[#6C5C54] shrink-0 whitespace-nowrap px-1"
             >
               All Products
             </Link>
+            {hamperConfig.nav.enabled && (
+              <Link 
+                href={hamperConfig.nav.url || "/hamper"} 
+                className="text-xs xl:text-sm font-bold transition-all hover:text-[#D89A86] text-[#3A2B24] flex items-center gap-1.5 px-2.5 py-1 xl:px-3 xl:py-1.5 rounded-full bg-[#FFF8F2] border border-[#D89A86]/30 shadow-2xs hover:shadow-xs group shrink-0 whitespace-nowrap"
+              >
+                <Gift className="h-3.5 w-3.5 text-[#D89A86] group-hover:scale-110 transition-transform" />
+                <span>{hamperConfig.nav.label || "Build a Hamper"}</span>
+                {hamperConfig.nav.showBadge && (
+                  <span className="text-[9px] font-extrabold bg-[#D89A86] text-white px-1.5 py-0.5 rounded-full uppercase tracking-wider">
+                    {mounted && hamperItemCount > 0 ? `${hamperItemCount}` : (hamperConfig.nav.badgeText || 'New')}
+                  </span>
+                )}
+              </Link>
+            )}
             <Link 
               href="/products?category=Gifts" 
-              className="text-sm font-semibold transition-colors hover:text-[#D89A86] text-[#6C5C54]"
+              className="text-xs xl:text-sm font-semibold transition-colors hover:text-[#D89A86] text-[#6C5C54] shrink-0 whitespace-nowrap px-1"
             >
               Gifts
             </Link>
             <Link 
-              href="/products?category=Frames" 
-              className="text-sm font-semibold transition-colors hover:text-[#D89A86] text-[#6C5C54]"
+              href="/frames" 
+              className="text-xs xl:text-sm font-semibold transition-colors hover:text-[#D89A86] text-[#6C5C54] shrink-0 whitespace-nowrap px-1"
             >
               Frames
             </Link>
             <Link 
               href="/products?category=Polaroids" 
-              className="text-sm font-semibold transition-colors hover:text-[#D89A86] text-[#6C5C54]"
+              className="text-xs xl:text-sm font-semibold transition-colors hover:text-[#D89A86] text-[#6C5C54] shrink-0 whitespace-nowrap px-1"
             >
               Polaroids
             </Link>
           </div>
         </div>
 
-        <div className="flex items-center gap-2 sm:gap-4 flex-1 justify-end max-w-2xl">
-          {/* SEARCH BAR WITH INTELLIGENT AUTOCOMPLETE */}
-          <div ref={searchContainerRef} className="relative flex-1 max-w-md hidden md:block">
-            <div className="relative">
-              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-[#6C5C54]/60" />
+        {/* RIGHT ACTION BAR: SEARCH + NOTIFICATIONS + CART + PROFILE */}
+        <div className="flex items-center gap-1.5 sm:gap-2.5 xl:gap-3 shrink-0 ml-auto justify-end">
+          {/* SEARCH BAR WITH RESPONSIVE SCALING */}
+          <div ref={searchContainerRef} className="relative hidden md:block w-28 sm:w-36 lg:w-40 xl:w-56 2xl:w-64 shrink min-w-0">
+            <div className="relative flex items-center">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-[#6C5C54]/60" />
               <Input
                 type="search"
-                placeholder="Search frames, polaroids, gifts..."
+                placeholder="Search catalog..."
                 value={searchQuery}
                 onChange={(e) => {
                   setSearchQuery(e.target.value);
@@ -268,7 +296,7 @@ export default function Navbar() {
                     handleExecuteSearch(searchQuery);
                   }
                 }}
-                className="w-full pl-10 pr-4 h-10 rounded-full bg-[#FFF8F2]/60 border-[#EFE6DD] focus:border-[#D89A86] focus:bg-white text-xs transition-all shadow-2xs"
+                className="w-full pl-8 pr-3 h-9 sm:h-10 rounded-full bg-[#FFF8F2]/60 border-[#EFE6DD] focus:border-[#D89A86] focus:bg-white text-xs transition-all shadow-2xs"
               />
             </div>
 
@@ -283,7 +311,10 @@ export default function Navbar() {
                   {matchingSearchResults.map((prod) => (
                     <div
                       key={prod.id}
-                      onClick={() => handleExecuteSearch(prod.name)}
+                      onClick={() => {
+                        setIsSearchOpen(false);
+                        router.push(`/product/${prod.id}`);
+                      }}
                       className="p-2.5 hover:bg-[#FFF8F2] flex items-center gap-3 transition-colors cursor-pointer group"
                     >
                       <div className="h-10 w-10 rounded-lg overflow-hidden bg-[#F8F3EE] flex-shrink-0 border border-[#EFE6DD]">
@@ -312,7 +343,20 @@ export default function Navbar() {
             )}
           </div>
 
-          <div className="flex items-center gap-1.5 sm:gap-3 flex-shrink-0">
+          {/* DEDICATED STANDALONE VISUAL SEARCH BUTTON WITH CAMERA */}
+          <button
+            type="button"
+            onClick={() => setIsVisualSearchOpen(true)}
+            className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-full bg-[#FFF8F2] hover:bg-[#FCEEE5] border border-[#D89A86] text-[#3A2B24] hover:text-[#D89A86] transition-all text-xs font-bold shadow-2xs group cursor-pointer shrink-0 active:scale-95"
+            title="Search products by uploading an image or using camera"
+          >
+            <div className="h-5 w-5 sm:h-6 sm:w-6 rounded-full bg-[#D89A86] text-white flex items-center justify-center group-hover:scale-110 transition-transform shadow-2xs shrink-0">
+              <Camera className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
+            </div>
+            <span className="whitespace-nowrap font-bold text-[11px] sm:text-xs">Search by Image</span>
+          </button>
+
+          <div className="flex items-center gap-1 sm:gap-2.5 flex-shrink-0">
             {/* Real Database Connected Compact Notification Center */}
             <CompactNotificationCenter
               role="CUSTOMER"
@@ -331,59 +375,143 @@ export default function Navbar() {
               }}
             />
 
-            <Link href="/profile?tab=wishlist">
-              <Button variant="ghost" size="icon" aria-label="Wishlist" className="relative hover:bg-[#FFF8F2] text-[#3A2B24] rounded-full h-9 w-9 sm:h-10 sm:w-10">
-                <Heart className="h-4 w-4 sm:h-5 sm:w-5 text-[#3A2B24] hover:text-[#F48A8A] transition-colors" />
-                {mounted && wishlistCount > 0 && (
-                  <span className="absolute top-1 right-1 flex h-4 w-4 items-center justify-center rounded-full bg-[#F48A8A] text-[10px] font-bold text-white shadow-sm">
-                    {wishlistCount}
-                  </span>
-                )}
-              </Button>
+            <Link 
+              href="/profile?tab=wishlist"
+              aria-label="Wishlist" 
+              className="relative hover:bg-[#FFF8F2] text-[#3A2B24] rounded-full h-9 w-9 sm:h-10 sm:w-10 flex items-center justify-center transition-colors cursor-pointer"
+            >
+              <Heart className="h-4 w-4 sm:h-5 sm:w-5 text-[#3A2B24] hover:text-[#F48A8A] transition-colors" />
+              {mounted && wishlistCount > 0 && (
+                <span className="absolute top-1 right-1 flex h-4 w-4 items-center justify-center rounded-full bg-[#F48A8A] text-[10px] font-bold text-white shadow-sm">
+                  {wishlistCount}
+                </span>
+              )}
             </Link>
-            <Link href="/cart">
-              <Button variant="ghost" size="icon" className="relative hover:bg-[#FFF8F2] text-[#3A2B24] rounded-full h-9 w-9 sm:h-10 sm:w-10" aria-label="Cart">
-                <ShoppingCart className="h-4 w-4 sm:h-5 sm:w-5 text-[#3A2B24]" />
-                {mounted && cartCount > 0 && (
-                  <span className="absolute top-1 right-1 flex h-4 w-4 items-center justify-center rounded-full bg-[#D89A86] text-[10px] font-bold text-white shadow-sm">
-                    {cartCount}
-                  </span>
-                )}
-              </Button>
+            <Link 
+              href="/cart"
+              aria-label="Cart" 
+              className="relative hover:bg-[#FFF8F2] text-[#3A2B24] rounded-full h-9 w-9 sm:h-10 sm:w-10 flex items-center justify-center transition-colors cursor-pointer"
+            >
+              <ShoppingCart className="h-4 w-4 sm:h-5 sm:w-5 text-[#3A2B24]" />
+              {mounted && cartCount > 0 && (
+                <span className="absolute top-1 right-1 flex h-4 w-4 items-center justify-center rounded-full bg-[#D89A86] text-[10px] font-bold text-white shadow-sm">
+                  {cartCount}
+                </span>
+              )}
             </Link>
             
+            {/* User Profile / Sign In Pill */}
             {mounted && currentUser ? (
-              <div className="flex items-center gap-1.5">
-                <Link 
-                  href="/profile"
-                  className="hover:bg-[#FFF8F2] text-[#3A2B24] rounded-full px-2.5 sm:px-3.5 py-1.5 flex items-center gap-1.5 border border-[#EFE6DD] bg-[#FFF8F2]/60 shadow-2xs h-9 sm:h-10 transition-colors cursor-pointer"
-                >
-                  <User className="h-4 w-4 text-[#D89A86]" />
-                  <span className="text-xs font-bold truncate max-w-[80px] sm:max-w-[120px]">
-                    {currentUser.name || "My Profile"}
-                  </span>
-                </Link>
-
-                <button 
-                  type="button"
-                  className="text-red-600 hover:text-red-700 hover:bg-red-50 rounded-full text-xs font-bold flex items-center gap-1 border border-red-200 px-2.5 h-9 transition-colors cursor-pointer shadow-2xs"
-                  onClick={handleSignOut}
-                >
-                  <LogOut className="h-3.5 w-3.5 text-red-600" />
-                  <span className="hidden sm:inline">Sign Out</span>
-                </button>
-              </div>
+              <Link 
+                href="/profile"
+                className="hover:bg-[#FFF8F2] text-[#3A2B24] rounded-full px-3 py-1.5 flex items-center gap-1.5 border border-[#EFE6DD] bg-[#FFF8F2]/60 shadow-2xs h-9 sm:h-10 transition-colors cursor-pointer shrink-0"
+              >
+                <User className="h-4 w-4 text-[#D89A86]" />
+                <span className="text-xs font-bold truncate max-w-[70px] sm:max-w-[110px]">
+                  {currentUser.name || "My Profile"}
+                </span>
+              </Link>
             ) : (
               <Link
                 href="/login"
-                className="btn-pixello-primary text-xs px-3 sm:px-5 h-9 rounded-full font-bold flex items-center gap-1.5 shadow-xs cursor-pointer hover:opacity-95 transition-opacity"
+                className="flex btn-pixello-primary text-xs px-3 sm:px-4 h-9 rounded-full font-bold items-center gap-1.5 shadow-xs cursor-pointer hover:opacity-95 transition-opacity shrink-0"
               >
-                <LogIn className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Sign In</span>
+                <LogIn className="h-3.5 w-3.5" /> <span>Sign In</span>
               </Link>
             )}
           </div>
         </div>
       </div>
+
+      {/* MOBILE NAVIGATION DRAWER & BACKDROP (SLIDES DOWN ON < LG) */}
+      {isMobileMenuOpen && (
+        <div
+          className="fixed inset-0 top-20 z-40 bg-black/50 backdrop-blur-xs lg:hidden animate-in fade-in duration-150"
+          onClick={() => setIsMobileMenuOpen(false)}
+        >
+          <div
+            className="w-full max-w-md bg-white border-b border-[#EFE6DD] shadow-2xl p-5 flex flex-col gap-4 animate-in slide-in-from-top-2 duration-200 max-h-[calc(100vh-80px)] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Mobile Search Input */}
+            <div className="relative flex items-center">
+              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-[#6C5C54]/60" />
+              <Input
+                type="search"
+                placeholder="Search catalog (frames, polaroids)..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    handleExecuteSearch(searchQuery);
+                    setIsMobileMenuOpen(false);
+                  }
+                }}
+                className="w-full pl-10 pr-3 h-11 rounded-2xl bg-[#FFF8F2]/60 border-[#EFE6DD] text-xs font-medium"
+              />
+            </div>
+
+            {/* Mobile Navigation Links */}
+            <div className="flex flex-col divide-y divide-[#EFE6DD]/50">
+              <Link
+                href="/products"
+                onClick={() => setIsMobileMenuOpen(false)}
+                className="py-3 text-sm font-bold text-[#3A2B24] hover:text-[#D89A86] flex items-center justify-between"
+              >
+                <span>All Products</span>
+                <ArrowRight className="h-4 w-4 text-[#D89A86]" />
+              </Link>
+              {hamperConfig.nav.enabled && (
+                <Link
+                  href={hamperConfig.nav.url || "/hamper"}
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  className="py-3 text-sm font-bold text-[#D89A86] flex items-center justify-between"
+                >
+                  <span className="flex items-center gap-2">
+                    <Gift className="h-4 w-4 text-[#D89A86]" />
+                    {hamperConfig.nav.label || "Build a Hamper"}
+                  </span>
+                  <span className="text-[10px] bg-[#D89A86] text-white px-2 py-0.5 rounded-full font-extrabold uppercase">
+                    {mounted && hamperItemCount > 0 ? `${hamperItemCount}` : (hamperConfig.nav.badgeText || 'New')}
+                  </span>
+                </Link>
+              )}
+              <Link
+                href="/frames"
+                onClick={() => setIsMobileMenuOpen(false)}
+                className="py-3 text-sm font-bold text-[#3A2B24] hover:text-[#D89A86] flex items-center justify-between"
+              >
+                <span>Visual Memory Frames Studio</span>
+                <ArrowRight className="h-4 w-4 text-[#D89A86]" />
+              </Link>
+              <Link
+                href="/products?category=Polaroids"
+                onClick={() => setIsMobileMenuOpen(false)}
+                className="py-3 text-sm font-bold text-[#3A2B24] hover:text-[#D89A86] flex items-center justify-between"
+              >
+                <span>Polaroid Prints</span>
+                <ArrowRight className="h-4 w-4 text-[#D89A86]" />
+              </Link>
+              <Link
+                href="/products?category=Gifts"
+                onClick={() => setIsMobileMenuOpen(false)}
+                className="py-3 text-sm font-bold text-[#3A2B24] hover:text-[#D89A86] flex items-center justify-between"
+              >
+                <span>Gifts &amp; Keepsakes</span>
+                <ArrowRight className="h-4 w-4 text-[#D89A86]" />
+              </Link>
+              <Link
+                href="#campus-ambassador"
+                onClick={() => setIsMobileMenuOpen(false)}
+                className="py-3 text-sm font-bold text-[#6C5C54] hover:text-[#D89A86] flex items-center justify-between"
+              >
+                <span>Campus Ambassador Program</span>
+                <ArrowRight className="h-4 w-4 text-[#D89A86]" />
+              </Link>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* CUSTOM SIGN OUT CONFIRMATION MODAL */}
       {showSignOutModal && (
@@ -432,9 +560,18 @@ export default function Navbar() {
         onClick={(toast) => {
           markAsRead(toast.id);
           dismissToast();
-          window.location.href = "/profile?tab=orders";
+          router.push("/profile?tab=orders");
         }}
       />
+
+      {/* AI VISUAL SEARCH MODAL - MOUNTED DIRECTLY TO BODY VIA PORTAL */}
+      {mounted && typeof document !== "undefined" && createPortal(
+        <VisualSearchModal
+          isOpen={isVisualSearchOpen}
+          onClose={() => setIsVisualSearchOpen(false)}
+        />,
+        document.body
+      )}
     </nav>
   );
 }

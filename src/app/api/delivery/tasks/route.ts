@@ -2,10 +2,12 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { mapDbStatusToUi } from "@/lib/orderStatus";
 import { isDeliveryPortalEnabled } from "@/lib/deliveryConfig";
+import { getAuthenticatedDelivery, getAuthenticatedAdmin } from "@/lib/session";
+import { safeErrorResponse } from "@/lib/errorHandler";
 
 export const dynamic = "force-dynamic";
 
-export async function GET() {
+export async function GET(req: Request) {
   if (!isDeliveryPortalEnabled()) {
     return NextResponse.json(
       { 
@@ -18,6 +20,17 @@ export async function GET() {
   }
 
   try {
+    // RBAC: Require Delivery Partner or Admin authorization
+    const delivery = await getAuthenticatedDelivery(req);
+    const admin = await getAuthenticatedAdmin(req);
+
+    if (!delivery && !admin) {
+      return NextResponse.json(
+        { success: false, error: "Unauthorized. Delivery partner privileges required." },
+        { status: 401 }
+      );
+    }
+
     const orders = await prisma.order.findMany({
       include: {
         items: true,
@@ -58,7 +71,6 @@ export async function GET() {
 
     return NextResponse.json({ success: true, tasks, count: tasks.length });
   } catch (error: any) {
-    console.error("Error fetching delivery tasks:", error);
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+    return safeErrorResponse(error, 500, "Error fetching delivery tasks");
   }
 }

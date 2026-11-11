@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { portalEvents } from "@/lib/events";
+import { getAuthenticatedUser, getAuthenticatedAdmin } from "@/lib/session";
+import { safeErrorResponse } from "@/lib/errorHandler";
 
 export const dynamic = "force-dynamic";
 
@@ -10,12 +12,23 @@ export async function GET(req: Request) {
     const userId = searchParams.get("userId") || undefined;
     const sessionId = searchParams.get("sessionId") || undefined;
 
-    if (!userId && !sessionId) {
+    const authUser = await getAuthenticatedUser(req);
+    const admin = await getAuthenticatedAdmin(req);
+
+    // IDOR Protection: Customers cannot inspect other users' carts
+    let targetUserId = userId;
+    if (authUser) {
+      targetUserId = authUser.id;
+    } else if (userId && !admin) {
+      targetUserId = undefined;
+    }
+
+    if (!targetUserId && !sessionId) {
       return NextResponse.json({ success: true, cartItems: [] });
     }
 
     const where: any = {};
-    if (userId) where.userId = userId;
+    if (targetUserId) where.userId = targetUserId;
     else if (sessionId) where.sessionId = sessionId;
 
     const items = await prisma.cartItem.findMany({
@@ -25,9 +38,22 @@ export async function GET(req: Request) {
 
     const formatted = items.map((it) => {
       let photos = undefined;
+      let isHamper = false;
+      let hamperData = undefined;
+      let frameCustomization = undefined;
+      let customizationDetails = undefined;
       if (it.photos) {
         try {
-          photos = JSON.parse(it.photos);
+          const parsed = JSON.parse(it.photos);
+          if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+            isHamper = !!parsed.isHamper;
+            hamperData = parsed.hamperData;
+            frameCustomization = parsed.frameCustomization;
+            customizationDetails = parsed.customizationDetails;
+            photos = parsed.photos;
+          } else if (Array.isArray(parsed)) {
+            photos = parsed;
+          }
         } catch (e) {}
       }
       return {
@@ -39,33 +65,50 @@ export async function GET(req: Request) {
         quantity: it.quantity,
         image: it.image,
         photos,
+        isHamper: isHamper || it.name.toLowerCase().includes("hamper"),
+        hamperData,
+        frameCustomization,
+        customizationDetails,
       };
     });
 
     return NextResponse.json({ success: true, cartItems: formatted });
   } catch (error: any) {
-    console.error("Error fetching cart items:", error);
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+    return safeErrorResponse(error, 500, "Error fetching cart items");
   }
 }
 
 export async function POST(req: Request) {
   try {
+    const authUser = await getAuthenticatedUser(req);
     const body = await req.json();
-    const { id, userId, sessionId, productId, name, size, price, quantity, image, photos } = body;
+    const { id, userId, sessionId, productId, name, size, price, quantity, image, photos, isHamper, hamperData, frameCustomization, customizationDetails } = body;
 
     if (!name || price === undefined) {
       return NextResponse.json({ success: false, error: "Missing required cart item fields" }, { status: 400 });
     }
 
-    const photosJson = photos && Array.isArray(photos) ? JSON.stringify(photos) : undefined;
+    const targetUserId = authUser ? authUser.id : (userId || undefined);
+
+    let photosJson: string | undefined = undefined;
+    if (isHamper || hamperData || frameCustomization || customizationDetails) {
+      photosJson = JSON.stringify({
+        isHamper: !!isHamper || !!hamperData,
+        hamperData: hamperData || null,
+        frameCustomization: frameCustomization || null,
+        customizationDetails: customizationDetails || null,
+        photos: Array.isArray(photos) ? photos : [],
+      });
+    } else if (photos && Array.isArray(photos)) {
+      photosJson = JSON.stringify(photos);
+    }
     const existing = await prisma.cartItem.findFirst({
       where: {
         OR: [
           { id: id || "none" },
           {
             AND: [
-              userId ? { userId } : { sessionId: sessionId || "guest" },
+              targetUserId ? { userId: targetUserId } : { sessionId: sessionId || "guest" },
               { name },
               { size: size || "Standard" },
             ],
@@ -87,7 +130,7 @@ export async function POST(req: Request) {
       result = await prisma.cartItem.create({
         data: {
           id: id || undefined,
-          userId,
+          userId: targetUserId,
           sessionId: sessionId || "guest",
           productId,
           name,
@@ -103,8 +146,7 @@ export async function POST(req: Request) {
     portalEvents.emit("cart_change", { action: "UPSERT", item: result });
     return NextResponse.json({ success: true, item: result });
   } catch (error: any) {
-    console.error("Error adding to cart:", error);
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+    return safeErrorResponse(error, 500, "Error adding to cart");
   }
 }
 
@@ -144,8 +186,7 @@ export async function PATCH(req: Request) {
     portalEvents.emit("cart_change", { action: "UPDATE", item: updated });
     return NextResponse.json({ success: true, item: updated });
   } catch (error: any) {
-    console.error("Error updating cart:", error);
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+    return safeErrorResponse(error, 500, "Error updating cart");
   }
 }
 
@@ -155,6 +196,13 @@ export async function DELETE(req: Request) {
     const id = searchParams.get("id");
     const userId = searchParams.get("userId");
     const sessionId = searchParams.get("sessionId");
+
+    const authUser = await getAuthenticatedUser(req);
+    const admin = await getAuthenticatedAdmin(req);
+
+    if (userId && authUser && authUser.id !== userId && !admin) {
+      return NextResponse.json({ success: false, error: "Forbidden. You cannot clear another user's cart." }, { status: 403 });
+    }
 
     if (id) {
       await prisma.cartItem.deleteMany({ where: { id } });
@@ -167,7 +215,6 @@ export async function DELETE(req: Request) {
     portalEvents.emit("cart_change", { action: "DELETE", id, userId, sessionId });
     return NextResponse.json({ success: true });
   } catch (error: any) {
-    console.error("Error clearing cart:", error);
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+    return safeErrorResponse(error, 500, "Error clearing cart");
   }
 }

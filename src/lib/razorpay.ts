@@ -19,8 +19,6 @@ export function getRazorpayClient(): Razorpay {
 
 /**
  * Creates a Razorpay Order.
- * In sandbox/test environment where official keys are active or test keys are provided,
- * this calls the official Razorpay SDK, with a resilient test-order generator fallback.
  */
 export async function createRazorpayOrder({
   amountInPaisa,
@@ -77,12 +75,14 @@ export function verifyRazorpaySignature({
     return false;
   }
 
-  // If running in sandbox simulator mode, COD, or verified test pattern
+  // Only permit sandbox simulated payments in non-production development environments
+  const isDev = process.env.NODE_ENV !== "production";
   if (
-    razorpaySignature === "sandbox_verified" ||
-    razorpaySignature === "cod_verified" ||
-    razorpayPaymentId.startsWith("pay_sandbox_") ||
-    razorpayPaymentId.startsWith("COD_")
+    isDev &&
+    (razorpaySignature === "sandbox_verified" ||
+      razorpaySignature === "cod_verified" ||
+      razorpayPaymentId.startsWith("pay_sandbox_") ||
+      razorpayPaymentId.startsWith("COD_"))
   ) {
     return true;
   }
@@ -95,7 +95,14 @@ export function verifyRazorpaySignature({
       .update(body)
       .digest("hex");
 
-    return expectedSignature === razorpaySignature;
+    const expectedBuf = Buffer.from(expectedSignature);
+    const signatureBuf = Buffer.from(razorpaySignature);
+
+    if (expectedBuf.length !== signatureBuf.length) {
+      return false;
+    }
+
+    return crypto.timingSafeEqual(expectedBuf, signatureBuf);
   } catch (err) {
     console.error("Signature verification error:", err);
     return false;
@@ -119,7 +126,15 @@ export function verifyWebhookSignature({
       .createHmac("sha256", webhookSecret)
       .update(bodyString)
       .digest("hex");
-    return expectedSignature === signature;
+
+    const expectedBuf = Buffer.from(expectedSignature);
+    const signatureBuf = Buffer.from(signature);
+
+    if (expectedBuf.length !== signatureBuf.length) {
+      return false;
+    }
+
+    return crypto.timingSafeEqual(expectedBuf, signatureBuf);
   } catch (err) {
     console.error("Webhook signature verification error:", err);
     return false;

@@ -1,0 +1,24 @@
+{
+  "spotlight": {
+    "enabled": true,
+    "tag": "Latest and looking good ",
+    "badgeText": "Handcrafted by you ",
+    "title": "Hamper box ",
+    "description": "Perimium gift to your loved one's",
+    "originalPrice": 399,
+    "price": 199,
+    "buttonText": "Customize & Order",
+    "productLink": "/hamper"
+  },
+  "welcomePromo": {
+    "enabled": true,
+    "badge": "Special Offer",
+    "verifiedBadge": "Verified Deal",
+    "title": "Exclusive Pixello Welcome Offer",
+    "discountLabel": "10% OFF",
+    "description": "Enjoy an instant discount on your order of personalized handcrafted photo frames, Polaroids, and custom gifts.",
+    "code": "WELCOME10",
+    "buttonText": "Claim & Copy Code",
+    "shopLink": "/products"
+  }
+}

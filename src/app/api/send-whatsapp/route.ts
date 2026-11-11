@@ -1,7 +1,17 @@
 import { NextResponse } from "next/server";
+import { getAuthenticatedAdmin } from "@/lib/session";
+import { safeErrorResponse } from "@/lib/errorHandler";
 
 export async function POST(req: Request) {
   try {
+    const admin = await getAuthenticatedAdmin(req);
+    if (!admin) {
+      return NextResponse.json(
+        { success: false, error: "Unauthorized. Admin privileges required to dispatch WhatsApp messages." },
+        { status: 401 }
+      );
+    }
+
     const { toPhone, studentName, type, message, apiToken, phoneId } = await req.json();
 
     const PIXELLO_WHATSAPP_NUMBER = "8074589949";
@@ -18,7 +28,6 @@ export async function POST(req: Request) {
     const waToken = apiToken || process.env.WHATSAPP_API_TOKEN;
     const targetPhoneId = phoneId || process.env.WHATSAPP_PHONE_NUMBER_ID || "8074589949";
 
-    // Meta WhatsApp Cloud API Dispatch
     if (waToken) {
       try {
         const metaRes = await fetch(`https://graph.facebook.com/v18.0/${targetPhoneId}/messages`, {
@@ -58,6 +67,6 @@ export async function POST(req: Request) {
       message: `Intimation generated for ${studentName} (+${cleanPhone}) from Pixello WhatsApp 8074589949.`,
     });
   } catch (error: any) {
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+    return safeErrorResponse(error, 500, "Error sending WhatsApp notification");
   }
 }

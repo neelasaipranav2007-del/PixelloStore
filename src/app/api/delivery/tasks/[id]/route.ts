@@ -3,6 +3,9 @@ import { prisma } from "@/lib/db";
 import { portalEvents } from "@/lib/events";
 import { OrderStatus } from "@prisma/client";
 import { isDeliveryPortalEnabled } from "@/lib/deliveryConfig";
+import { getAuthenticatedDelivery, getAuthenticatedAdmin } from "@/lib/session";
+import { safeErrorResponse } from "@/lib/errorHandler";
+import { logAudit } from "@/lib/auditLogger";
 
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
   if (!isDeliveryPortalEnabled()) {
@@ -17,6 +20,17 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   }
 
   try {
+    // RBAC: Require Delivery Partner or Admin authorization
+    const delivery = await getAuthenticatedDelivery(req);
+    const admin = await getAuthenticatedAdmin(req);
+
+    if (!delivery && !admin) {
+      return NextResponse.json(
+        { success: false, error: "Unauthorized. Delivery partner privileges required." },
+        { status: 401 }
+      );
+    }
+
     const { id } = await params;
     const body = await req.json();
     const { status, partnerName } = body;
@@ -35,13 +49,13 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
       await tx.deliveryInfo.upsert({
         where: { orderId: id },
         update: {
-          deliveryPartnerName: partnerName || "Ramesh Kumar",
+          deliveryPartnerName: partnerName || (delivery?.user?.name || "Ramesh Kumar"),
           ...(dbStatus === "PICKED_UP" ? { pickupTime: new Date() } : {}),
           ...(dbStatus === "DELIVERED" ? { deliveryTime: new Date() } : {}),
         },
         create: {
           orderId: id,
-          deliveryPartnerName: partnerName || "Ramesh Kumar",
+          deliveryPartnerName: partnerName || (delivery?.user?.name || "Ramesh Kumar"),
           ...(dbStatus === "PICKED_UP" ? { pickupTime: new Date() } : {}),
           ...(dbStatus === "DELIVERED" ? { deliveryTime: new Date() } : {}),
         },
@@ -51,17 +65,26 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
         data: {
           orderId: id,
           status: dbStatus,
-          note: `Delivery status updated to ${status} by ${partnerName || "Delivery Partner"}`,
+          note: `Delivery status updated to ${status} by ${partnerName || delivery?.user?.name || "Delivery Partner"}`,
         },
       });
 
       return order;
     });
 
+    logAudit({
+      userId: delivery?.user?.id || admin?.user?.id,
+      actorRole: delivery ? "DELIVERY" : "ADMIN",
+      action: "DELIVERY_TASK_STATUS_UPDATED",
+      targetId: id,
+      details: { status: dbStatus },
+      req,
+    }).catch(() => {});
+
     portalEvents.emit("order_change", { action: "STATUS_UPDATE", orderId: id, status: dbStatus });
-    return NextResponse.json({ success: true, task: updated });
+
+    return NextResponse.json({ success: true, order: updated });
   } catch (error: any) {
-    console.error("Error updating delivery task:", error);
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+    return safeErrorResponse(error, 500, "Error updating delivery task");
   }
 }

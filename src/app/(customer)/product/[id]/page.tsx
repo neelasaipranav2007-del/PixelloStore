@@ -12,6 +12,9 @@ import { useRouter } from "next/navigation";
 import { useCart } from "@/context/CartContext";
 import { useWishlist } from "@/context/WishlistContext";
 import { useProducts } from "@/context/ProductContext";
+import { useHamper } from "@/context/HamperContext";
+import { ProductTextCustomizer } from "@/components/customer/ProductTextCustomizer";
+import VisualMemoryFrameStudio from "@/components/customer/VisualMemoryFrameStudio";
 
 export interface FrameSizeConfig {
   label: string;
@@ -288,11 +291,15 @@ export default function ProductDetailsPage({ params }: { params: Promise<any> })
     message: string;
     isAdded: boolean;
   } | null>(null);
+  const [hamperToastModal, setHamperToastModal] = useState<{ isOpen: boolean; name: string } | null>(null);
 
   const { cartItems, addToCart, cartCount } = useCart();
   const { toggleWishlist, isInWishlist } = useWishlist();
   const { products } = useProducts();
+  const { addToHamper, isProductInHamper, getProductHamperQuantity } = useHamper();
   const isWishlisted = isInWishlist(id);
+  const isCurrentProductInHamper = isProductInHamper(id);
+  const currentProductHamperQty = getProductHamperQuantity(id);
 
   const cleanId = (id || "").trim().toLowerCase();
   const numId = parseInt(cleanId.replace(/\D/g, ""), 10);
@@ -348,6 +355,42 @@ export default function ProductDetailsPage({ params }: { params: Promise<any> })
 
   // Frame is STRICTLY frames (not keychains, mugs, lamps, polaroids, pandas, timers, paperweights, or general gifts)
   const isFrame = !isPolaroid && !isMug && !isPanda && !isLiquidTimer && !isPaperWeight && !isKeyChain && !isLamp && (cleanCat.includes("frame") || cleanName.includes("frame"));
+  const isHamper = cleanName.includes("hamper") || cleanCat.includes("hamper");
+
+  const [hamperAboutConfig, setHamperAboutConfig] = useState<{ title: string; points: string[] }>({
+    title: "ABOUT HAMPER",
+    points: [
+      "Master studio handcrafted finish",
+      "High-definition vibrant color reproduction",
+      "Durable premium materials built to last",
+      "Printed & dispatched by verified local studio",
+      "Safe packaging & doorstep express delivery",
+    ],
+  });
+
+  useEffect(() => {
+    fetch("/api/settings/hamper")
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.success && data.config) {
+          if (data.config.aboutTitle || (Array.isArray(data.config.aboutPoints) && data.config.aboutPoints.length > 0)) {
+            setHamperAboutConfig({
+              title: data.config.aboutTitle || "ABOUT HAMPER",
+              points: Array.isArray(data.config.aboutPoints) && data.config.aboutPoints.length > 0
+                ? data.config.aboutPoints
+                : [
+                    "Master studio handcrafted finish",
+                    "High-definition vibrant color reproduction",
+                    "Durable premium materials built to last",
+                    "Printed & dispatched by verified local studio",
+                    "Safe packaging & doorstep express delivery",
+                  ],
+            });
+          }
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   // Variant objects
   const activeFrameSizes = (foundFromContext?.frameSizes && foundFromContext.frameSizes.length > 0)
@@ -453,6 +496,7 @@ export default function ProductDetailsPage({ params }: { params: Promise<any> })
 
   const activeSlotRef = useRef<number>(0);
   const singleFileInputRef = useRef<HTMLInputElement>(null);
+  const cameraFileInputRef = useRef<HTMLInputElement>(null);
   const bulkFileInputRef = useRef<HTMLInputElement>(null);
   
   const [mainImageIndex, setMainImageIndex] = useState(0);
@@ -583,6 +627,10 @@ export default function ProductDetailsPage({ params }: { params: Promise<any> })
     status: (baseProduct as any).status || "In Stock",
     stock: (baseProduct as any).stock !== undefined ? (baseProduct as any).stock : 100,
   };
+
+  if (isFrame) {
+    return <VisualMemoryFrameStudio productId={id} initialProduct={product} />;
+  }
 
   return (
     <div suppressHydrationWarning className="container mx-auto px-4 md:px-6 py-8">
@@ -898,8 +946,26 @@ export default function ProductDetailsPage({ params }: { params: Promise<any> })
           </div>
         </div>
       ) : isFrame ? (
-        /* FRAME FEATURES GRID */
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5 p-4 bg-[#FFF8F2] border border-[#EFE6DD] rounded-3xl mb-8 shadow-xs">
+        <>
+          {/* Visual Memory Customization Studio Banner */}
+          <div className="mb-6 p-4 rounded-3xl bg-gradient-to-r from-[#FFF2EB] to-[#FFF8F2] border border-[#F3DACF] shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <span className="text-2xl">🎨</span>
+              <div>
+                <span className="text-xs font-bold text-[#D89A86] block">Visual Memory Customization Studio</span>
+                <p className="text-xs text-[#3A2B24] font-bold">Customize with live photo crop, wood finishes, and mount inscription</p>
+              </div>
+            </div>
+            <Link href={`/frames?productId=${product.id}`}>
+              <Button size="sm" className="btn-pixello-primary rounded-full text-xs font-bold px-4 shadow-sm flex items-center gap-1.5 whitespace-nowrap">
+                <span>Open in Studio</span>
+                <ArrowRight className="h-3.5 w-3.5" />
+              </Button>
+            </Link>
+          </div>
+
+          {/* FRAME FEATURES GRID */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5 p-4 bg-[#FFF8F2] border border-[#EFE6DD] rounded-3xl mb-8 shadow-xs">
           <div className="flex items-center gap-3 p-2 bg-white rounded-2xl border border-[#EFE6DD]">
             <div className="h-10 w-10 rounded-xl bg-[#FFF8F2] border border-[#EFE6DD] flex items-center justify-center text-[#D89A86] flex-shrink-0">
               <Maximize2 className="h-5 w-5" />
@@ -940,6 +1006,7 @@ export default function ProductDetailsPage({ params }: { params: Promise<any> })
             </div>
           </div>
         </div>
+        </>
       ) : (
         /* GENERAL CUSTOM PRODUCT FEATURES GRID */
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5 p-4 bg-[#FFF8F2] border border-[#EFE6DD] rounded-3xl mb-8 shadow-xs">
@@ -1033,10 +1100,25 @@ export default function ProductDetailsPage({ params }: { params: Promise<any> })
           {/* About Section */}
           <div className="p-5 bg-white border border-[#EFE6DD] rounded-3xl mt-2">
             <h4 className="font-serif-brand font-bold text-base text-[#3A2B24] mb-3 flex items-center gap-2">
-              <Sparkles className="h-4 w-4 text-[#D89A86]" /> {isPaperWeight ? "ABOUT FOREVER US PAPER WEIGHT" : (isLiquidTimer ? "ABOUT LIQUID MOTION TIMER" : (isPanda ? "ABOUT MOSS PANDA LAMP" : (isKeyChain ? "ABOUT PERSONALIZED KEY CHAIN" : (isLamp ? "ABOUT LED ACRYLIC PHOTO LAMP" : (isMug ? "ABOUT CUSTOM PHOTO MUG" : (isPolaroid ? "ABOUT OUR POLAROIDS" : (isFrame ? "ABOUT OUR FRAMES" : `ABOUT ${product.name.toUpperCase()}`)))))))}
+              <Sparkles className="h-4 w-4 text-[#D89A86]" />{" "}
+              {foundFromContext?.aboutTitle || (isHamper ? (hamperAboutConfig.title || "ABOUT HAMPER") : (
+                isPaperWeight ? "ABOUT FOREVER US PAPER WEIGHT" : (isLiquidTimer ? "ABOUT LIQUID MOTION TIMER" : (isPanda ? "ABOUT MOSS PANDA LAMP" : (isKeyChain ? "ABOUT PERSONALIZED KEY CHAIN" : (isLamp ? "ABOUT LED ACRYLIC PHOTO LAMP" : (isMug ? "ABOUT CUSTOM PHOTO MUG" : (isPolaroid ? "ABOUT OUR POLAROIDS" : (isFrame ? "ABOUT OUR FRAMES" : `ABOUT ${product.name.toUpperCase()}`)))))))
+              ))}
             </h4>
             <ul className="flex flex-col gap-2 text-xs text-[#6C5C54]">
-              {isPaperWeight ? (
+              {(foundFromContext?.aboutPoints && Array.isArray(foundFromContext.aboutPoints) && foundFromContext.aboutPoints.length > 0) ? (
+                foundFromContext.aboutPoints.map((pt, pIdx) => (
+                  <li key={pIdx} className="flex items-center gap-2 font-medium">
+                    <CheckCircle2 className="h-4 w-4 text-emerald-600 flex-shrink-0" /> {pt}
+                  </li>
+                ))
+              ) : isHamper ? (
+                hamperAboutConfig.points.map((pt, pIdx) => (
+                  <li key={pIdx} className="flex items-center gap-2 font-medium">
+                    <CheckCircle2 className="h-4 w-4 text-emerald-600 flex-shrink-0" /> {pt}
+                  </li>
+                ))
+              ) : isPaperWeight ? (
                 <>
                   <li className="flex items-center gap-2 font-medium">
                     <CheckCircle2 className="h-4 w-4 text-rose-500 flex-shrink-0" /> Crystal clear transparent acrylic suitcase design
@@ -1169,23 +1251,17 @@ export default function ProductDetailsPage({ params }: { params: Promise<any> })
                   </li>
                 </>
               ) : (
-                <>
-                  <li className="flex items-center gap-2 font-medium">
-                    <CheckCircle2 className="h-4 w-4 text-emerald-600 flex-shrink-0" /> Master studio handcrafted finish
+                (isHamper ? hamperAboutConfig.points : [
+                  "Master studio handcrafted finish",
+                  "High-definition vibrant color reproduction",
+                  "Durable premium materials built to last",
+                  "Printed & dispatched by verified local studio",
+                  "Safe packaging & doorstep express delivery",
+                ]).map((pt, pIdx) => (
+                  <li key={pIdx} className="flex items-center gap-2 font-medium">
+                    <CheckCircle2 className="h-4 w-4 text-emerald-600 flex-shrink-0" /> {pt}
                   </li>
-                  <li className="flex items-center gap-2 font-medium">
-                    <CheckCircle2 className="h-4 w-4 text-emerald-600 flex-shrink-0" /> High-definition vibrant color reproduction
-                  </li>
-                  <li className="flex items-center gap-2 font-medium">
-                    <CheckCircle2 className="h-4 w-4 text-emerald-600 flex-shrink-0" /> Durable premium materials built to last
-                  </li>
-                  <li className="flex items-center gap-2 font-medium">
-                    <CheckCircle2 className="h-4 w-4 text-emerald-600 flex-shrink-0" /> Printed &amp; dispatched by verified local studio
-                  </li>
-                  <li className="flex items-center gap-2 font-medium">
-                    <CheckCircle2 className="h-4 w-4 text-emerald-600 flex-shrink-0" /> Safe packaging &amp; doorstep express delivery
-                  </li>
-                </>
+                ))
               )}
             </ul>
           </div>
@@ -1306,17 +1382,13 @@ export default function ProductDetailsPage({ params }: { params: Promise<any> })
                   })}
                 </div>
 
-                {/* Optional Custom Gift Card Message */}
+                {/* Optional Custom Inscription / Dedication */}
                 <div className="mt-4">
-                  <label className="text-xs font-bold text-[#3A2B24] mb-1.5 flex items-center justify-between">
-                    <span>Add Optional Gift Message Card (Free):</span>
-                    <span className="text-[10px] text-[#D89A86]">Optional</span>
-                  </label>
-                  <Input 
-                    placeholder="Enter gift message (e.g. Forever Us! With Love ❤️)"
+                  <ProductTextCustomizer
                     value={customGiftMessage}
-                    onChange={(e) => setCustomGiftMessage(e.target.value)}
-                    className="rounded-xl border-[#EFE6DD] bg-white text-xs font-medium"
+                    onChange={setCustomGiftMessage}
+                    productName={product.name}
+                    productCategory="Gifts"
                   />
                 </div>
               </div>
@@ -1383,15 +1455,11 @@ export default function ProductDetailsPage({ params }: { params: Promise<any> })
 
                 {/* Optional Custom Gift Card Message */}
                 <div className="mt-4">
-                  <label className="text-xs font-bold text-[#3A2B24] mb-1.5 flex items-center justify-between">
-                    <span>Add Optional Gift Message Card (Free):</span>
-                    <span className="text-[10px] text-[#D89A86]">Optional</span>
-                  </label>
-                  <Input 
-                    placeholder="Enter gift message (e.g. For your work desk! With Love ❤️)"
+                  <ProductTextCustomizer
                     value={customGiftMessage}
-                    onChange={(e) => setCustomGiftMessage(e.target.value)}
-                    className="rounded-xl border-[#EFE6DD] bg-white text-xs font-medium"
+                    onChange={setCustomGiftMessage}
+                    productName={product.name}
+                    productCategory="Gifts"
                   />
                 </div>
               </div>
@@ -1433,15 +1501,11 @@ export default function ProductDetailsPage({ params }: { params: Promise<any> })
 
                 {/* Optional Custom Gift Card Message */}
                 <div className="mt-4">
-                  <label className="text-xs font-bold text-[#3A2B24] mb-1.5 flex items-center justify-between">
-                    <span>Add Optional Gift Message Card (Free):</span>
-                    <span className="text-[10px] text-[#D89A86]">Optional</span>
-                  </label>
-                  <Input 
-                    placeholder="Enter gift message (e.g. Happy Birthday! With Love ❤️)"
+                  <ProductTextCustomizer
                     value={customGiftMessage}
-                    onChange={(e) => setCustomGiftMessage(e.target.value)}
-                    className="rounded-xl border-[#EFE6DD] bg-white text-xs font-medium"
+                    onChange={setCustomGiftMessage}
+                    productName={product.name}
+                    productCategory="Gifts"
                   />
                 </div>
               </div>
@@ -1514,17 +1578,13 @@ export default function ProductDetailsPage({ params }: { params: Promise<any> })
                   </div>
                 </div>
 
-                {/* Optional Custom Text Input */}
+                {/* Optional Custom Inscription / Text */}
                 <div className="mt-4">
-                  <label className="text-xs font-bold text-[#3A2B24] mb-1.5 flex items-center justify-between">
-                    <span>Add Optional Custom Name / Date / Note:</span>
-                    <span className="text-[10px] text-[#D89A86]">Optional</span>
-                  </label>
-                  <Input 
-                    placeholder="Enter name, vehicle number, or special date ❤️"
+                  <ProductTextCustomizer
                     value={customGiftMessage}
-                    onChange={(e) => setCustomGiftMessage(e.target.value)}
-                    className="rounded-xl border-[#EFE6DD] bg-white text-xs font-medium"
+                    onChange={setCustomGiftMessage}
+                    productName={product.name}
+                    productCategory={product.category}
                   />
                 </div>
               </div>
@@ -1596,17 +1656,13 @@ export default function ProductDetailsPage({ params }: { params: Promise<any> })
                   </p>
                 </div>
 
-                {/* Optional Custom Instructions */}
+                {/* Optional Custom Instructions / Note */}
                 <div className="mt-4">
-                  <label className="text-xs font-bold text-[#3A2B24] mb-1.5 flex items-center justify-between">
-                    <span>Add Optional Note or Instructions (Free):</span>
-                    <span className="text-[10px] text-[#D89A86]">Optional</span>
-                  </label>
-                  <Input 
-                    placeholder="Enter custom instructions or message"
+                  <ProductTextCustomizer
                     value={customGiftMessage}
-                    onChange={(e) => setCustomGiftMessage(e.target.value)}
-                    className="rounded-xl border-[#EFE6DD] bg-white text-xs font-medium"
+                    onChange={setCustomGiftMessage}
+                    productName={product.name}
+                    productCategory={product.category}
                   />
                 </div>
               </div>
@@ -1645,7 +1701,7 @@ export default function ProductDetailsPage({ params }: { params: Promise<any> })
                   <label className="text-xs font-bold text-[#3A2B24] mb-2 block uppercase tracking-wider">
                     Available Frame Colors
                   </label>
-                  <div className="flex items-center gap-3">
+                  <div className="flex flex-wrap items-center gap-2 sm:gap-3">
                     {activeFrameColors.map((c) => {
                       const isSelected = selectedColor === c.label;
                       return (
@@ -1653,7 +1709,7 @@ export default function ProductDetailsPage({ params }: { params: Promise<any> })
                           key={c.label}
                           type="button"
                           onClick={() => setSelectedColor(c.label)}
-                          className={`px-4 py-2 rounded-2xl border text-xs font-bold flex items-center gap-2 transition-all cursor-pointer ${
+                          className={`px-3 sm:px-4 py-2 rounded-2xl border text-xs font-bold flex items-center gap-2 transition-all cursor-pointer ${
                             isSelected
                               ? "border-[#D89A86] bg-[#3A2B24] text-white shadow-xs"
                               : "border-[#EFE6DD] bg-white text-[#3A2B24] hover:bg-[#FFF8F2]"
@@ -1665,6 +1721,17 @@ export default function ProductDetailsPage({ params }: { params: Promise<any> })
                       );
                     })}
                   </div>
+                </div>
+
+                {/* Optional Custom Dedication / Inscription for Frames */}
+                <div className="mt-4">
+                  <ProductTextCustomizer
+                    value={customGiftMessage}
+                    onChange={setCustomGiftMessage}
+                    productName={product.name}
+                    productCategory="Frames"
+                    label="Add Custom Inscription / Dedication on Frame (Free)"
+                  />
                 </div>
               </>
             )}
@@ -1722,6 +1789,20 @@ export default function ProductDetailsPage({ params }: { params: Promise<any> })
                   accept="image/*" 
                   className="hidden" 
                 />
+                <input 
+                  type="file" 
+                  ref={cameraFileInputRef} 
+                  onChange={(e) => {
+                    if (e.target.files && e.target.files.length > 0) {
+                      const file = e.target.files[0];
+                      const slotIdx = activeSlotRef.current;
+                      handleSingleFileUpload(file, slotIdx);
+                    }
+                  }} 
+                  accept="image/*" 
+                  capture="environment"
+                  className="hidden" 
+                />
 
                 <div className="flex flex-col sm:flex-row items-center gap-2 mb-4">
                   <Button 
@@ -1730,7 +1811,20 @@ export default function ProductDetailsPage({ params }: { params: Promise<any> })
                     className="flex-1 h-11 rounded-2xl border border-[#D89A86] bg-[#FFF8F2] text-[#3A2B24] font-semibold hover:bg-[#F2C8B5]/20 flex items-center justify-center gap-2 cursor-pointer text-xs"
                   >
                     <FolderPlus className="h-4 w-4 text-[#D89A86]" /> 
-                    Upload All {totalRequiredPhotos} Photos at Once
+                    Upload All {totalRequiredPhotos} Photos
+                  </Button>
+
+                  <Button 
+                    onClick={() => {
+                      const emptyIdx = uploadedPhotos.findIndex((p) => !p);
+                      activeSlotRef.current = emptyIdx !== -1 ? emptyIdx : 0;
+                      cameraFileInputRef.current?.click();
+                    }}
+                    variant="outline" 
+                    className="h-11 px-4 rounded-2xl border border-[#D89A86] bg-white text-[#3A2B24] font-semibold hover:bg-[#FFF8F2] flex items-center justify-center gap-1.5 cursor-pointer text-xs shadow-2xs whitespace-nowrap"
+                  >
+                    <Camera className="h-4 w-4 text-[#D89A86]" /> 
+                    Take Photo with Camera
                   </Button>
 
                   {uploadedCount > 0 && (
@@ -1740,7 +1834,7 @@ export default function ProductDetailsPage({ params }: { params: Promise<any> })
                       className="h-11 px-4 rounded-2xl border-rose-200 bg-rose-50 text-rose-700 font-bold hover:bg-rose-100 flex items-center justify-center gap-1.5 cursor-pointer text-xs transition-colors shadow-2xs whitespace-nowrap"
                     >
                       <Trash2 className="h-4 w-4 text-rose-600" />
-                      Remove All Uploaded Pics
+                      Clear
                     </Button>
                   )}
                 </div>
@@ -1890,132 +1984,229 @@ export default function ProductDetailsPage({ params }: { params: Promise<any> })
                 </span>
               </div>
               <div className="flex items-center gap-2">
-                <Link href="/cart">
-                  <Button size="sm" className="rounded-full bg-emerald-700 hover:bg-emerald-800 text-white text-xs">
-                    View Cart ({cartCount}) →
-                  </Button>
+                <Link 
+                  href="/cart"
+                  className="rounded-full bg-emerald-700 hover:bg-emerald-800 text-white text-xs px-3 py-1.5 font-bold flex items-center justify-center transition-colors cursor-pointer"
+                >
+                  View Cart ({cartCount}) →
                 </Link>
               </div>
             </div>
           )}
 
-          {/* Action Buttons */}
-          <div className="flex flex-col sm:flex-row gap-4 mb-6">
+          {/* TWO PURCHASE OPTIONS: INDIVIDUAL VS HAMPER */}
+          <div className="space-y-4 mb-6">
             {product.status === "Out of Stock" || (product.stock !== undefined && product.stock <= 0) ? (
-              <Button 
-                size="lg" 
-                disabled
-                className="flex-1 h-14 text-base font-extrabold rounded-2xl bg-gray-400 text-white cursor-not-allowed uppercase tracking-wider shadow-none border-none"
-              >
-                OUT OF STOCK
-              </Button>
+              <div className="p-5 rounded-3xl border-2 border-rose-200 bg-rose-50/70 text-center space-y-2">
+                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-rose-100 text-rose-700 text-xs font-extrabold uppercase tracking-wider">
+                  ❌ Currently Out of Stock
+                </div>
+                <p className="text-xs text-[#6C5C54] max-w-sm mx-auto">
+                  This item is currently sold out. You can browse all product details, dimensions, and specifications above, but ordering is temporarily unavailable.
+                </p>
+                <Button 
+                  size="lg" 
+                  disabled
+                  className="w-full h-12 text-sm font-extrabold rounded-full bg-gray-300 text-gray-600 cursor-not-allowed uppercase tracking-wider shadow-none border-none mt-1"
+                >
+                  Unavailable to Order
+                </Button>
+              </div>
             ) : (
-              <Button 
-                size="lg" 
-                className="flex-1 h-14 text-lg rounded-full btn-pixello-primary cursor-pointer"
-                onClick={() => {
-                  if (!isComplete && !isPhotoOptional) {
-                    setPhotoAlertModal({
-                      isOpen: true,
-                      title: "Photo Upload Required",
-                      message: `Photo upload is compulsory! Please upload all ${totalRequiredPhotos} photo(s) before adding to cart (${uploadedCount}/${totalRequiredPhotos} uploaded).`,
-                      uploadedCount,
-                      requiredCount: totalRequiredPhotos,
-                      actionType: "cart",
-                    });
-                    return;
-                  }
-                  const chosenSize = selectedAdminVariant
-                    ? selectedAdminVariant.name
-                    : (isPaperWeight
-                      ? `${currentPaperWeightObj.name}`
-                      : (isLiquidTimer
-                        ? `${currentTimerObj.name}`
-                        : (isPanda
-                          ? `${currentPandaObj.name}`
-                          : (isKeyChain
-                            ? `Personalized Keychain (Double-Sided HD)`
-                            : (isMug
-                              ? `${product.name} (330ml Ceramic)`
-                              : (isLamp
-                                ? `${product.name} (7 LED Light Modes)`
-                                : (isPolaroid
-                                  ? `${selectedPolaroidSize} Polaroid (${quantity} Prints)`
-                                  : (isFrame ? `${selectedSizeLabel} (${selectedGsm}, ${selectedColor} Frame)` : `${product.name} (Standard)`))))))));
+              <>
+                {/* OPTION A: BUY INDIVIDUALLY */}
+                <div className="p-4 rounded-2xl border border-[#EFE6DD] bg-white shadow-2xs space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-[#3A2B24] flex items-center gap-1.5 uppercase tracking-wider">
+                      <ShoppingBag className="h-4 w-4 text-[#D89A86]" /> Option A: Buy Individually
+                    </span>
+                    <span className="text-[10px] text-[#6C5C54] font-medium bg-[#FFF8F2] px-2 py-0.5 rounded-full border border-[#EFE6DD]">
+                      Normal Purchase
+                    </span>
+                  </div>
 
-                  const validPhotoDataUrls = uploadedPhotoDataUrls.filter(Boolean) as string[];
-                  const primaryImage = validPhotoDataUrls.length > 0
-                    ? validPhotoDataUrls[0]
-                    : (uploadedPhotos[0] ? URL.createObjectURL(uploadedPhotos[0]) : product.images[mainImageIndex]);
+                  <div className="flex flex-col sm:flex-row items-center gap-3">
+                    <Button 
+                      size="lg" 
+                      className="flex-1 w-full h-13 text-sm sm:text-base font-bold rounded-full btn-pixello-primary cursor-pointer shadow-xs"
+                      onClick={() => {
+                        if (!isComplete && !isPhotoOptional) {
+                          setPhotoAlertModal({
+                            isOpen: true,
+                            title: "Photo Upload Required",
+                            message: `Photo upload is compulsory! Please upload all ${totalRequiredPhotos} photo(s) before adding to cart (${uploadedCount}/${totalRequiredPhotos} uploaded).`,
+                            uploadedCount,
+                            requiredCount: totalRequiredPhotos,
+                            actionType: "cart",
+                          });
+                          return;
+                        }
+                        const chosenSize = selectedAdminVariant
+                          ? selectedAdminVariant.name
+                          : (isPaperWeight
+                            ? `${currentPaperWeightObj.name}`
+                            : (isLiquidTimer
+                              ? `${currentTimerObj.name}`
+                              : (isPanda
+                                ? `${currentPandaObj.name}`
+                                : (isKeyChain
+                                  ? `Personalized Keychain (Double-Sided HD)`
+                                  : (isMug
+                                    ? `${product.name} (330ml Ceramic)`
+                                    : (isLamp
+                                      ? `${product.name} (7 LED Light Modes)`
+                                      : (isPolaroid
+                                        ? `${selectedPolaroidSize} Polaroid (${quantity} Prints)`
+                                        : (isFrame ? `${selectedSizeLabel} (${selectedGsm}, ${selectedColor} Frame)` : `${product.name} (Standard)`))))))));
 
-                  addToCart({
-                    id: `custom-${id}-${selectedAdminVariantIdx}-${selectedPaperWeightVariant}-${selectedTimerVariant}-${selectedPandaVariant}-${selectedPolaroidSize}-${selectedSizeLabel}-${Date.now()}`,
-                    name: product.name,
-                    size: customGiftMessage ? `${chosenSize} [Message: ${customGiftMessage}]` : chosenSize,
-                    price: unitPrice,
-                    quantity: quantity,
-                    image: primaryImage,
-                    photos: validPhotoDataUrls.length > 0 ? validPhotoDataUrls : []
-                  });
-                  setAddedToast({ size: chosenSize, quantity: 1 });
-                }}
-              >
-                Add to Cart
-              </Button>
+                        const validPhotoDataUrls = uploadedPhotoDataUrls.filter(Boolean) as string[];
+                        const primaryImage = validPhotoDataUrls.length > 0
+                          ? validPhotoDataUrls[0]
+                          : (uploadedPhotos[0] ? URL.createObjectURL(uploadedPhotos[0]) : product.images[mainImageIndex]);
+
+                        addToCart({
+                          id: `custom-${id}-${selectedAdminVariantIdx}-${selectedPaperWeightVariant}-${selectedTimerVariant}-${selectedPandaVariant}-${selectedPolaroidSize}-${selectedSizeLabel}-${Date.now()}`,
+                          name: product.name,
+                          size: customGiftMessage ? `${chosenSize} [Message: ${customGiftMessage}]` : chosenSize,
+                          price: unitPrice,
+                          quantity: quantity,
+                          image: primaryImage,
+                          photos: validPhotoDataUrls.length > 0 ? validPhotoDataUrls : []
+                        });
+                        setAddedToast({ size: chosenSize, quantity: 1 });
+                      }}
+                    >
+                      Add to Cart (₹{totalPrice})
+                    </Button>
+
+                    <Button 
+                      size="lg" 
+                      variant="secondary" 
+                      className="flex-1 w-full h-13 text-sm sm:text-base font-bold rounded-full bg-[#3A2B24] text-white hover:bg-[#544036] cursor-pointer shadow-xs"
+                      onClick={() => {
+                        if (!isComplete && !isPhotoOptional) {
+                          setPhotoAlertModal({
+                            isOpen: true,
+                            title: "Photo Upload Required",
+                            message: `Photo upload is compulsory! Please upload all ${totalRequiredPhotos} photo(s) before checkout (${uploadedCount}/${totalRequiredPhotos} uploaded).`,
+                            uploadedCount,
+                            requiredCount: totalRequiredPhotos,
+                            actionType: "checkout",
+                          });
+                          return;
+                        }
+                        const chosenSize = selectedAdminVariant
+                          ? selectedAdminVariant.name
+                          : (isPaperWeight
+                            ? `${currentPaperWeightObj.name}`
+                            : (isLiquidTimer
+                              ? `${currentTimerObj.name}`
+                              : (isPanda
+                                ? `${currentPandaObj.name}`
+                                : (isKeyChain
+                                  ? `Personalized Keychain (Double-Sided HD)`
+                                  : (isMug
+                                    ? `${product.name} (330ml Ceramic)`
+                                    : (isLamp
+                                      ? `${product.name} (7 LED Light Modes)`
+                                      : (isPolaroid
+                                        ? `${selectedPolaroidSize} Polaroid (${quantity} Prints)`
+                                        : (isFrame ? `${selectedSizeLabel} (${selectedGsm}, ${selectedColor} Frame)` : `${product.name} (Standard)`))))))));
+
+                        const validPhotoDataUrls = uploadedPhotoDataUrls.filter(Boolean) as string[];
+                        const primaryImage = validPhotoDataUrls.length > 0
+                          ? validPhotoDataUrls[0]
+                          : (uploadedPhotos[0] ? URL.createObjectURL(uploadedPhotos[0]) : product.images[mainImageIndex]);
+
+                        addToCart({
+                          id: `custom-${id}-${selectedAdminVariantIdx}-${selectedPaperWeightVariant}-${selectedTimerVariant}-${selectedPandaVariant}-${selectedPolaroidSize}-${selectedSizeLabel}-${Date.now()}`,
+                          name: product.name,
+                          size: customGiftMessage ? `${chosenSize} [Message: ${customGiftMessage}]` : chosenSize,
+                          price: unitPrice,
+                          quantity: quantity,
+                          image: primaryImage,
+                          photos: validPhotoDataUrls.length > 0 ? validPhotoDataUrls : []
+                        });
+                        router.push("/cart");
+                      }}
+                    >
+                      Buy Now Directly
+                    </Button>
+                  </div>
+                </div>
+
+                {/* OPTION B: ADD TO HAMPER */}
+                <div className="p-4 rounded-2xl border border-[#D89A86]/40 bg-gradient-to-r from-[#FFF8F2] via-white to-[#FFF8F2] shadow-2xs space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-[#D89A86] flex items-center gap-1.5 uppercase tracking-wider">
+                      <Gift className="h-4 w-4 text-[#D89A86]" /> Option B: Add to Gift Hamper
+                    </span>
+                    <span className="text-[10px] font-extrabold uppercase text-[#D89A86] bg-white border border-[#D89A86]/40 px-2 py-0.5 rounded-full shadow-2xs">
+                      Curate Multiple Gifts
+                    </span>
+                  </div>
+
+                  <p className="text-[11px] text-[#6C5C54] leading-relaxed">
+                    Combine this product with other gifts into a luxury keepsake box with custom satin ribbons & personal dedication card.
+                  </p>
+
+                  <Button
+                    size="lg"
+                    onClick={() => {
+                      const chosenSize = selectedAdminVariant
+                        ? selectedAdminVariant.name
+                        : (isPaperWeight
+                          ? `${currentPaperWeightObj.name}`
+                          : (isLiquidTimer
+                            ? `${currentTimerObj.name}`
+                            : (isPanda
+                              ? `${currentPandaObj.name}`
+                              : (isKeyChain
+                                ? `Personalized Keychain (Double-Sided HD)`
+                                : (isMug
+                                  ? `${product.name} (330ml Ceramic)`
+                                  : (isLamp
+                                    ? `${product.name} (7 LED Light Modes)`
+                                    : (isPolaroid
+                                      ? `${selectedPolaroidSize} Polaroid (${quantity} Prints)`
+                                      : (isFrame ? `${selectedSizeLabel} (${selectedGsm}, ${selectedColor} Frame)` : `${product.name} (Standard)`))))))));
+
+                      const validPhotoDataUrls = uploadedPhotoDataUrls.filter(Boolean) as string[];
+                      const primaryImage = validPhotoDataUrls.length > 0
+                        ? validPhotoDataUrls[0]
+                        : (uploadedPhotos[0] ? URL.createObjectURL(uploadedPhotos[0]) : product.images[mainImageIndex]);
+
+                      addToHamper(
+                        {
+                          id: product.id,
+                          name: product.name,
+                          category: product.category,
+                          price: unitPrice,
+                          originalPrice: unitOriginalPrice,
+                          image: primaryImage,
+                        },
+                        {
+                          selectedOption: chosenSize,
+                          customMessage: customGiftMessage,
+                          photos: validPhotoDataUrls,
+                          quantity: quantity,
+                          price: unitPrice,
+                        }
+                      );
+                      setHamperToastModal({ isOpen: true, name: product.name });
+                    }}
+                    className="w-full h-13 rounded-full bg-[#D89A86] hover:bg-[#c98975] text-white font-bold text-sm shadow-md flex items-center justify-center gap-2 cursor-pointer transition-transform active:scale-95"
+                  >
+                    <Gift className="h-4 w-4" />
+                    <span>
+                      {isCurrentProductInHamper
+                        ? `Add to Hamper (${currentProductHamperQty} already in Hamper)`
+                        : 'Add to My Hamper 🎁'}
+                    </span>
+                  </Button>
+                </div>
+              </>
             )}
-            <Button 
-              size="lg" 
-              variant="secondary" 
-              className="flex-1 h-14 text-lg rounded-full bg-[#3A2B24] text-white hover:bg-[#544036] cursor-pointer"
-              onClick={() => {
-                if (!isComplete && !isPhotoOptional) {
-                  setPhotoAlertModal({
-                    isOpen: true,
-                    title: "Photo Upload Required",
-                    message: `Photo upload is compulsory! Please upload all ${totalRequiredPhotos} photo(s) before checkout (${uploadedCount}/${totalRequiredPhotos} uploaded).`,
-                    uploadedCount,
-                    requiredCount: totalRequiredPhotos,
-                    actionType: "checkout",
-                  });
-                  return;
-                }
-                const chosenSize = selectedAdminVariant
-                  ? selectedAdminVariant.name
-                  : (isPaperWeight
-                    ? `${currentPaperWeightObj.name}`
-                    : (isLiquidTimer
-                      ? `${currentTimerObj.name}`
-                      : (isPanda
-                        ? `${currentPandaObj.name}`
-                        : (isKeyChain
-                          ? `Personalized Keychain (Double-Sided HD)`
-                          : (isMug
-                            ? `${product.name} (330ml Ceramic)`
-                            : (isLamp
-                              ? `${product.name} (7 LED Light Modes)`
-                              : (isPolaroid
-                                ? `${selectedPolaroidSize} Polaroid (${quantity} Prints)`
-                                : (isFrame ? `${selectedSizeLabel} (${selectedGsm}, ${selectedColor} Frame)` : `${product.name} (Standard)`))))))));
-
-                const validPhotoDataUrls = uploadedPhotoDataUrls.filter(Boolean) as string[];
-                const primaryImage = validPhotoDataUrls.length > 0
-                  ? validPhotoDataUrls[0]
-                  : (uploadedPhotos[0] ? URL.createObjectURL(uploadedPhotos[0]) : product.images[mainImageIndex]);
-
-                addToCart({
-                  id: `custom-${id}-${selectedAdminVariantIdx}-${selectedPaperWeightVariant}-${selectedTimerVariant}-${selectedPandaVariant}-${selectedPolaroidSize}-${selectedSizeLabel}-${Date.now()}`,
-                  name: product.name,
-                  size: customGiftMessage ? `${chosenSize} [Message: ${customGiftMessage}]` : chosenSize,
-                  price: unitPrice,
-                  quantity: quantity,
-                  image: primaryImage,
-                  photos: validPhotoDataUrls.length > 0 ? validPhotoDataUrls : []
-                });
-                router.push("/cart");
-              }}
-            >
-              Buy Now
-            </Button>
           </div>
 
 
@@ -2191,6 +2382,60 @@ export default function ProductDetailsPage({ params }: { params: Promise<any> })
             >
               Got it
             </Button>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* HAMPER ADDED SUCCESS CONFIRMATION MODAL */}
+      {/* ========================================================================= */}
+      {hamperToastModal && (
+        <div 
+          className="fixed inset-0 z-[9999] bg-black/70 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-200"
+          onClick={() => setHamperToastModal(null)}
+        >
+          <div 
+            className="bg-white border border-[#EFE6DD] rounded-[2rem] p-6 sm:p-8 max-w-sm w-full shadow-2xl relative text-center flex flex-col items-center animate-in zoom-in-95 duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button 
+              onClick={() => setHamperToastModal(null)}
+              className="absolute top-4 right-4 h-8 w-8 rounded-full bg-[#FFF8F2] hover:bg-[#F2C8B5]/40 text-[#3A2B24] flex items-center justify-center font-bold text-sm transition-colors cursor-pointer"
+            >
+              <X className="h-4 w-4" />
+            </button>
+
+            <div className="h-16 w-16 rounded-full bg-[#FFF8F2] text-[#D89A86] border border-[#D89A86]/30 flex items-center justify-center mb-3 shadow-2xs">
+              <Gift className="h-8 w-8 animate-pulse" />
+            </div>
+
+            <Badge className="bg-[#FFF8F2] text-[#D89A86] border border-[#D89A86]/30 mb-2 px-3 py-0.5 rounded-full text-xs font-bold">
+              Added to Hamper 🎁
+            </Badge>
+
+            <h3 className="font-serif-brand text-xl font-bold text-[#3A2B24] mb-1">
+              Item Added to Hamper!
+            </h3>
+            <p className="text-xs text-[#6C5C54] mb-6 leading-relaxed">
+              <strong>{hamperToastModal.name}</strong> was placed into your custom gift hamper. You can continue adding more products or proceed to customize your gift box.
+            </p>
+
+            <div className="flex flex-col gap-2.5 w-full">
+              <Button
+                onClick={() => router.push("/hamper")}
+                className="w-full bg-[#3A2B24] hover:bg-[#523d33] text-white font-bold text-xs h-11 rounded-2xl shadow-md flex items-center justify-center gap-2 cursor-pointer uppercase tracking-wider"
+              >
+                <span>Customize & Review Hamper →</span>
+              </Button>
+
+              <Button
+                variant="outline"
+                onClick={() => setHamperToastModal(null)}
+                className="w-full h-10 rounded-2xl border-[#EFE6DD] text-xs font-bold text-[#6C5C54] hover:bg-[#FFF8F2] cursor-pointer"
+              >
+                <span>Continue Shopping More Gifts</span>
+              </Button>
+            </div>
           </div>
         </div>
       )}

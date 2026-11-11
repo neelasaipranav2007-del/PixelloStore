@@ -9,7 +9,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { useOrders, OrderStatus, Order } from "@/context/OrderContext";
 import { OrderStatusBadge } from "@/components/ui/status-badge";
 import { isDeliveryPortalEnabled } from "@/lib/deliveryConfig";
-import { ChevronDown, Search, X, Eye, Download, FileText, Image as ImageIcon, MessageCircle, Upload, Package, Check, Paperclip, Truck, Bike, Gift, User, Phone, Store, Calendar, MapPin, RefreshCw, FileSpreadsheet, Clock } from "lucide-react";
+import { ChevronDown, Search, X, Eye, Download, FileText, Image as ImageIcon, MessageCircle, Upload, Package, Check, Paperclip, Truck, Bike, Gift, User, Phone, Store, Calendar, MapPin, RefreshCw, FileSpreadsheet, Clock, Sparkles, ExternalLink, CheckCircle2, CreditCard } from "lucide-react";
 
 const STATUS_CONFIG: Record<string, { label: string; symbol: string; badgeClass: string; dotClass: string; itemBgClass: string }> = {
   "ORDER_PLACED": { label: "Order Placed", symbol: "📝", badgeClass: "bg-[#FFF8F2] text-[#D89A86] border-[#D89A86]/30", dotClass: "bg-[#D89A86]", itemBgClass: "bg-[#FFF8F2]" },
@@ -27,9 +27,10 @@ const STATUS_CONFIG: Record<string, { label: string; symbol: string; badgeClass:
   "CANCELLED": { label: "Cancelled", symbol: "❌", badgeClass: "bg-slate-100 text-slate-900 border-slate-300", dotClass: "bg-slate-500", itemBgClass: "bg-slate-100" },
 };
 
-const normalizeStatus = (status?: string): string => {
+const normalizeStatus = (status?: any): string => {
   if (!status) return "ORDER_PLACED";
-  const s = status.trim().toUpperCase().replace(/\s+/g, "_");
+  const str = typeof status === "string" ? status : (status?.customerStatus || status?.label || status?.name || String(status));
+  const s = str.trim().toUpperCase().replace(/\s+/g, "_");
   if (s === "CANCELLED" || s === "CANCELED") return "CANCELLED";
   if (s === "DELIVERED") return "DELIVERED";
   if (s === "COMPLETED") return "COMPLETED";
@@ -42,20 +43,30 @@ const normalizeStatus = (status?: string): string => {
   if (s === "IN_PRODUCTION" || s === "PRINTING" || s === "FRAMING" || s === "QUALITY_CHECK" || s === "PACKED") return "IN_PRODUCTION";
   if (s === "ORDER_CONFIRMED" || s === "ACCEPTED_BY_STUDIO" || s === "ASSIGNED_STUDIO" || s === "DESIGNING") return "ORDER_CONFIRMED";
   if (s === "PAYMENT_CONFIRMED") return "PAYMENT_CONFIRMED";
+  if (s === "SHIPPED") return "IN_TRANSIT";
   if (s === "ORDER_PLACED" || s === "PLACED") return "ORDER_PLACED";
 
   const match = Object.keys(STATUS_CONFIG).find((k) => k === s);
   return match || "ORDER_PLACED";
 };
 
-const getStatusConfig = (status: string) => {
-  const norm = normalizeStatus(status);
-  return STATUS_CONFIG[norm] || STATUS_CONFIG["Processing"];
+const DEFAULT_STATUS_FALLBACK = {
+  label: "In Production",
+  symbol: "🖨️",
+  badgeClass: "bg-amber-100 text-amber-900 border-amber-300",
+  dotClass: "bg-amber-500",
+  itemBgClass: "bg-amber-50",
 };
 
-const getReplacementStatusConfig = (status: string) => {
+const getStatusConfig = (status?: string) => {
+  if (!status) return STATUS_CONFIG["ORDER_PLACED"] || DEFAULT_STATUS_FALLBACK;
   const norm = normalizeStatus(status);
-  if (norm === "Delivered") {
+  return STATUS_CONFIG[norm] || STATUS_CONFIG["ORDER_PLACED"] || DEFAULT_STATUS_FALLBACK;
+};
+
+const getReplacementStatusConfig = (status?: string) => {
+  const norm = normalizeStatus(status);
+  if (norm === "DELIVERED" || norm === "COMPLETED") {
     return {
       label: "Replacement: Delivered",
       symbol: "✅",
@@ -64,7 +75,7 @@ const getReplacementStatusConfig = (status: string) => {
       itemBgClass: "bg-emerald-50/90 hover:bg-emerald-100/90 border-emerald-200 text-emerald-950"
     };
   }
-  if (norm === "Out for Delivery") {
+  if (norm === "OUT_FOR_DELIVERY" || norm === "IN_TRANSIT" || norm === "PICKED_UP") {
     return {
       label: "Replacement: Out for Delivery",
       symbol: "🚚",
@@ -73,7 +84,7 @@ const getReplacementStatusConfig = (status: string) => {
       itemBgClass: "bg-blue-50/90 hover:bg-blue-100/90 border-blue-200 text-blue-950"
     };
   }
-  if (norm === "Packed") {
+  if (norm === "READY_FOR_DELIVERY" || norm === "PACKED") {
     return {
       label: "Replacement: Packed (QA Passed)",
       symbol: "📦",
@@ -82,7 +93,7 @@ const getReplacementStatusConfig = (status: string) => {
       itemBgClass: "bg-sky-50/90 hover:bg-sky-100/90 border-sky-200 text-sky-950"
     };
   }
-  if (norm === "Processing") {
+  if (norm === "IN_PRODUCTION" || norm === "PROCESSING") {
     return {
       label: "Replacement: In Processing",
       symbol: "⏳",
@@ -91,7 +102,7 @@ const getReplacementStatusConfig = (status: string) => {
       itemBgClass: "bg-amber-50/90 hover:bg-amber-100/90 border-amber-200 text-amber-950"
     };
   }
-  if (norm === "Cancelled") {
+  if (norm === "CANCELLED") {
     return {
       label: "Cancelled",
       symbol: "❌",
@@ -136,6 +147,56 @@ const getItemPhotosList = (item: { image?: string; photos?: string[]; quantity?:
   // Standard gift / catalog item without uploaded custom photos
   const defaultImage = item?.image || "https://images.unsplash.com/photo-1513519245088-0e12902e5a38?w=800&q=80";
   return { photos: [defaultImage], isCustomUploaded: false };
+};
+
+const triggerDownloadPhoto = (url: string, filename: string) => {
+  try {
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  } catch (e) {
+    window.open(url, "_blank");
+  }
+};
+
+const parseHamperDetailsFromSize = (sizeStr?: string) => {
+  if (!sizeStr || typeof sizeStr !== "string") return null;
+  const parts = sizeStr.split("•").map((s) => s.trim());
+  const boxName = parts[0] || "Signature Handcrafted Box";
+  let themeName = "";
+  let recipient = "";
+  let occasion = "";
+  let giftNote = "";
+  let extrasCount = "";
+
+  const remainder = parts.slice(1).join(" • ");
+
+  const occasionMatch = remainder.match(/\[Occasion:\s*([^\]]+)\]/i);
+  if (occasionMatch) occasion = occasionMatch[1].trim();
+
+  const messageMatch = remainder.match(/\[Message:\s*([^\]]+)\]/i);
+  if (messageMatch) giftNote = messageMatch[1].trim();
+
+  const extrasMatch = remainder.match(/\+\s*(\d+)\s*Extras?/i);
+  if (extrasMatch) extrasCount = `${extrasMatch[1]} Luxury Extras`;
+
+  const forMatch = remainder.match(/For:\s*([^\[\+]+)/i);
+  if (forMatch) recipient = forMatch[1].trim();
+
+  const themePart = remainder.split(/For:|\[|\+/)[0].trim();
+  themeName = themePart || "Curated Ribbon";
+
+  return {
+    boxName,
+    themeName,
+    recipient,
+    occasion,
+    giftNote,
+    extrasCount,
+  };
 };
 
 export default function AdminOrdersPage() {
@@ -768,10 +829,20 @@ export default function AdminOrdersPage() {
                     )}
 
                     <div className="flex flex-wrap items-center justify-between gap-4">
-                      <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-2.5 flex-wrap">
                         <h3 className="font-sans font-extrabold text-lg sm:text-xl text-[#3A2B24]">
                           Order #{order.id}
                         </h3>
+                        {order.items?.some((it: any) => it.isHamper || (it.name && it.name.toLowerCase().includes("hamper"))) && (
+                          <span className="text-[10px] font-extrabold text-white bg-[#D89A86] px-2.5 py-0.5 rounded-full shadow-2xs flex items-center gap-1">
+                            <Gift className="h-3 w-3" /> HAMPER ORDER
+                          </span>
+                        )}
+                        {order.isSurpriseGift && (
+                          <span className="text-[10px] font-extrabold text-white bg-amber-700 px-2.5 py-0.5 rounded-full shadow-2xs flex items-center gap-1">
+                            <span>🎁</span> SURPRISE GIFT (OMIT INVOICE/PRICES)
+                          </span>
+                        )}
                         <span className="text-xs font-medium text-[#6C5C54]">
                           Method: <span className="font-bold text-[#3A2B24]">{order.paymentMethod || "COD"}</span>
                         </span>
@@ -881,6 +952,381 @@ export default function AdminOrdersPage() {
                 <div className="flex flex-col gap-2.5">
                   {order.items.map((item, idx) => {
                     const { photos: photoList, isCustomUploaded } = getItemPhotosList(item);
+                    let isHamperItem = !!item.isHamper || (typeof item.name === "string" && item.name.toLowerCase().includes("hamper"));
+                    let hamperData: any = item.hamperData || null;
+                    if (!hamperData && item.customizationDetails) {
+                      try {
+                        const parsed = JSON.parse(item.customizationDetails);
+                        if (parsed.hamperData) hamperData = parsed.hamperData;
+                        if (parsed.isHamper) isHamperItem = true;
+                      } catch (e) {}
+                    }
+
+                    // Fallback parser if legacy hamper order didn't have parsed hamperData
+                    if (!hamperData && isHamperItem) {
+                      const parsedFallback = parseHamperDetailsFromSize(item.size);
+                      if (parsedFallback) {
+                        const customPhotos = photoList.filter((p) => typeof p === "string" && (p.startsWith("data:") || p.startsWith("blob:") || !p.includes("unsplash.com")));
+                        hamperData = {
+                          isHamper: true,
+                          packaging: { name: parsedFallback.boxName },
+                          theme: { name: parsedFallback.themeName },
+                          recipientName: parsedFallback.recipient,
+                          senderName: order.customerName,
+                          occasion: parsedFallback.occasion,
+                          giftNote: parsedFallback.giftNote,
+                          addons: parsedFallback.extrasCount ? [{ name: parsedFallback.extrasCount }] : [],
+                          items: (customPhotos.length > 0) ? [
+                            {
+                              name: customPhotos.length > 1 ? "Custom Polaroid Prints Collection" : "Custom Framed Keepsake",
+                              selectedOption: customPhotos.length > 1 ? `${customPhotos.length} Prints Set` : "Customized Photo Frame",
+                              photos: customPhotos,
+                              image: customPhotos[0],
+                              price: item.price,
+                              quantity: 1,
+                            }
+                          ] : [],
+                        };
+                      }
+                    }
+
+                    if (isHamperItem && hamperData) {
+                      const hamperGifts = Array.isArray(hamperData.items) ? hamperData.items : [];
+                      const packagingName = hamperData.packaging?.name || "Signature Handcrafted Box";
+                      const packagingPrice = hamperData.packaging?.price || hamperData.packagingPrice || 0;
+                      const themeName = hamperData.theme?.name || "Signature Ribbon";
+                      const themeHex = hamperData.theme?.hex || "#D89A86";
+                      const addonsList = Array.isArray(hamperData.addons) ? hamperData.addons : [];
+
+                      return (
+                        <div
+                          key={idx}
+                          className="p-5 bg-gradient-to-br from-[#FFFDFB] via-[#FFF8F2] to-[#FAF3EC] border-2 border-[#D89A86]/50 rounded-3xl flex flex-col gap-4 shadow-sm"
+                        >
+                          {/* Hamper Top Header */}
+                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#EFE6DD] pb-3.5">
+                            <div className="flex items-center gap-3">
+                              <div className="w-13 h-13 rounded-2xl bg-[#D89A86]/20 border border-[#D89A86]/40 flex items-center justify-center text-3xl flex-shrink-0 shadow-2xs">
+                                🎁
+                              </div>
+                              <div>
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <h4 className="font-serif-brand font-bold text-base sm:text-lg text-[#3A2B24]">{item.name}</h4>
+                                  <span className="text-[10px] font-black uppercase tracking-wider text-white bg-[#D89A86] px-2.5 py-0.5 rounded-full shadow-2xs">
+                                    Curated Gift Hamper
+                                  </span>
+                                </div>
+                                <p className="text-xs text-[#6C5C54] mt-0.5 flex items-center gap-2 flex-wrap">
+                                  <span>📦 Box: <strong className="text-[#3A2B24] font-bold">{packagingName}</strong></span>
+                                  <span>•</span>
+                                  <span className="flex items-center gap-1">
+                                    <span className="h-2.5 w-2.5 rounded-full border border-black/20" style={{ backgroundColor: themeHex }} />
+                                    <span>Ribbon: <strong className="text-[#3A2B24] font-bold">{themeName}</strong></span>
+                                  </span>
+                                  {addonsList.length > 0 && (
+                                    <>
+                                      <span>•</span>
+                                      <span className="text-[#D89A86] font-bold">+{addonsList.length} Extras Packed</span>
+                                    </>
+                                  )}
+                                </p>
+                              </div>
+                            </div>
+
+                            <div className="flex items-center sm:flex-col sm:items-end justify-between sm:justify-center border-t sm:border-t-0 pt-2 sm:pt-0 border-[#EFE6DD]">
+                              <span className="text-xl font-black text-[#D89A86]">
+                                {item.quantity} × ₹{item.price ? item.price.toFixed(0) : "0"}
+                              </span>
+                              <span className="text-[10px] text-[#6C5C54] font-semibold">
+                                {hamperGifts.length} curated gift{hamperGifts.length !== 1 ? "s" : ""} inside
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* Packaging, Theme & Greeting Note Dossier */}
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+                            {/* Card A: Box Packaging & Luxury Extras */}
+                            <div className="p-3.5 bg-white rounded-2xl border border-[#EFE6DD] flex flex-col justify-between gap-2.5 shadow-2xs">
+                              <div>
+                                <div className="flex items-center justify-between border-b border-[#EFE6DD]/70 pb-1.5 mb-2">
+                                  <span className="font-extrabold uppercase text-[10px] text-[#6C5C54] flex items-center gap-1.5">
+                                    <Gift className="h-3.5 w-3.5 text-[#D89A86]" /> Packaging &amp; Extras
+                                  </span>
+                                  {packagingPrice > 0 && (
+                                    <span className="text-[10px] font-bold text-[#D89A86] bg-[#FFF8F2] px-2 py-0.5 rounded-full border border-[#D89A86]/20">
+                                      Box: ₹{packagingPrice}
+                                    </span>
+                                  )}
+                                </div>
+                                <p className="font-bold text-xs text-[#3A2B24]">
+                                  Selected Box: <span className="text-[#D89A86]">{packagingName}</span>
+                                </p>
+                                <p className="text-[11px] text-[#6C5C54] mt-0.5 flex items-center gap-1">
+                                  Theme &amp; Satin Ribbon: <strong className="text-[#3A2B24]">{themeName}</strong>
+                                </p>
+                              </div>
+
+                              {addonsList.length > 0 && (
+                                <div className="pt-2 border-t border-[#EFE6DD]/70">
+                                  <span className="text-[10px] font-bold text-[#6C5C54] uppercase tracking-wider block mb-1">
+                                    Included Luxury Extras:
+                                  </span>
+                                  <div className="flex flex-wrap gap-1.5">
+                                    {addonsList.map((addon: any, aIdx: number) => {
+                                      const aName = addon?.name || addon || "Luxury Extra";
+                                      const aPrice = addon?.price;
+                                      return (
+                                        <span
+                                          key={aIdx}
+                                          className="text-[10px] font-semibold text-[#3A2B24] bg-[#FFF8F2] border border-[#EFE6DD] px-2.5 py-1 rounded-xl flex items-center gap-1"
+                                        >
+                                          <span>✨</span>
+                                          <span>{aName}</span>
+                                          {aPrice ? <strong className="text-[#D89A86] font-bold">(₹{aPrice})</strong> : null}
+                                        </span>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Card B: Greeting Card Dedication */}
+                            <div className="p-3.5 bg-white rounded-2xl border border-[#EFE6DD] flex flex-col justify-between gap-2 shadow-2xs">
+                              <div>
+                                <div className="flex items-center justify-between border-b border-[#EFE6DD]/70 pb-1.5 mb-2">
+                                  <span className="font-extrabold uppercase text-[10px] text-[#6C5C54] flex items-center gap-1.5">
+                                    💌 Studio Greeting Card
+                                  </span>
+                                  {hamperData.occasion && (
+                                    <span className="text-[10px] font-bold text-[#D89A86] bg-[#FFF8F2] border border-[#D89A86]/20 px-2 py-0.5 rounded-full">
+                                      {hamperData.occasion}
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="space-y-1 text-xs">
+                                  {(hamperData.recipientName || hamperData.senderName) && (
+                                    <div className="flex items-center gap-2 flex-wrap font-semibold text-[#3A2B24]">
+                                      {hamperData.recipientName && (
+                                        <span>For: <strong className="text-[#D89A86] font-bold">{hamperData.recipientName}</strong></span>
+                                      )}
+                                      {hamperData.senderName && (
+                                        <span className="text-[#6C5C54]">(From: {hamperData.senderName})</span>
+                                      )}
+                                    </div>
+                                  )}
+                                  {hamperData.giftNote ? (
+                                    <div className="mt-1.5 p-2.5 bg-[#FFFDFB] rounded-xl border border-[#EFE6DD] text-[#3A2B24] italic text-xs leading-relaxed shadow-2xs">
+                                      &ldquo;{hamperData.giftNote}&rdquo;
+                                    </div>
+                                  ) : (
+                                    <p className="text-[11px] text-[#9C8C84] italic mt-1">No custom card message entered.</p>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* ========================================================== */}
+                          {/* DETAILED BREAKDOWN OF EVERY PRODUCT IN THE HAMPER          */}
+                          {/* ========================================================== */}
+                          <div className="space-y-3 pt-1">
+                            <div className="flex items-center justify-between">
+                              <span className="text-xs font-black uppercase tracking-wider text-[#3A2B24] flex items-center gap-1.5">
+                                <Package className="h-4 w-4 text-[#D89A86]" />
+                                Every Product Inside This Hamper ({hamperGifts.length} Gifts):
+                              </span>
+                              <span className="text-[10px] text-[#6C5C54] font-semibold">
+                                High-res photos available for studio printing
+                              </span>
+                            </div>
+
+                            {hamperGifts.length === 0 ? (
+                              <div className="p-4 bg-white rounded-2xl border border-dashed border-[#EFE6DD] text-center text-xs text-[#6C5C54]">
+                                No separate products recorded.
+                              </div>
+                            ) : (
+                              <div className="space-y-3">
+                                {hamperGifts.map((hIt: any, hIdx: number) => {
+                                  const hPhotos: string[] = (hIt.photos && Array.isArray(hIt.photos) && hIt.photos.length > 0)
+                                    ? hIt.photos
+                                    : (hIt.image ? [hIt.image] : ["/images/wooden_frame_main.png"]);
+                                  const customPhotos = hPhotos.filter((p) => typeof p === "string" && (p.startsWith("data:") || p.startsWith("blob:") || !p.includes("unsplash.com")));
+                                  const activePhotos = customPhotos.length > 0 ? customPhotos : hPhotos;
+
+                                  return (
+                                    <div
+                                      key={hIdx}
+                                      className="p-4 bg-white rounded-2xl border border-[#EFE6DD] shadow-2xs flex flex-col gap-3 hover:border-[#D89A86]/50 transition-colors"
+                                    >
+                                      {/* Product Header */}
+                                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[#EFE6DD]/70 pb-2.5">
+                                        <div className="flex items-center gap-2.5 flex-wrap">
+                                          <span className="h-6 w-6 rounded-lg bg-[#FFF8F2] border border-[#D89A86]/30 text-[#D89A86] text-xs font-black flex items-center justify-center">
+                                            #{hIdx + 1}
+                                          </span>
+                                          <h5 className="font-bold text-sm sm:text-base text-[#3A2B24]">{hIt.name}</h5>
+                                          {hIt.category && (
+                                            <span className="text-[10px] font-extrabold uppercase text-[#6C5C54] bg-[#F8F3EE] px-2 py-0.5 rounded-full">
+                                              {hIt.category}
+                                            </span>
+                                          )}
+                                        </div>
+
+                                        <div className="flex items-center gap-3 self-end sm:self-auto">
+                                          <span className="font-extrabold text-sm text-[#D89A86]">
+                                            {hIt.quantity || 1} × ₹{hIt.price || 0}
+                                          </span>
+                                        </div>
+                                      </div>
+
+                                      {/* Product Specifications & Inscription */}
+                                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                                        <div className="p-2.5 bg-[#FAF7F4] rounded-xl border border-[#EFE6DD] space-y-1">
+                                          <span className="text-[10px] font-bold text-[#6C5C54] uppercase tracking-wider block">
+                                            Size / Edition / Specifications:
+                                          </span>
+                                          <p className="font-semibold text-xs text-[#3A2B24]">
+                                            {hIt.selectedOption || hIt.size || "Standard Edition"}
+                                          </p>
+                                        </div>
+
+                                        <div className="p-2.5 bg-[#FAF7F4] rounded-xl border border-[#EFE6DD] space-y-1">
+                                          <span className="text-[10px] font-bold text-[#6C5C54] uppercase tracking-wider block">
+                                            Custom Inscription / Caption:
+                                          </span>
+                                          {hIt.customMessage ? (
+                                            <p className="font-semibold text-xs text-[#D89A86] italic">
+                                              &ldquo;{hIt.customMessage}&rdquo;
+                                            </p>
+                                          ) : (
+                                            <p className="text-[11px] text-[#9C8C84] italic">None requested</p>
+                                          )}
+                                        </div>
+                                      </div>
+
+                                      {/* CUSTOMER UPLOADED PHOTOS FOR THIS SPECIFIC PRODUCT */}
+                                      <div className="space-y-2 pt-1">
+                                        <div className="flex items-center justify-between flex-wrap gap-2">
+                                          <div className="flex items-center gap-1.5">
+                                            <ImageIcon className="h-3.5 w-3.5 text-emerald-600" />
+                                            <span className="text-xs font-bold text-[#3A2B24]">
+                                              Customer Uploaded Photos ({activePhotos.length} Photo{activePhotos.length !== 1 ? "s" : ""}):
+                                            </span>
+                                          </div>
+
+                                          {activePhotos.length > 1 && (
+                                            <button
+                                              type="button"
+                                              onClick={() => {
+                                                activePhotos.forEach((pUrl, pI) => {
+                                                  setTimeout(() => {
+                                                    triggerDownloadPhoto(pUrl, `Pixello_${order.id}_Gift${hIdx + 1}_Photo${pI + 1}.jpg`);
+                                                  }, pI * 300);
+                                                });
+                                              }}
+                                              className="text-[11px] font-bold text-[#D89A86] hover:text-[#b37563] flex items-center gap-1 cursor-pointer hover:underline"
+                                            >
+                                              <Download className="h-3 w-3" />
+                                              <span>Download All {activePhotos.length} Photos</span>
+                                            </button>
+                                          )}
+                                        </div>
+
+                                        {/* Photos Gallery Grid */}
+                                        <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-2.5">
+                                          {activePhotos.map((photoUrl, pIdx) => (
+                                            <div
+                                              key={pIdx}
+                                              className="group relative rounded-xl overflow-hidden border border-[#EFE6DD] bg-[#FFF8F2] aspect-square shadow-2xs hover:shadow-md transition-all flex flex-col justify-between"
+                                            >
+                                              <img
+                                                src={photoUrl}
+                                                alt={`Gift #${hIdx + 1} Photo #${pIdx + 1}`}
+                                                className="w-full h-full object-cover group-hover:scale-105 transition-transform cursor-pointer"
+                                                onClick={() =>
+                                                  setPreviewModal({
+                                                    isOpen: true,
+                                                    orderId: order.id,
+                                                    customerName: order.customerName,
+                                                    customerPhone: order.customerPhone,
+                                                    itemName: `${hIt.name} (Hamper Gift #${hIdx + 1})`,
+                                                    itemSize: hIt.selectedOption || hIt.size || "Standard",
+                                                    photos: activePhotos,
+                                                    activePhotoIdx: pIdx,
+                                                    assignedStudio: order.assignedStudio,
+                                                  })
+                                                }
+                                              />
+
+                                              {/* Photo index badge */}
+                                              <span className="absolute top-1.5 left-1.5 bg-[#3A2B24]/85 text-white font-black text-[9px] px-1.5 py-0.5 rounded-md shadow-sm">
+                                                #{pIdx + 1}
+                                              </span>
+
+                                              {/* Hover Quick Actions */}
+                                              <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center gap-2 transition-opacity p-2">
+                                                <button
+                                                  type="button"
+                                                  onClick={() =>
+                                                    setPreviewModal({
+                                                      isOpen: true,
+                                                      orderId: order.id,
+                                                      customerName: order.customerName,
+                                                      customerPhone: order.customerPhone,
+                                                      itemName: `${hIt.name} (Hamper Gift #${hIdx + 1})`,
+                                                      itemSize: hIt.selectedOption || hIt.size || "Standard",
+                                                      photos: activePhotos,
+                                                      activePhotoIdx: pIdx,
+                                                      assignedStudio: order.assignedStudio,
+                                                    })
+                                                  }
+                                                  className="h-8 w-8 rounded-full bg-white text-[#3A2B24] flex items-center justify-center hover:scale-110 transition-transform shadow-md cursor-pointer"
+                                                  title="View Fullscreen HD"
+                                                >
+                                                  <Eye className="h-4 w-4" />
+                                                </button>
+                                                <button
+                                                  type="button"
+                                                  onClick={() =>
+                                                    triggerDownloadPhoto(
+                                                      photoUrl,
+                                                      `Pixello_${order.id}_Gift${hIdx + 1}_Photo${pIdx + 1}.jpg`
+                                                    )
+                                                  }
+                                                  className="h-8 w-8 rounded-full bg-[#D89A86] text-white flex items-center justify-center hover:scale-110 transition-transform shadow-md cursor-pointer"
+                                                  title="Download Original HD Photo"
+                                                >
+                                                  <Download className="h-4 w-4" />
+                                                </button>
+                                              </div>
+                                            </div>
+                                          ))}
+                                        </div>
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Hamper Financial Plaque */}
+                          <div className="p-3 bg-white rounded-2xl border border-[#EFE6DD] flex flex-col sm:flex-row items-center justify-between text-xs gap-2">
+                            <div className="flex items-center gap-3 text-[11px] text-[#6C5C54] flex-wrap">
+                              <span>Products Subtotal: <strong className="text-[#3A2B24]">₹{hamperData.productsSubtotal || item.price}</strong></span>
+                              {packagingPrice > 0 && <span>• Box Packaging: <strong className="text-[#3A2B24]">₹{packagingPrice}</strong></span>}
+                              {hamperData.addonsTotal ? <span>• Luxury Extras: <strong className="text-[#3A2B24]">₹{hamperData.addonsTotal}</strong></span> : null}
+                            </div>
+                            <div className="text-right">
+                              <span className="text-[10px] uppercase font-bold text-[#6C5C54] mr-2">Hamper Total:</span>
+                              <span className="font-black text-sm text-[#D89A86]">₹{item.price ? item.price.toFixed(0) : "0"}</span>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    }
+
                     return (
                       <div
                         key={idx}
@@ -914,6 +1360,38 @@ export default function AdminOrdersPage() {
                             <h4 className="font-bold text-sm text-[#3A2B24] truncate">{item.name}</h4>
                             <p className="text-xs text-[#6C5C54] font-medium truncate mt-0.5">Category / Size: {item.size}</p>
                             
+                            {/* Frame Customization Details Badge */}
+                            {(() => {
+                              let frameCustom: any = null;
+                              if (item.customizationDetails) {
+                                try {
+                                  const parsed = typeof item.customizationDetails === "string" ? JSON.parse(item.customizationDetails) : item.customizationDetails;
+                                  if (parsed.frameCustomization) frameCustom = parsed.frameCustomization;
+                                } catch (e) {}
+                              }
+                              if (!frameCustom) return null;
+                              return (
+                                <div className="flex flex-wrap gap-1.5 mt-1.5 text-[10px]">
+                                  <span className="font-bold bg-[#FFF2EB] text-[#D89A86] px-2 py-0.5 rounded border border-[#F3DACF]">
+                                    Wood: {frameCustom.colorName || "Natural Pine"}
+                                  </span>
+                                  <span className="font-bold bg-[#FAF5F0] text-[#6C5C54] px-2 py-0.5 rounded border border-[#EFE6DD]">
+                                    Paper: {frameCustom.gsm || "180 GSM"} Silk
+                                  </span>
+                                  {frameCustom.customInscription && (
+                                    <span className="italic font-bold text-[#5A463B] bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
+                                      Inscription: "{frameCustom.customInscription}"
+                                    </span>
+                                  )}
+                                  {frameCustom.orientation && (
+                                    <span className="text-[#6C5C54] bg-white px-2 py-0.5 rounded border border-[#EFE6DD] capitalize">
+                                      {frameCustom.orientation} • {frameCustom.hasMat ? "Mat" : "Bleed"}
+                                    </span>
+                                  )}
+                                </div>
+                              );
+                            })()}
+
                             {/* Photo list pills */}
                             <div className="flex flex-wrap gap-1 mt-1.5">
                               {isCustomUploaded ? (
@@ -1165,46 +1643,136 @@ export default function AdminOrdersPage() {
 
               {/* CUSTOMER & FULFILLMENT STRUCTURED INFO GRID */}
               <div className="pt-3 border-t border-[#EFE6DD] flex flex-col gap-3">
-                {/* 3-Column Modern Information Cards */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
-                  {/* Card 1: Customer Contact Info */}
-                  <div className="p-3 bg-[#FAF7F4] border border-[#EFE6DD] rounded-2xl flex flex-col gap-1 shadow-2xs">
-                    <div className="flex items-center gap-1.5 text-[10px] font-extrabold text-[#6C5C54] uppercase tracking-wider">
-                      <User className="h-3.5 w-3.5 text-[#D89A86]" /> Customer
+                {/* 4-Column Comprehensive Customer & Order Dossier */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
+                  {/* Card 1: Customer Contact & Direct Actions */}
+                  <div className="p-3.5 bg-[#FAF7F4] border border-[#EFE6DD] rounded-2xl flex flex-col justify-between gap-2 shadow-2xs">
+                    <div>
+                      <div className="flex items-center justify-between text-[10px] font-extrabold text-[#6C5C54] uppercase tracking-wider mb-1">
+                        <span className="flex items-center gap-1.5">
+                          <User className="h-3.5 w-3.5 text-[#D89A86]" /> Customer Profile
+                        </span>
+                        <span className="text-[9px] font-bold text-emerald-800 bg-emerald-100 border border-emerald-200 px-1.5 py-0.2 rounded-md">
+                          Verified
+                        </span>
+                      </div>
+                      <div className="font-extrabold text-sm text-[#3A2B24]">
+                        {order.customerName}
+                      </div>
+                      <p className="text-[11px] text-[#6C5C54] mt-0.5 truncate">
+                        {order.customerEmail || "contact@pixello.store"}
+                      </p>
                     </div>
-                    <div className="font-extrabold text-sm text-[#3A2B24]">
-                      {order.customerName}
+
+                    <div className="pt-2 border-t border-[#EFE6DD]/70 flex items-center gap-2">
+                      <a
+                        href={`tel:${order.customerPhone}`}
+                        className="flex-1 py-1 px-2 rounded-lg bg-white border border-[#EFE6DD] text-[#3A2B24] hover:bg-[#FFF8F2] text-[11px] font-bold flex items-center justify-center gap-1 transition-colors"
+                        title="Call Customer"
+                      >
+                        <Phone className="h-3 w-3 text-[#D89A86]" />
+                        <span>Call</span>
+                      </a>
+                      <a
+                        href={`https://wa.me/${order.customerPhone.replace(/\D/g, "")}?text=${encodeURIComponent(`Hi ${order.customerName}, this is Pixello Support regarding your Order #${order.id}.`)}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="flex-1 py-1 px-2 rounded-lg bg-[#25D366]/10 border border-[#25D366]/30 text-[#1DA851] hover:bg-[#25D366]/20 text-[11px] font-bold flex items-center justify-center gap-1 transition-colors"
+                        title="WhatsApp Customer"
+                      >
+                        <MessageCircle className="h-3 w-3" />
+                        <span>WhatsApp</span>
+                      </a>
                     </div>
-                    <a
-                      href={`tel:${order.customerPhone}`}
-                      className="inline-flex items-center gap-1 text-xs font-semibold text-[#D89A86] hover:underline w-fit"
-                    >
-                      <Phone className="h-3 w-3" /> {order.customerPhone}
-                    </a>
                   </div>
 
                   {/* Card 2: Delivery & Shipping Address */}
-                  <div className="p-3 bg-[#FAF7F4] border border-[#EFE6DD] rounded-2xl flex flex-col gap-1 shadow-2xs">
-                    <div className="flex items-center gap-1.5 text-[10px] font-extrabold text-[#6C5C54] uppercase tracking-wider">
-                      <MapPin className="h-3.5 w-3.5 text-[#D89A86]" /> Shipping Address
+                  <div className="p-3.5 bg-[#FAF7F4] border border-[#EFE6DD] rounded-2xl flex flex-col justify-between gap-2 shadow-2xs">
+                    <div>
+                      <div className="flex items-center justify-between text-[10px] font-extrabold text-[#6C5C54] uppercase tracking-wider mb-1">
+                        <span className="flex items-center gap-1.5">
+                          <MapPin className="h-3.5 w-3.5 text-[#D89A86]" /> Shipping Destination
+                        </span>
+                        <span className="text-[9px] font-bold text-[#D89A86] bg-[#FFF8F2] border border-[#D89A86]/30 px-1.5 py-0.2 rounded-md">
+                          {getDeliveryType(order)}
+                        </span>
+                      </div>
+                      <p className="text-xs text-[#3A2B24] font-medium leading-relaxed line-clamp-2">
+                        {order.deliveryAddress || "Standard Delivery Address"}
+                      </p>
+                      {order.isSurpriseGift && (
+                        <div className="mt-2 p-2 rounded-xl bg-amber-50 border border-amber-300 text-amber-900 text-[11px] leading-tight font-medium">
+                          <strong className="block text-amber-950 font-bold mb-0.5 flex items-center gap-1">
+                            <span>🎁</span> Surprise Gift Alert:
+                          </strong>
+                          <span>Omit price tags &amp; invoices. Pack in discreet luxury wrap with wax seal.</span>
+                          {order.surpriseGiftMessage && (
+                            <div className="mt-1 pt-1 border-t border-amber-200 text-[10px] italic">
+                              Note: &ldquo;{order.surpriseGiftMessage}&rdquo;
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
-                    <p className="text-xs text-[#3A2B24] font-medium leading-relaxed line-clamp-2">
-                      {order.deliveryAddress || "Standard Delivery Address"}
-                    </p>
+
+                    <div className="pt-2 border-t border-[#EFE6DD]/70 text-[10px] text-[#6C5C54] flex items-center justify-between">
+                      <span>Courier / AWB:</span>
+                      <strong className="text-[#3A2B24] font-bold truncate max-w-[120px]">
+                        {order.trackingAwb || "Pending Dispatch"}
+                      </strong>
+                    </div>
                   </div>
 
                   {/* Card 3: Fulfillment Studio & Date */}
-                  <div className="p-3 bg-[#FAF7F4] border border-[#EFE6DD] rounded-2xl flex flex-col justify-between gap-1 shadow-2xs">
+                  <div className="p-3.5 bg-[#FAF7F4] border border-[#EFE6DD] rounded-2xl flex flex-col justify-between gap-2 shadow-2xs">
                     <div>
-                      <div className="flex items-center gap-1.5 text-[10px] font-extrabold text-[#6C5C54] uppercase tracking-wider mb-0.5">
-                        <Store className="h-3.5 w-3.5 text-[#D89A86]" /> Fulfillment Hub &amp; Date
+                      <div className="flex items-center gap-1.5 text-[10px] font-extrabold text-[#6C5C54] uppercase tracking-wider mb-1">
+                        <Store className="h-3.5 w-3.5 text-[#D89A86]" /> Studio &amp; Timeline
                       </div>
                       <div className="text-xs text-[#3A2B24] font-bold truncate">
                         {order.assignedStudio}
                       </div>
                       <div className="text-[11px] text-[#6C5C54] flex items-center gap-1 mt-0.5">
-                        <Calendar className="h-3 w-3 text-[#9C8C84]" /> {order.date}
+                        <Calendar className="h-3 w-3 text-[#9C8C84]" /> Placed: {order.date}
                       </div>
+                    </div>
+
+                    <div className="pt-2 border-t border-[#EFE6DD]/70 text-[10px] text-[#6C5C54] flex items-center justify-between">
+                      <span>Delivery Target:</span>
+                      <strong className="text-[#D89A86] font-bold">
+                        {order.deliveryInfo?.estimatedDeliveryDate || "Standard Slot"}
+                      </strong>
+                    </div>
+                  </div>
+
+                  {/* Card 4: Payment Method & Billing Details */}
+                  <div className="p-3.5 bg-[#FAF7F4] border border-[#EFE6DD] rounded-2xl flex flex-col justify-between gap-2 shadow-2xs">
+                    <div>
+                      <div className="flex items-center justify-between text-[10px] font-extrabold text-[#6C5C54] uppercase tracking-wider mb-1">
+                        <span className="flex items-center gap-1.5">
+                          <CreditCard className="h-3.5 w-3.5 text-[#D89A86]" /> Payment &amp; Billing
+                        </span>
+                        <span className={`text-[9px] font-bold px-1.5 py-0.2 rounded-md ${
+                          order.paymentMethod === "COD" || order.paymentMethod === "cod"
+                            ? "bg-amber-100 text-amber-900 border border-amber-300"
+                            : "bg-emerald-100 text-emerald-900 border border-emerald-300"
+                        }`}>
+                          {order.paymentMethod === "COD" || order.paymentMethod === "cod" ? "COD Pending" : "Online Paid"}
+                        </span>
+                      </div>
+                      <div className="font-extrabold text-sm text-[#3A2B24]">
+                        ₹{order.totalAmount.toLocaleString("en-IN", { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
+                      </div>
+                      <p className="text-[11px] text-[#6C5C54] mt-0.5">
+                        Method: <strong className="text-[#3A2B24]">{order.paymentMethod || "Cash on Delivery"}</strong>
+                      </p>
+                    </div>
+
+                    <div className="pt-2 border-t border-[#EFE6DD]/70 text-[10px] text-[#6C5C54] flex items-center justify-between">
+                      <span>Items Count:</span>
+                      <strong className="text-[#3A2B24] font-bold">
+                        {order.items.length} Order Item{order.items.length !== 1 ? "s" : ""}
+                      </strong>
                     </div>
                   </div>
                 </div>

@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { getAuthenticatedUser, getAuthenticatedAdmin } from "@/lib/session";
+import { safeErrorResponse } from "@/lib/errorHandler";
 
 export const dynamic = "force-dynamic";
 
@@ -9,12 +11,23 @@ export async function GET(req: Request) {
     const userId = searchParams.get("userId") || undefined;
     const sessionId = searchParams.get("sessionId") || undefined;
 
-    if (!userId && !sessionId) {
+    const authUser = await getAuthenticatedUser(req);
+    const admin = await getAuthenticatedAdmin(req);
+
+    // IDOR Protection: lock targetUserId to authUser if logged in
+    let targetUserId = userId;
+    if (authUser) {
+      targetUserId = authUser.id;
+    } else if (userId && !admin) {
+      targetUserId = undefined;
+    }
+
+    if (!targetUserId && !sessionId) {
       return NextResponse.json({ success: true, wishlist: [] });
     }
 
     const where: any = {};
-    if (userId) where.userId = userId;
+    if (targetUserId) where.userId = targetUserId;
     else if (sessionId) where.sessionId = sessionId;
 
     const items = await prisma.wishlistItem.findMany({
@@ -24,19 +37,19 @@ export async function GET(req: Request) {
 
     return NextResponse.json({ success: true, wishlist: items });
   } catch (error: any) {
-    console.error("Error fetching wishlist:", error);
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+    return safeErrorResponse(error, 500, "Error fetching wishlist");
   }
 }
 
 export async function POST(req: Request) {
   try {
+    const authUser = await getAuthenticatedUser(req);
     const body = await req.json();
     const { id, userId, sessionId, productId, name, category, price, image } = body;
 
     const targetProductId = productId || id || "PRD-01";
-    const targetUserId = userId || undefined;
-    const targetSessionId = (!userId ? (sessionId || "guest") : undefined);
+    const targetUserId = authUser ? authUser.id : (userId || undefined);
+    const targetSessionId = !targetUserId ? (sessionId || "guest") : undefined;
 
     const existing = await prisma.wishlistItem.findFirst({
       where: {
@@ -59,34 +72,13 @@ export async function POST(req: Request) {
         productId: targetProductId,
         name: name || "Custom Frame",
         category: category || "Frames",
-        price: Number(price || 499),
+        price: Number(price) || 0,
         image: image || "/images/wooden_frame_main.png",
       },
     });
 
-    return NextResponse.json({ success: true, inWishlist: true, item: created, action: "ADDED" });
+    return NextResponse.json({ success: true, inWishlist: true, action: "ADDED", item: created });
   } catch (error: any) {
-    console.error("Error updating wishlist:", error);
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
-  }
-}
-
-export async function DELETE(req: Request) {
-  try {
-    const { searchParams } = new URL(req.url);
-    const id = searchParams.get("id");
-    const userId = searchParams.get("userId");
-    const productId = searchParams.get("productId");
-
-    if (id) {
-      await prisma.wishlistItem.deleteMany({ where: { id } });
-    } else if (userId && productId) {
-      await prisma.wishlistItem.deleteMany({ where: { userId, productId } });
-    }
-
-    return NextResponse.json({ success: true });
-  } catch (error: any) {
-    console.error("Error removing from wishlist:", error);
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+    return safeErrorResponse(error, 500, "Error updating wishlist");
   }
 }

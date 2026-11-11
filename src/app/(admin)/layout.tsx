@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { LayoutDashboard, Users, Store, Package, Settings, LogOut, FileText, Bell, Sparkles, Heart, ChevronDown, ShoppingBag, ExternalLink, Ticket, Truck, CheckCheck, Check, RefreshCw, AlertTriangle, Trash2, X, Trophy, Star, ArrowUpRight, Lock } from "lucide-react";
+import { LayoutDashboard, Users, Store, Package, Settings, LogOut, FileText, Bell, Sparkles, Heart, ChevronDown, ShoppingBag, ExternalLink, Ticket, Truck, CheckCheck, Check, RefreshCw, AlertTriangle, Trash2, X, Trophy, Star, ArrowUpRight, Lock, Menu, Gift } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
@@ -43,7 +43,9 @@ const SECONDARY_NOTIFICATIONS: AdminNotification[] = [
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
+  const [isMounted, setIsMounted] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(true);
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState<boolean>(false);
   const isDeliveryEnabled = isDeliveryPortalEnabled();
   const isStudioEnabled = isStudioPortalEnabled();
   
@@ -59,14 +61,22 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     deleteNotification,
   } = useMobileNotifications("ADMIN");
 
-  // Live Admin Profile State Synced from Admin Settings
-  const [adminProfile, setAdminProfile] = useState(() => {
+  // Admin Profile State with safe SSR defaults
+  const [adminProfile, setAdminProfile] = useState({
+    name: "Pranav",
+    email: "neelasaipranav2007@gmail.com",
+  });
+
+  const syncProfile = () => {
     if (typeof window !== "undefined") {
       const savedProf = localStorage.getItem("pixello_admin_profile");
       if (savedProf) {
         try {
           const parsed = JSON.parse(savedProf);
-          if (parsed.name) return { name: parsed.name, email: parsed.email || "neelasaipranav2007@gmail.com" };
+          if (parsed.name) {
+            setAdminProfile({ name: parsed.name, email: parsed.email || "neelasaipranav2007@gmail.com" });
+            return;
+          }
         } catch (e) {
           console.error(e);
         }
@@ -76,47 +86,19 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       if (savedSet) {
         try {
           const parsed = JSON.parse(savedSet);
-          if (parsed.name) return { name: parsed.name, email: parsed.email || "neelasaipranav2007@gmail.com" };
+          if (parsed.name) {
+            setAdminProfile({ name: parsed.name, email: parsed.email || "neelasaipranav2007@gmail.com" });
+          }
         } catch (e) {
           console.error(e);
         }
       }
     }
-    return {
-      name: "Pranav",
-      email: "neelasaipranav2007@gmail.com",
-    };
-  });
+  };
 
   useEffect(() => {
-    const syncProfile = () => {
-      if (typeof window !== "undefined") {
-        const savedProf = localStorage.getItem("pixello_admin_profile");
-        if (savedProf) {
-          try {
-            const parsed = JSON.parse(savedProf);
-            if (parsed.name) {
-              setAdminProfile({ name: parsed.name, email: parsed.email || "neelasaipranav2007@gmail.com" });
-              return;
-            }
-          } catch (e) {
-            console.error(e);
-          }
-        }
-
-        const savedSet = localStorage.getItem("pixello_admin_settings");
-        if (savedSet) {
-          try {
-            const parsed = JSON.parse(savedSet);
-            if (parsed.name) {
-              setAdminProfile({ name: parsed.name, email: parsed.email || "neelasaipranav2007@gmail.com" });
-            }
-          } catch (e) {
-            console.error(e);
-          }
-        }
-      }
-    };
+    setIsMounted(true);
+    syncProfile();
 
     window.addEventListener("pixello_admin_profile_updated", syncProfile);
     window.addEventListener("storage", syncProfile);
@@ -139,6 +121,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     { label: "Leaderboard of Ambassadors", href: "/admin/ambassadors/leaderboard", icon: Trophy },
     { label: "Promo Codes", href: "/admin/promos", icon: Ticket },
     { label: "Delivery Charges", href: "/admin/delivery", icon: Truck },
+    { label: "Hamper Settings", href: "/admin/hamper", icon: Gift },
     { label: "Settings", href: "/admin/settings", icon: Settings },
   ];
 
@@ -151,7 +134,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     const checkAdminAuth = () => {
       if (typeof window !== "undefined") {
         const isAuth = localStorage.getItem("pixello_admin_authenticated");
-        const adminUser = localStorage.getItem("pixello_admin_user");
         const adminToken = localStorage.getItem("pixello_admin_token");
 
         if (isAuth === "false") {
@@ -164,7 +146,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             localStorage.setItem("pixello_admin_authenticated", "true");
           }
           setIsAuthenticated(true);
-          if (!adminToken) {
+          if (adminToken && typeof document !== "undefined") {
+            if (!document.cookie.includes("pixello_admin_token=")) {
+              document.cookie = `pixello_admin_token=${adminToken}; path=/; max-age=2592000; SameSite=Lax`;
+            }
+          } else if (!adminToken) {
             fetch("/api/admin/auth", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
@@ -175,7 +161,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                 if (data.token) {
                   localStorage.setItem("pixello_admin_token", data.token);
                   document.cookie = `pixello_admin_token=${data.token}; path=/; max-age=2592000; SameSite=Lax`;
-                  window.dispatchEvent(new Event("pixello_orders_updated"));
                 }
               })
               .catch((err) => console.warn("Admin token sync:", err));
@@ -189,7 +174,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     return () => {
       window.removeEventListener("pixello_admin_auth_changed", checkAdminAuth);
     };
-  }, [pathname, router]);
+  }, []);
 
   const handleAdminSignOut = (e?: React.MouseEvent) => {
     if (e) e.preventDefault();
@@ -197,10 +182,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       localStorage.setItem("pixello_admin_authenticated", "false");
       localStorage.removeItem("pixello_admin_user");
       localStorage.removeItem("pixello_admin_token");
-      document.cookie = "pixello_admin_token=; path=/; max-age=0; path=/;";
+      document.cookie = "pixello_admin_token=; path=/; max-age=0;";
       window.dispatchEvent(new Event("pixello_admin_auth_changed"));
+      setIsMobileSidebarOpen(false);
+      router.push("/admin/login");
     }
-    router.push("/admin/login");
   };
 
   // If on Admin Login page, render directly without sidebar
@@ -220,18 +206,19 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             <h3 className="font-serif-brand font-bold text-lg text-[#3A2B24]">Admin Portal Login Required</h3>
             <p className="text-xs text-[#6C5C54] mt-1">Please sign in with verified admin credentials to access the Pixello Management Suite.</p>
           </div>
-          <Link href={`/admin/login?redirect=${encodeURIComponent(pathname)}`} className="w-full">
-            <Button className="btn-pixello-primary w-full h-11 rounded-xl text-xs font-bold shadow-xs">
-              Go to Admin Login →
-            </Button>
+          <Link 
+            href={`/admin/login?redirect=${encodeURIComponent(pathname)}`} 
+            className="btn-pixello-primary w-full h-11 rounded-xl text-xs font-bold shadow-xs flex items-center justify-center cursor-pointer"
+          >
+            Go to Admin Login →
           </Link>
         </div>
       </div>
     );
   }
 
-  // If loading initial auth state, render clean spinner
-  if (isAuthenticated === null) {
+  // If loading initial auth state or not mounted yet, render clean spinner
+  if (!isMounted || isAuthenticated === null) {
     return (
       <div className="min-h-screen bg-[#F8F3EE] flex flex-col items-center justify-center p-6 text-center gap-3">
         <div className="h-10 w-10 border-4 border-[#D89A86] border-t-transparent rounded-full animate-spin" />
@@ -241,22 +228,45 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   }
 
   return (
-    <div className="flex h-screen w-screen bg-[#F8F3EE] overflow-hidden">
+    <div className="flex h-screen w-screen bg-[#F8F3EE] overflow-hidden relative">
+      {/* Mobile Drawer Backdrop */}
+      {isMobileSidebarOpen && (
+        <div
+          className="fixed inset-0 bg-black/50 z-40 lg:hidden backdrop-blur-xs transition-opacity"
+          onClick={() => setIsMobileSidebarOpen(false)}
+        />
+      )}
+
       {/* Pixello Light-Dark Espresso Sidebar (#3A2B24) */}
-      <aside className="w-64 bg-[#3A2B24] text-white flex flex-col flex-shrink-0 border-r border-[#4E3D35] shadow-md select-none z-20">
+      <aside
+        className={cn(
+          "fixed inset-y-0 left-0 z-50 w-64 bg-[#3A2B24] text-white flex flex-col flex-shrink-0 border-r border-[#4E3D35] shadow-md select-none transition-transform duration-300 ease-in-out lg:static lg:translate-x-0",
+          isMobileSidebarOpen ? "translate-x-0" : "-translate-x-full"
+        )}
+      >
         {/* Logo & Brand Header */}
-        <div className="h-16 flex flex-col justify-center px-5 border-b border-[#4E3D35] bg-[#2E201A] flex-shrink-0">
-          <div className="flex items-center gap-2">
-            <span className="font-serif-brand text-2xl font-bold tracking-tight text-white flex items-center gap-1.5">
-              Pixello
-              <span className="text-[#D89A86] font-sans text-xs font-bold uppercase tracking-wider bg-[#FFF8F2]/10 border border-[#D89A86]/40 px-2 py-0.5 rounded-full shadow-2xs">
-                Admin
+        <div className="h-16 flex items-center justify-between px-5 border-b border-[#4E3D35] bg-[#2E201A] flex-shrink-0">
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="font-serif-brand text-2xl font-bold tracking-tight text-white flex items-center gap-1.5">
+                Pixello
+                <span className="text-[#D89A86] font-sans text-xs font-bold uppercase tracking-wider bg-[#FFF8F2]/10 border border-[#D89A86]/40 px-2 py-0.5 rounded-full shadow-2xs">
+                  Admin
+                </span>
               </span>
+            </div>
+            <span className="text-[10px] text-[#EFE6DD]/80 font-medium uppercase tracking-widest mt-0.5 flex items-center gap-1">
+              <Heart className="h-2.5 w-2.5 text-[#F48A8A] fill-[#F48A8A]" /> Frames • Memories • Gifts
             </span>
           </div>
-          <span className="text-[10px] text-[#EFE6DD]/80 font-medium uppercase tracking-widest mt-0.5 flex items-center gap-1">
-            <Heart className="h-2.5 w-2.5 text-[#F48A8A] fill-[#F48A8A]" /> Frames • Memories • Gifts
-          </span>
+          <button
+            type="button"
+            onClick={() => setIsMobileSidebarOpen(false)}
+            className="lg:hidden p-1.5 rounded-lg text-[#EFE6DD] hover:bg-[#FFF8F2]/15 hover:text-white transition-colors"
+            aria-label="Close Sidebar"
+          >
+            <X className="h-5 w-5" />
+          </button>
         </div>
 
         {/* Navigation Items */}
@@ -269,6 +279,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                 <Link
                   key={item.label}
                   href={item.href}
+                  onClick={() => setIsMobileSidebarOpen(false)}
                   className={`flex items-center gap-3 px-3.5 py-2.5 text-xs transition-all cursor-pointer select-none ${
                     isActive
                       ? "bg-[#FFF8F2]/20 text-white font-bold border-l-4 border-[#D89A86] rounded-r-xl shadow-xs"
@@ -285,26 +296,34 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
         {/* Footer / Sign Out */}
         <div className="p-3 border-t border-[#4E3D35] bg-[#2E201A] flex-shrink-0">
-          <Button
-            variant="ghost"
+          <button
+            type="button"
             onClick={handleAdminSignOut}
-            className="w-full justify-start text-white hover:text-white hover:bg-[#FFF8F2]/15 rounded-xl text-xs font-bold h-10 cursor-pointer"
+            className="w-full justify-start text-white hover:text-white hover:bg-[#FFF8F2]/15 rounded-xl text-xs font-bold h-10 cursor-pointer flex items-center px-3 gap-2.5 transition-colors"
           >
-            <LogOut className="h-4 w-4 mr-2.5 text-[#D89A86]" /> Sign Out
-          </Button>
+            <LogOut className="h-4 w-4 text-[#D89A86]" /> Sign Out
+          </button>
         </div>
       </aside>
 
       {/* Main Content Area */}
       <main className="flex-1 flex flex-col min-w-0 h-full overflow-hidden">
         {/* Top Navbar */}
-        <header className="h-16 bg-white border-b border-[#EFE6DD] flex items-center justify-between px-8 flex-shrink-0 shadow-2xs">
-          <div className="flex items-center gap-2">
-            <Sparkles className="h-4 w-4 text-[#D89A86]" />
-            <h1 className="font-serif-brand font-bold text-lg text-[#3A2B24]">Pixello Management Suite</h1>
+        <header className="h-16 bg-white border-b border-[#EFE6DD] flex items-center justify-between px-4 sm:px-8 flex-shrink-0 shadow-2xs">
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+            <button
+              type="button"
+              onClick={() => setIsMobileSidebarOpen((prev) => !prev)}
+              className="lg:hidden p-2 rounded-xl border border-[#EFE6DD] text-[#3A2B24] hover:bg-[#FFF8F2] transition-colors shrink-0"
+              aria-label="Toggle navigation menu"
+            >
+              <Menu className="h-5 w-5" />
+            </button>
+            <Sparkles className="h-4 w-4 text-[#D89A86] shrink-0 hidden sm:inline-block" />
+            <h1 className="font-serif-brand font-bold text-base sm:text-lg text-[#3A2B24] truncate">Pixello Management Suite</h1>
           </div>
 
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 sm:gap-4 shrink-0">
             {/* Real Database Connected Compact Notification Center */}
             <CompactNotificationCenter
               role="ADMIN"
@@ -354,7 +373,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
                 <div className="flex flex-col gap-1">
                   <DropdownMenuItem asChild className="cursor-pointer rounded-xl p-0 focus:bg-transparent">
-                    <Link href="/admin/settings" className="flex items-center gap-3 px-3 py-2.5 text-xs font-bold text-[#3A2B24] hover:bg-[#FFF8F2] transition-colors rounded-xl w-full">
+                    <Link
+                      href="/admin/settings"
+                      className="flex items-center gap-3 px-3 py-2.5 text-xs font-bold text-[#3A2B24] hover:bg-[#FFF8F2] transition-colors rounded-xl w-full"
+                    >
                       <div className="h-7 w-7 rounded-lg bg-[#FFF8F2] border border-[#EFE6DD] flex items-center justify-center text-[#D89A86] flex-shrink-0">
                         <Settings className="h-3.5 w-3.5 text-[#D89A86]" />
                       </div>
@@ -363,7 +385,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                   </DropdownMenuItem>
 
                   <DropdownMenuItem asChild className="cursor-pointer rounded-xl p-0 focus:bg-transparent">
-                    <Link href="/admin/orders" className="flex items-center gap-3 px-3 py-2.5 text-xs font-bold text-[#3A2B24] hover:bg-[#FFF8F2] transition-colors rounded-xl w-full">
+                    <Link
+                      href="/admin/orders"
+                      className="flex items-center gap-3 px-3 py-2.5 text-xs font-bold text-[#3A2B24] hover:bg-[#FFF8F2] transition-colors rounded-xl w-full"
+                    >
                       <div className="h-7 w-7 rounded-lg bg-[#FFF8F2] border border-[#EFE6DD] flex items-center justify-center text-[#D89A86] flex-shrink-0">
                         <FileText className="h-3.5 w-3.5 text-[#D89A86]" />
                       </div>
@@ -372,7 +397,12 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                   </DropdownMenuItem>
 
                   <DropdownMenuItem asChild className="cursor-pointer rounded-xl p-0 focus:bg-transparent">
-                    <Link href="/products" target="_blank" className="flex items-center gap-3 px-3 py-2.5 text-xs font-bold text-[#3A2B24] hover:bg-[#FFF8F2] transition-colors rounded-xl w-full">
+                    <Link
+                      href="/products"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-3 px-3 py-2.5 text-xs font-bold text-[#3A2B24] hover:bg-[#FFF8F2] transition-colors rounded-xl w-full"
+                    >
                       <div className="h-7 w-7 rounded-lg bg-[#FFF8F2] border border-[#EFE6DD] flex items-center justify-center text-[#D89A86] flex-shrink-0">
                         <ShoppingBag className="h-3.5 w-3.5 text-[#D89A86]" />
                       </div>
@@ -418,7 +448,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         )}
 
         {/* Scrollable Page Body */}
-        <div className="flex-1 overflow-y-auto overflow-x-hidden min-w-0 w-full">{children}</div>
+        <div className="flex-1 overflow-y-auto overflow-x-auto min-w-0 w-full">{children}</div>
 
         {/* MOBILE-STYLE ONE-LINE FLOATING POPUP TOAST */}
         <MobileNotificationToast

@@ -1,14 +1,40 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { createCustomerToken } from "@/lib/session";
+import { enforceRateLimit } from "@/lib/rateLimit";
+import {
+  recordSecurityFailure,
+  clearSecurityFailures,
+  isSecurityLocked,
+} from "@/lib/securityMonitor";
+import { logAudit } from "@/lib/auditLogger";
+import { safeErrorResponse } from "@/lib/errorHandler";
 
 export const dynamic = "force-dynamic";
 
 export async function POST(req: Request) {
   try {
+    // 1. Rate Limiting Check
+    const rateLimitRes = enforceRateLimit(req, "adminAuth");
+    if (rateLimitRes) return rateLimitRes;
+
     const body = await req.json();
     const { phone, password, mobile, name } = body;
     const cleanMobile = (phone || mobile || "").replace(/\D/g, "").slice(-10);
+
+    // 2. Suspicious Brute-force Lockout Check
+    const lockStatus = isSecurityLocked("admin", "admin_auth");
+    if (lockStatus.locked) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: `Admin login temporarily locked due to multiple failed attempts. Please wait ${lockStatus.remainingSec} seconds.`,
+          locked: true,
+          remainingSec: lockStatus.remainingSec,
+        },
+        { status: 429 }
+      );
+    }
 
     // Find or create admin user in central database
     let adminUser = await prisma.user.findFirst({
@@ -40,6 +66,40 @@ export async function POST(req: Request) {
       });
     }
 
+    // 3. Check if Admin Two-Factor Authentication (TOTP) is Enabled
+    const twoFaSetting = await prisma.systemSetting.findUnique({
+      where: { key: `admin_2fa_${adminUser.id}` },
+    });
+
+    let is2FAEnabled = false;
+    if (twoFaSetting?.value) {
+      try {
+        const parsed = JSON.parse(twoFaSetting.value);
+        is2FAEnabled = Boolean(parsed.enabled);
+      } catch {}
+    }
+
+    if (is2FAEnabled) {
+      // Issue short-lived temporary token restricted strictly to 2FA challenge
+      const tempToken = createCustomerToken({
+        userId: adminUser.id,
+        phone: adminUser.phone,
+        email: adminUser.email,
+        name: adminUser.name,
+        role: "ADMIN_2FA_PENDING",
+      });
+
+      return NextResponse.json({
+        success: true,
+        requires2FA: true,
+        tempToken,
+        message: "Two-Factor Authentication required. Please enter your 6-digit authenticator code.",
+      });
+    }
+
+    // Clear failed attempts on success
+    clearSecurityFailures("admin", "admin_auth");
+
     const token = createCustomerToken({
       userId: adminUser.id,
       phone: adminUser.phone || `+91 ${cleanMobile}`,
@@ -47,6 +107,13 @@ export async function POST(req: Request) {
       name: adminUser.name || "Master Admin",
       role: "ADMIN",
     });
+
+    logAudit({
+      userId: adminUser.id,
+      actorRole: "ADMIN",
+      action: "ADMIN_LOGIN_SUCCESS",
+      req,
+    }).catch(() => {});
 
     const response = NextResponse.json({
       success: true,
@@ -60,16 +127,17 @@ export async function POST(req: Request) {
       },
     });
 
-    // Set HTTP-only compatible session cookie for admin
+    // Set secure HTTP-only session cookie for admin
     response.cookies.set("pixello_admin_token", token, {
       path: "/",
       maxAge: 30 * 24 * 60 * 60,
       sameSite: "lax",
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
     });
 
     return response;
   } catch (error: any) {
-    console.error("Admin auth API error:", error);
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+    return safeErrorResponse(error, 500, "Admin auth error");
   }
 }

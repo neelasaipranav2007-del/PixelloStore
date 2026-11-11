@@ -1,0 +1,72 @@
+{
+  "woodColors": [
+    {
+      "id": "pine",
+      "borderStyle": "linear-gradient(135deg, #D4A373 0%, #BA8957 50%, #C49A6C 100%)",
+      "hex": "#C49A6C",
+      "name": "Natural Pine",
+      "finish": "Handcrafted Scandinavian Pine Wood",
+      "description": "Warm golden organic pine grain with a soft satin wax seal.",
+      "enabled": true,
+      "matColor": "#FDFBF7"
+    },
+    {
+      "id": "black",
+      "borderStyle": "linear-gradient(135deg, #2B2B2B 0%, #151515 50%, #1F1F1F 100%)",
+      "hex": "#1A1A1A",
+      "name": "Classic Black",
+      "finish": "Matte Charcoal Black Finish",
+      "description": "Deep archival matte black with micro-beveled inner edge.",
+      "enabled": true,
+      "matColor": "#FBF9F5"
+    },
+    {
+      "id": "walnut",
+      "borderStyle": "linear-gradient(135deg, #5C3821 0%, #3B2313 50%, #4A2E1B 100%)",
+      "hex": "#4A2E1B",
+      "name": "Walnut Brown",
+      "finish": "Deep American Walnut Grain",
+      "description": "Rich dark chocolate walnut wood offering royal warmth.",
+      "enabled": true,
+      "matColor": "#F9F6F0"
+    },
+    {
+      "id": "rose",
+      "borderStyle": "linear-gradient(135deg, #B55B68 0%, #8C3E4A 50%, #9F4D59 100%)",
+      "hex": "#9F4D59",
+      "name": "Dusty Rose Red",
+      "finish": "Signature Pixello Blush Red Wood",
+      "description": "Bespoke vintage rose stain celebrating love and memories.",
+      "enabled": true,
+      "matColor": "#FFF8F7"
+    },
+    {
+      "id": "wood-1793440227264",
+      "name": "White ",
+      "finish": "Handcrafted Matte Teak Finish",
+      "hex": "#FFFFFF",
+      "borderStyle": "linear-gradient(135deg, #FFFFFFDD 0%, #FFFFFF 50%, #FFFFFFBB 100%)",
+      "matColor": "#FCFAF6",
+      "description": "Organic golden teak with rich satin wax luster.",
+      "enabled": true
+    }
+  ],
+  "gsmOptions": [
+    {
+      "id": "180gsm",
+      "description": "Clean archival matte finish",
+      "gsm": "180 GSM",
+      "priceDelta": 0,
+      "badge": "",
+      "title": "180 GSM Standard Matte Paper"
+    },
+    {
+      "id": "260gsm",
+      "description": "Ultra-vibrant glossy depth",
+      "gsm": "260 GSM",
+      "priceDelta": 10,
+      "badge": "+?10",
+      "title": "260 GSM Premium Glossy"
+    }
+  ]
+}

@@ -5,6 +5,8 @@ import { getAuthenticatedAdmin } from "@/lib/session";
 import { mapUiStatusToDb } from "@/lib/orderStatus";
 import { isDeliveryPortalEnabled } from "@/lib/deliveryConfig";
 import { createDatabaseNotification } from "@/lib/notifications";
+import { logAudit } from "@/lib/auditLogger";
+import { safeErrorResponse } from "@/lib/errorHandler";
 
 export const dynamic = "force-dynamic";
 
@@ -187,10 +189,17 @@ export async function PATCH(
       });
     }
 
+    logAudit({
+      userId: admin.user.id,
+      actorRole: "ADMIN",
+      action: "ADMIN_ORDER_STATUS_CHANGED",
+      targetId: updatedOrder.id,
+      details: { status, deliveryPartnerName, awbNumber },
+      req,
+    }).catch(() => {});
+
     return NextResponse.json({ success: true, order: updatedOrder });
   } catch (error: unknown) {
-    const err = error as Error;
-    console.error("Admin order status update error:", err);
-    return NextResponse.json({ success: false, error: err.message }, { status: 500 });
+    return safeErrorResponse(error, 500, "Admin order status update error");
   }
 }

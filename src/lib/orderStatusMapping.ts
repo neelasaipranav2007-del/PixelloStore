@@ -10,24 +10,20 @@
 export const ADMIN_ORDER_STAGES = [
   { id: "ORDER_PLACED", label: "Order Placed", symbol: "📝", group: "Initial" },
   { id: "PAYMENT_CONFIRMED", label: "Payment Confirmed", symbol: "💳", group: "Initial" },
-  { id: "ORDER_CONFIRMED", label: "Order Confirmed", symbol: "✅", group: "Production" },
-  { id: "PROCESSING", label: "Preparing Order", symbol: "⚙️", group: "Production" },
-  { id: "PRINTING", label: "Printing", symbol: "🖨️", group: "Production" },
-  { id: "PRODUCT_PREPARATION", label: "Product Preparation", symbol: "✂️", group: "Production" },
-  { id: "QUALITY_CHECK", label: "Quality Check", symbol: "🔍", group: "Production" },
-  { id: "PACKED", label: "Packed", symbol: "📦", group: "Fulfillment" },
-  { id: "READY_FOR_DELIVERY", label: "Ready for Delivery", symbol: "🚀", group: "Fulfillment" },
+  { id: "ORDER_CONFIRMED", label: "Order Confirmed", symbol: "✅", group: "Initial" },
+  { id: "IN_PRODUCTION", label: "In Production", symbol: "🖨️", group: "Production" },
+  { id: "READY_FOR_DELIVERY", label: "Ready for Delivery", symbol: "📦", group: "Fulfillment" },
   { id: "DELIVERY_ASSIGNED", label: "Delivery Assigned", symbol: "📋", group: "Fulfillment" },
   { id: "PICKED_UP", label: "Picked Up", symbol: "🛵", group: "Transit" },
   { id: "IN_TRANSIT", label: "In Transit", symbol: "🚚", group: "Transit" },
-  { id: "OUT_FOR_DELIVERY", label: "Out for Delivery", symbol: "📍", group: "Transit" },
+  { id: "OUT_FOR_DELIVERY", label: "Out for Delivery", symbol: "🚀", group: "Transit" },
   { id: "DELIVERED", label: "Delivered", symbol: "🎉", group: "Completed" },
   { id: "COMPLETED", label: "Completed", symbol: "🏁", group: "Completed" },
 ] as const;
 
 export interface CustomerStatusMapping {
   customerStatus: string;
-  stageIndex: number; // 1 to 8
+  stageIndex: number; // 1 to 10
   stepTitle: string;
   stepDesc: string;
   badgeClass: string;
@@ -39,7 +35,7 @@ export function mapInternalToCustomerStatus(internalStatus?: string): CustomerSt
       customerStatus: "Order Placed",
       stageIndex: 1,
       stepTitle: "Order Placed",
-      stepDesc: "Your order has been received and payment is confirmed.",
+      stepDesc: "Your order has been received and logged in our system.",
       badgeClass: "bg-[#FFF8F2] text-[#D89A86] border border-[#D89A86]/30",
     };
   }
@@ -53,44 +49,44 @@ export function mapInternalToCustomerStatus(internalStatus?: string): CustomerSt
         customerStatus: "Order Placed",
         stageIndex: 1,
         stepTitle: "Order Placed",
-        stepDesc: "Your order has been received and payment is confirmed.",
+        stepDesc: "Your order has been received and logged in our system.",
         badgeClass: "bg-[#FFF8F2] text-[#D89A86] border border-[#D89A86]/30",
       };
 
     case "PAYMENT_CONFIRMED":
+      return {
+        customerStatus: "Payment Confirmed",
+        stageIndex: 2,
+        stepTitle: "Payment Confirmed",
+        stepDesc: "Payment verified successfully. Order queued for preparation.",
+        badgeClass: "bg-emerald-50 text-emerald-800 border border-emerald-200",
+      };
+
     case "ORDER_CONFIRMED":
-    case "PROCESSING":
+      return {
+        customerStatus: "Order Confirmed",
+        stageIndex: 3,
+        stepTitle: "Order Confirmed",
+        stepDesc: "Order verified and accepted for custom crafting & framing.",
+        badgeClass: "bg-emerald-100 text-emerald-900 border border-emerald-300",
+      };
+
     case "IN_PRODUCTION":
+    case "PROCESSING":
+    case "PRINTING":
+    case "PRODUCT_PREPARATION":
+    case "FRAMING":
+    case "QUALITY_CHECK":
+    case "PACKED":
     case "ASSIGNED_STUDIO":
     case "ACCEPTED_BY_STUDIO":
     case "DESIGNING":
       return {
-        customerStatus: "Preparing Your Order",
-        stageIndex: 2,
-        stepTitle: "Order Being Prepared",
-        stepDesc: "Our team is preparing your personalized order.",
-        badgeClass: "bg-emerald-50 text-emerald-800 border border-emerald-200",
-      };
-
-    case "PRINTING":
-    case "PRODUCT_PREPARATION":
-    case "FRAMING":
-      return {
-        customerStatus: "Printing & Product Preparation",
-        stageIndex: 3,
-        stepTitle: "Printing & Product Preparation",
-        stepDesc: "Your personalized product is being printed and prepared.",
-        badgeClass: "bg-amber-100 text-amber-900 border border-amber-300",
-      };
-
-    case "QUALITY_CHECK":
-    case "PACKED":
-      return {
-        customerStatus: "Quality Check & Packed",
+        customerStatus: "In Production",
         stageIndex: 4,
-        stepTitle: "Quality Check & Packed",
-        stepDesc: "Your order has passed quality checking and has been securely packed.",
-        badgeClass: "bg-purple-100 text-purple-900 border border-purple-300",
+        stepTitle: "In Production",
+        stepDesc: "Your personalized photo keepsake is being custom printed & framed.",
+        badgeClass: "bg-amber-100 text-amber-900 border border-amber-300",
       };
 
     case "READY_FOR_DELIVERY":
@@ -99,40 +95,56 @@ export function mapInternalToCustomerStatus(internalStatus?: string): CustomerSt
         customerStatus: "Ready for Delivery",
         stageIndex: 5,
         stepTitle: "Ready for Delivery",
-        stepDesc: "Your order is ready and will be handed over for delivery.",
+        stepDesc: "Quality check passed & securely packaged. Ready for courier handover.",
         badgeClass: "bg-sky-100 text-sky-900 border border-sky-300",
       };
 
-    case "SHIPPED":
     case "DELIVERY_ASSIGNED":
     case "ASSIGNED_DELIVERY":
+      return {
+        customerStatus: "Delivery Assigned",
+        stageIndex: 6,
+        stepTitle: "Delivery Assigned",
+        stepDesc: "Courier delivery partner assigned for pickup & dispatch.",
+        badgeClass: "bg-indigo-100 text-indigo-900 border border-indigo-300",
+      };
+
     case "PICKED_UP":
     case "DELIVERY_PICKED_UP":
-    case "IN_TRANSIT":
       return {
-        customerStatus: "Shipped",
-        stageIndex: 6,
-        stepTitle: "Shipped",
-        stepDesc: "Your order has been picked up by the delivery partner.",
+        customerStatus: "Picked Up",
+        stageIndex: 7,
+        stepTitle: "Picked Up",
+        stepDesc: "Package picked up by courier partner from our fulfillment center.",
+        badgeClass: "bg-orange-100 text-orange-900 border border-orange-300",
+      };
+
+    case "IN_TRANSIT":
+    case "SHIPPED":
+      return {
+        customerStatus: "In Transit",
+        stageIndex: 8,
+        stepTitle: "In Transit",
+        stepDesc: "Package is in transit and on its way to your destination city/hub.",
         badgeClass: "bg-blue-100 text-blue-900 border border-blue-300",
       };
 
     case "OUT_FOR_DELIVERY":
       return {
         customerStatus: "Out for Delivery",
-        stageIndex: 7,
+        stageIndex: 9,
         stepTitle: "Out for Delivery",
-        stepDesc: "Your order is out for delivery.",
-        badgeClass: "bg-indigo-100 text-indigo-900 border border-indigo-300",
+        stepDesc: "Your package is with the delivery rider and will arrive today!",
+        badgeClass: "bg-purple-100 text-purple-900 border border-purple-300",
       };
 
     case "DELIVERED":
     case "COMPLETED":
       return {
         customerStatus: "Delivered",
-        stageIndex: 8,
+        stageIndex: 10,
         stepTitle: "Delivered",
-        stepDesc: "Your order has been delivered successfully.",
+        stepDesc: "Order delivered successfully to your doorstep. Enjoy your memories!",
         badgeClass: "bg-emerald-100 text-emerald-900 border border-emerald-300",
       };
 
@@ -198,6 +210,8 @@ export function sanitizeCustomerOrderData(order: Record<string, unknown> | null 
     deliveryType: order.deliveryType || "Shipping",
     referralCode: order.referralCode || null,
     referralDiscount: order.referralDiscount || 0,
+    isSurpriseGift: Boolean(order.isSurpriseGift),
+    surpriseGiftMessage: (order.surpriseGiftMessage as string) || null,
 
     // Customer-friendly mapped status fields
     status: mapped.customerStatus,

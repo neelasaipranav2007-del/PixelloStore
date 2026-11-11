@@ -151,7 +151,6 @@ function LoginContent() {
             name: fullName.trim(),
             phone: `+91 ${cleanMobile}`,
             mobile: cleanMobile,
-            email: `${cleanMobile}@pixello.store`,
             password: passwordPin,
             termsAccepted: true,
             termsVersion: CURRENT_TERMS_VERSION,
@@ -169,14 +168,18 @@ function LoginContent() {
         authToken = data.token;
       }
 
-      // Construct formatted user state
+      // Construct formatted user state without auto-generating dummy emails
       const resolvedName = authUser?.name || fullName.trim() || `Customer (${cleanMobile.slice(-4)})`;
+      const rawUserEmail = (authUser?.email || "").trim();
+      const cleanUserEmail = rawUserEmail.endsWith("@pixello.store") ? "" : rawUserEmail;
+
       const userData = {
         id: authUser?.id,
         name: resolvedName,
         mobile: cleanMobile,
         phone: authUser?.phone || `+91 ${cleanMobile}`,
-        email: authUser?.email || `${cleanMobile}@pixello.store`,
+        email: cleanUserEmail,
+        isEmailLocked: !!cleanUserEmail,
         pin: passwordPin,
         isLoggedIn: true,
         loggedInAt: new Date().toISOString(),

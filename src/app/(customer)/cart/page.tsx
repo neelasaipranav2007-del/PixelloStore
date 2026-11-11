@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { Trash2, ArrowRight, Minus, Plus, ShieldCheck, ShoppingBag, PlusCircle, CheckCircle2, Ticket, Sparkles, Tag, AlertCircle } from "lucide-react";
+import { Trash2, ArrowRight, Minus, Plus, ShieldCheck, ShoppingBag, PlusCircle, CheckCircle2, Ticket, Sparkles, Tag, AlertCircle, Gift, Package, ChevronDown, ChevronUp } from "lucide-react";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { Card, CardContent } from "@/components/ui/card";
@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { useCart } from "@/context/CartContext";
 import { calculateDeliveryFee } from "@/lib/deliveryFee";
+import { BorderTrailCard2 } from "@/components/core/border-trail-card-2";
 
 export default function CartPage() {
   const { cartItems, removeFromCart, updateQuantity } = useCart();
@@ -251,8 +252,8 @@ export default function CartPage() {
           <div className="flex-1 w-full flex flex-col gap-4">
             {cartItems.map((item) => (
               <Card key={item.id} className="border border-[#EFE6DD] bg-white rounded-3xl overflow-hidden shadow-xs">
-                <div className="flex flex-col sm:flex-row p-6 gap-6 items-center">
-                  <div className="relative h-32 w-32 rounded-2xl overflow-hidden bg-[#FFF8F2] border border-[#EFE6DD] flex-shrink-0 shadow-2xs">
+                <div className="flex flex-col sm:flex-row p-4 sm:p-6 gap-4 sm:gap-6 items-center">
+                  <div className="relative h-24 w-24 sm:h-32 sm:w-32 rounded-2xl overflow-hidden bg-[#FFF8F2] border border-[#EFE6DD] flex-shrink-0 shadow-2xs">
                     <img 
                       src={item.image} 
                       alt={item.name} 
@@ -262,19 +263,79 @@ export default function CartPage() {
 
                   <div className="flex-1 flex flex-col justify-between w-full">
                     <div>
-                      <div className="flex justify-between items-start">
-                        <div>
-                          <span className="text-[10px] font-bold tracking-wider uppercase text-[#D89A86]">HANDCRAFTED PHOTO FRAME</span>
-                          <h3 className="font-serif-brand font-bold text-lg text-[#3A2B24]">{item.name}</h3>
-                        </div>
-                        <span className="font-bold text-lg text-[#D89A86]">₹{(item.price * item.quantity).toFixed(2)}</span>
-                      </div>
+                      {(() => {
+                        const isHamper = (item as any).isHamper || item.name.toLowerCase().includes("hamper");
+                        let hamperData = (item as any).hamperData;
+                        if (!hamperData && typeof window !== "undefined") {
+                          try {
+                            hamperData = JSON.parse(localStorage.getItem(`pixello_hamper_details_${item.id}`) || "null");
+                          } catch (e) {}
+                        }
+
+                        return (
+                          <>
+                            <div className="flex justify-between items-start">
+                              <div>
+                                {isHamper ? (
+                                  <span className="text-[10px] font-extrabold tracking-wider uppercase text-white bg-[#D89A86] px-2.5 py-0.5 rounded-full inline-flex items-center gap-1 shadow-2xs mb-1">
+                                    <Gift className="h-3 w-3" /> CURATED GIFT HAMPER
+                                  </span>
+                                ) : (
+                                  <span className="text-[10px] font-bold tracking-wider uppercase text-[#D89A86]">HANDCRAFTED PHOTO GIFT</span>
+                                )}
+                                <h3 className="font-serif-brand font-bold text-lg text-[#3A2B24]">{item.name}</h3>
+                              </div>
+                              <span className="font-bold text-lg text-[#D89A86]">₹{(item.price * item.quantity).toFixed(2)}</span>
+                            </div>
+
+                            {/* Hamper contents preview if applicable */}
+                            {isHamper && hamperData && Array.isArray(hamperData.items) && (
+                              <div className="mt-3 p-3 rounded-xl bg-[#FFF8F2]/60 border border-[#EFE6DD] space-y-2 text-xs">
+                                <div className="flex items-center justify-between font-bold text-[#3A2B24]">
+                                  <span>Hamper Contents ({hamperData.items.length} gifts):</span>
+                                  <span className="text-[11px] text-[#D89A86] font-semibold">{hamperData.packaging?.name}</span>
+                                </div>
+                                <div className="flex flex-wrap gap-2">
+                                  {hamperData.items.map((hIt: any, hIdx: number) => (
+                                    <div key={hIdx} className="flex items-center gap-1.5 bg-white border border-[#EFE6DD] px-2.5 py-1 rounded-lg text-[11px] shadow-2xs">
+                                      <img src={hIt.image} alt={hIt.name} className="h-6 w-6 rounded object-cover" />
+                                      <span className="font-semibold text-[#3A2B24]">{hIt.name}</span>
+                                      <span className="text-[#6C5C54]">x{hIt.quantity}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                                {hamperData.giftNote && (
+                                  <p className="text-[11px] italic text-[#6C5C54] border-t border-[#EFE6DD]/60 pt-1.5">
+                                    Card Dedication: &ldquo;{hamperData.giftNote}&rdquo;
+                                  </p>
+                                )}
+                              </div>
+                            )}
+                          </>
+                        );
+                      })()}
                       
-                      <div className="flex flex-wrap gap-2 text-xs text-[#6C5C54] mt-2 items-center">
-                        <span className="bg-[#FFF8F2] border border-[#EFE6DD] px-2.5 py-1 rounded-md font-semibold text-[#3A2B24]">Size: {item.size}</span>
-                        <span>•</span>
-                        <span>₹{item.price} each</span>
-                      </div>
+                      {(() => {
+                        const messageMatch = item.size?.match(/\[Message:\s*(.*?)\]/i);
+                        const cleanSize = item.size ? item.size.replace(/\[Message:\s*.*?\]/i, "").trim() : "";
+                        const customMsg = messageMatch ? messageMatch[1].trim() : null;
+
+                        return (
+                          <div className="flex flex-wrap gap-2 text-xs text-[#6C5C54] mt-2 items-center">
+                            <span className="bg-[#FFF8F2] border border-[#EFE6DD] px-2.5 py-1 rounded-md font-semibold text-[#3A2B24]">
+                              Details: {cleanSize || item.size}
+                            </span>
+                            {customMsg && (
+                              <span className="bg-[#FFF8F2] border border-[#D89A86]/40 text-[#D89A86] px-2.5 py-1 rounded-md font-bold flex items-center gap-1.5 shadow-2xs">
+                                <Sparkles className="h-3.5 w-3.5 text-[#D89A86]" />
+                                Inscription: &ldquo;{customMsg}&rdquo;
+                              </span>
+                            )}
+                            <span>•</span>
+                            <span>₹{item.price} each</span>
+                          </div>
+                        );
+                      })()}
 
                       {/* Photo Thumbnail Gallery */}
                       <div className="mt-3">
@@ -408,6 +469,35 @@ export default function CartPage() {
                       <AlertCircle className="h-3.5 w-3.5 text-rose-600 shrink-0" />
                       <span>{promoError}</span>
                     </p>
+                  )}
+
+                  {isMounted && !appliedPromo && availablePromos.length > 0 && (
+                    <div className="mt-3">
+                      <BorderTrailCard2
+                        glowColor="pink"
+                        trailSize={90}
+                        active={true}
+                        className="p-3 rounded-2xl bg-gradient-to-r from-[#FFF9F5] to-[#FFF4ED] border-[#F2C8B5]/80"
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="min-w-0">
+                            <span className="text-[9px] font-extrabold uppercase text-[#D89A86] tracking-wide block">
+                              Available Special Offer
+                            </span>
+                            <span className="font-mono font-bold text-xs text-[#3A2B24] truncate block">
+                              {availablePromos[0].code} • {availablePromos[0].type === "percentage" ? `${availablePromos[0].value}% OFF` : `₹${availablePromos[0].value} OFF`}
+                            </span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => handleApplyPromoCode(availablePromos[0].code)}
+                            className="shrink-0 px-3 py-1 rounded-full text-[11px] font-bold bg-[#D89A86] text-white hover:bg-[#C58572] transition-colors shadow-2xs cursor-pointer"
+                          >
+                            Apply
+                          </button>
+                        </div>
+                      </BorderTrailCard2>
+                    </div>
                   )}
 
                 </div>

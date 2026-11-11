@@ -29,7 +29,8 @@ export default function Footer() {
             <h3 className="mb-4 font-serif-brand text-base font-bold text-[#F2C8B5]">Products</h3>
             <ul className="grid gap-2.5 text-sm text-slate-300">
               <li><Link href="/products" className="hover:text-[#D89A86] transition-colors font-medium">All Products</Link></li>
-              <li><Link href="/products?category=Frames" className="hover:text-[#D89A86] transition-colors font-medium">Photo Frames</Link></li>
+              <li><Link href="/hamper" className="hover:text-[#D89A86] transition-colors font-bold text-[#F2C8B5]">Build a Hamper 🎁</Link></li>
+              <li><Link href="/frames" className="hover:text-[#D89A86] transition-colors font-medium">Visual Memory Frames</Link></li>
               <li><Link href="/products?category=Polaroids" className="hover:text-[#D89A86] transition-colors font-medium">Polaroid Prints</Link></li>
               <li><Link href="/products?category=Gifts" className="hover:text-[#D89A86] transition-colors font-medium">Gifts & Lamps</Link></li>
             </ul>
@@ -52,7 +53,8 @@ export default function Footer() {
             <ul className="grid gap-2.5 text-sm text-slate-300">
               <li><Link href="/cart" className="hover:text-[#D89A86] transition-colors">Shopping Cart</Link></li>
               <li><Link href="/wishlist" className="hover:text-[#D89A86] transition-colors">My Wishlist</Link></li>
-              <li><Link href="/profile" className="hover:text-[#D89A86] transition-colors">Track Orders</Link></li>
+              <li><Link href="/profile?tab=orders" className="hover:text-[#D89A86] transition-colors">Track Orders</Link></li>
+              <li><Link href="/profile?tab=settings" className="hover:text-[#D89A86] transition-colors">Account Settings</Link></li>
             </ul>
           </div>
         </div>

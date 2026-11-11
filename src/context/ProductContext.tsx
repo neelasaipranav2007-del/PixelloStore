@@ -1,6 +1,7 @@
 "use client";
 
 import React, { createContext, useContext, useState, useEffect } from "react";
+import { sharedSSE } from "@/lib/sseClient";
 
 export interface FrameSizeConfig {
   label: string;
@@ -55,6 +56,9 @@ export interface Product {
   frameSizes?: FrameSizeConfig[];
   frameColors?: FrameColorConfig[];
   polaroidSizes?: PolaroidSizeConfig[];
+  aboutTitle?: string;
+  aboutPoints?: string[];
+  imageEmbedding?: string;
 }
 
 const DEFAULT_PRODUCTS: Product[] = [
@@ -206,14 +210,13 @@ export function ProductProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     fetchProductsFromBackend();
 
-    // Setup SSE listener for live updates across tabs
-    let eventSource: EventSource | null = null;
-    try {
-      eventSource = new EventSource("/api/events");
-      eventSource.addEventListener("product_update", () => {
-        fetchProductsFromBackend();
-      });
-    } catch (e) {}
+    // Setup singleton SSE listener for live updates across tabs
+    const unsubProduct = sharedSSE.subscribe("product_update", () => {
+      fetchProductsFromBackend();
+    });
+    const unsubInventory = sharedSSE.subscribe("inventory_update", () => {
+      fetchProductsFromBackend();
+    });
 
     const handleStorageChange = (e: StorageEvent) => {
       if (e.key === STORAGE_KEY && e.newValue) {
@@ -231,7 +234,8 @@ export function ProductProvider({ children }: { children: React.ReactNode }) {
     window.addEventListener("pixello_products_updated", handleCustomEvent);
 
     return () => {
-      if (eventSource) eventSource.close();
+      unsubProduct();
+      unsubInventory();
       window.removeEventListener("storage", handleStorageChange);
       window.removeEventListener("pixello_products_updated", handleCustomEvent);
     };
@@ -260,9 +264,16 @@ export function ProductProvider({ children }: { children: React.ReactNode }) {
 
     // Call backend API
     try {
+      const adminToken = typeof window !== "undefined"
+        ? localStorage.getItem("pixello_admin_token") || localStorage.getItem("pixello_auth_token")
+        : null;
+
       const res = await fetch("/api/products", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(adminToken ? { Authorization: `Bearer ${adminToken}` } : {}),
+        },
         body: JSON.stringify(fullProduct),
       });
       const data = await res.json();
@@ -298,9 +309,16 @@ export function ProductProvider({ children }: { children: React.ReactNode }) {
 
     // Persist to backend database
     try {
+      const adminToken = typeof window !== "undefined"
+        ? localStorage.getItem("pixello_admin_token") || localStorage.getItem("pixello_auth_token")
+        : null;
+
       await fetch(`/api/products/${targetId}`, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(adminToken ? { Authorization: `Bearer ${adminToken}` } : {}),
+        },
         body: JSON.stringify(updatedFields),
       });
     } catch (err) {
@@ -314,7 +332,16 @@ export function ProductProvider({ children }: { children: React.ReactNode }) {
 
     // Delete in database
     try {
-      await fetch(`/api/products/${id}`, { method: "DELETE" });
+      const adminToken = typeof window !== "undefined"
+        ? localStorage.getItem("pixello_admin_token") || localStorage.getItem("pixello_auth_token")
+        : null;
+
+      await fetch(`/api/products/${id}`, {
+        method: "DELETE",
+        headers: {
+          ...(adminToken ? { Authorization: `Bearer ${adminToken}` } : {}),
+        },
+      });
     } catch (err) {
       console.error("Failed to delete product in database:", err);
     }

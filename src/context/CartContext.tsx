@@ -10,6 +10,10 @@ export interface CartItem {
   quantity: number;
   image: string;
   photos?: string[];
+  isHamper?: boolean;
+  hamperData?: any;
+  frameCustomization?: any;
+  customizationDetails?: any;
 }
 
 interface CartContextType {

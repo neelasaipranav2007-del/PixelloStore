@@ -2,21 +2,39 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { createDatabaseNotification, getDatabaseNotifications } from "@/lib/notifications";
 import { portalEvents } from "@/lib/events";
+import { getAuthenticatedAdmin, getAuthenticatedUser } from "@/lib/session";
+import { safeErrorResponse } from "@/lib/errorHandler";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
-    const role = searchParams.get("role") || "CUSTOMER";
+    const role = (searchParams.get("role") || "CUSTOMER").toUpperCase();
     const userId = searchParams.get("userId") || undefined;
     const limit = parseInt(searchParams.get("limit") || "50", 10);
 
-    const data = await getDatabaseNotifications(role, userId, limit);
+    const admin = await getAuthenticatedAdmin(req);
+    const authUser = await getAuthenticatedUser(req);
+
+    // RBAC: Non-admin users cannot access ADMIN notifications
+    if (role === "ADMIN" && !admin) {
+      return NextResponse.json(
+        { success: false, error: "Unauthorized. Admin privileges required to view admin notifications." },
+        { status: 401 }
+      );
+    }
+
+    // IDOR: Customers can only query their own notifications
+    let targetUserId = userId;
+    if (authUser && !admin) {
+      targetUserId = authUser.id;
+    }
+
+    const data = await getDatabaseNotifications(role, targetUserId, limit);
     return NextResponse.json({ success: true, ...data });
   } catch (error: any) {
-    console.error("GET /api/notifications error:", error);
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+    return safeErrorResponse(error, 500, "Error fetching notifications");
   }
 }
 
@@ -41,8 +59,7 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ success: true, notification });
   } catch (error: any) {
-    console.error("POST /api/notifications error:", error);
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+    return safeErrorResponse(error, 500, "Error creating notification");
   }
 }
 
@@ -86,8 +103,7 @@ export async function PATCH(req: Request) {
 
     return NextResponse.json({ success: false, error: "Invalid request payload" }, { status: 400 });
   } catch (error: any) {
-    console.error("PATCH /api/notifications error:", error);
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+    return safeErrorResponse(error, 500, "Error updating notifications");
   }
 }
 
@@ -118,7 +134,6 @@ export async function DELETE(req: Request) {
     portalEvents.emit("notification_change", { action: "CLEAR", role, userId });
     return NextResponse.json({ success: true, message: "Notifications cleared." });
   } catch (error: any) {
-    console.error("DELETE /api/notifications error:", error);
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+    return safeErrorResponse(error, 500, "Error clearing notifications");
   }
 }

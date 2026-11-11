@@ -3,11 +3,12 @@
 import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { LayoutDashboard, Users, Trophy, Wallet, User, LogOut, Link2, Heart, Sparkles, ShoppingBag, ExternalLink, ChevronDown, Lock } from "lucide-react";
+import { LayoutDashboard, Users, Trophy, Wallet, User, LogOut, Link2, Heart, Sparkles, ShoppingBag, ExternalLink, ChevronDown, Lock, Menu, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
+import { cn } from "@/lib/utils";
 import { 
   useMobileNotifications, 
   MobileNotificationToast, 
@@ -17,6 +18,8 @@ import {
 export default function AmbassadorLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
+  const [isMounted, setIsMounted] = useState(false);
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
 
   const [profile, setProfile] = useState<{
     name: string;
@@ -24,29 +27,12 @@ export default function AmbassadorLayout({ children }: { children: React.ReactNo
     tier: string;
     balance: number;
     referralCode: string;
-  }>(() => {
-    if (typeof window !== "undefined") {
-      const saved = localStorage.getItem("pixello_ambassador_profile");
-      if (saved) {
-        try {
-          const parsed = JSON.parse(saved);
-          return {
-            name: parsed.name || "Campus Ambassador",
-            college: parsed.college || "Campus Partner",
-            tier: `${(parsed.rank || "GOLD").charAt(0)}${(parsed.rank || "GOLD").slice(1).toLowerCase()} Tier`,
-            balance: parsed.balance || 0,
-            referralCode: parsed.referralCode || parsed.promoCode || "",
-          };
-        } catch (e) {}
-      }
-    }
-    return {
-      name: "Campus Ambassador",
-      college: "Campus Partner",
-      tier: "Gold Tier",
-      balance: 0,
-      referralCode: "",
-    };
+  }>({
+    name: "Campus Ambassador",
+    college: "Campus Partner",
+    tier: "Gold Tier",
+    balance: 0,
+    referralCode: "",
   });
 
   // Real Database Notifications System for Ambassador Portal
@@ -61,20 +47,21 @@ export default function AmbassadorLayout({ children }: { children: React.ReactNo
     deleteNotification,
   } = useMobileNotifications("AMBASSADOR");
 
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(() => {
-    if (typeof window !== "undefined") {
-      const isAuth = localStorage.getItem("pixello_ambassador_authenticated") === "true";
-      const hasToken = Boolean(localStorage.getItem("pixello_ambassador_token"));
-      return isAuth && hasToken;
-    }
-    return null;
-  });
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
 
   const fetchAmbassadorProfile = async () => {
     try {
       const token = typeof window !== "undefined" ? localStorage.getItem("pixello_ambassador_token") : null;
-      const headers: Record<string, string> = {};
-      if (token) headers["Authorization"] = `Bearer ${token}`;
+      if (!token) {
+        setIsAuthenticated(false);
+        if (pathname !== "/ambassador/login") {
+          router.replace("/ambassador/login");
+        }
+        return;
+      }
+      const headers: Record<string, string> = {
+        Authorization: `Bearer ${token}`,
+      };
 
       const res = await fetch("/api/ambassador/me", { headers });
       if (res.status === 401) {
@@ -116,7 +103,11 @@ export default function AmbassadorLayout({ children }: { children: React.ReactNo
   };
 
   useEffect(() => {
-    if (pathname === "/ambassador/login") return;
+    setIsMounted(true);
+    if (pathname === "/ambassador/login") {
+      setIsAuthenticated(true);
+      return;
+    }
 
     fetchAmbassadorProfile();
 
@@ -164,18 +155,19 @@ export default function AmbassadorLayout({ children }: { children: React.ReactNo
             <h3 className="font-serif-brand font-bold text-lg text-[#3A2B24]">Ambassador Portal Login Required</h3>
             <p className="text-xs text-[#6C5C54] mt-1">Please enter your verified ambassador mobile number & PIN to access your personal dashboard.</p>
           </div>
-          <Link href={`/ambassador/login?redirect=${encodeURIComponent(pathname)}`} className="w-full">
-            <Button className="btn-pixello-primary w-full h-11 rounded-xl text-xs font-bold shadow-xs">
-              Go to Ambassador Login →
-            </Button>
+          <Link 
+            href={`/ambassador/login?redirect=${encodeURIComponent(pathname)}`} 
+            className="btn-pixello-primary w-full h-11 rounded-xl text-xs font-bold shadow-xs flex items-center justify-center cursor-pointer"
+          >
+            Go to Ambassador Login →
           </Link>
         </div>
       </div>
     );
   }
 
-  // If loading, render elegant loader
-  if (isAuthenticated === null) {
+  // If loading or not mounted yet, render elegant loader
+  if (!isMounted || isAuthenticated === null) {
     return (
       <div className="flex h-screen w-screen flex-col items-center justify-center bg-[#F8F3EE] gap-3">
         <div className="h-10 w-10 border-4 border-[#D89A86] border-t-transparent rounded-full animate-spin" />
@@ -199,22 +191,45 @@ export default function AmbassadorLayout({ children }: { children: React.ReactNo
   ];
 
   return (
-    <div className="flex h-screen w-screen bg-[#F8F3EE] overflow-hidden">
+    <div className="flex h-screen w-screen bg-[#F8F3EE] overflow-hidden relative">
+      {/* Mobile Drawer Backdrop */}
+      {isMobileSidebarOpen && (
+        <div
+          className="fixed inset-0 bg-black/50 z-40 lg:hidden backdrop-blur-xs transition-opacity"
+          onClick={() => setIsMobileSidebarOpen(false)}
+        />
+      )}
+
       {/* Pixello Light-Dark Espresso Sidebar (#3A2B24) */}
-      <aside className="w-64 bg-[#3A2B24] text-white flex flex-col flex-shrink-0 border-r border-[#4E3D35] shadow-md z-20">
+      <aside
+        className={cn(
+          "fixed inset-y-0 left-0 z-50 w-64 bg-[#3A2B24] text-white flex flex-col flex-shrink-0 border-r border-[#4E3D35] shadow-md select-none transition-transform duration-300 ease-in-out lg:static lg:translate-x-0",
+          isMobileSidebarOpen ? "translate-x-0" : "-translate-x-full"
+        )}
+      >
         {/* Logo & Brand Header */}
-        <div className="h-20 flex flex-col justify-center px-6 border-b border-[#4E3D35] bg-[#2E201A]">
-          <div className="flex items-center gap-2">
-            <span className="font-serif-brand text-2xl font-bold tracking-tight text-white flex items-center gap-1.5">
-              Pixello
-              <span className="text-[#D89A86] font-sans text-xs font-bold uppercase tracking-wider bg-[#FFF8F2]/10 border border-[#D89A86]/40 px-2 py-0.5 rounded-full shadow-2xs">
-                Campus
+        <div className="h-20 flex items-center justify-between px-6 border-b border-[#4E3D35] bg-[#2E201A] flex-shrink-0">
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="font-serif-brand text-2xl font-bold tracking-tight text-white flex items-center gap-1.5">
+                Pixello
+                <span className="text-[#D89A86] font-sans text-xs font-bold uppercase tracking-wider bg-[#FFF8F2]/10 border border-[#D89A86]/40 px-2 py-0.5 rounded-full shadow-2xs">
+                  Campus
+                </span>
               </span>
+            </div>
+            <span className="text-[10px] text-[#EFE6DD]/80 font-medium uppercase tracking-widest mt-0.5 flex items-center gap-1">
+              <Heart className="h-2.5 w-2.5 text-[#F48A8A] fill-[#F48A8A]" /> Ambassador Portal
             </span>
           </div>
-          <span className="text-[10px] text-[#EFE6DD]/80 font-medium uppercase tracking-widest mt-0.5 flex items-center gap-1">
-            <Heart className="h-2.5 w-2.5 text-[#F48A8A] fill-[#F48A8A]" /> Ambassador Portal
-          </span>
+          <button
+            type="button"
+            onClick={() => setIsMobileSidebarOpen(false)}
+            className="lg:hidden p-1.5 rounded-lg text-[#EFE6DD] hover:bg-[#FFF8F2]/15 hover:text-white transition-colors"
+            aria-label="Close Sidebar"
+          >
+            <X className="h-5 w-5" />
+          </button>
         </div>
 
         {/* Navigation Items */}
@@ -227,6 +242,7 @@ export default function AmbassadorLayout({ children }: { children: React.ReactNo
                 <Link
                   key={item.href}
                   href={item.href}
+                  onClick={() => setIsMobileSidebarOpen(false)}
                   className={`flex items-center gap-3 px-3.5 py-3 rounded-2xl text-xs font-bold transition-all cursor-pointer ${
                     isActive
                       ? "bg-[#D89A86] text-white shadow-xs font-extrabold"
@@ -270,14 +286,22 @@ export default function AmbassadorLayout({ children }: { children: React.ReactNo
       {/* Main Content */}
       <main className="flex-1 flex flex-col min-w-0 h-full overflow-hidden">
         {/* Top Navbar Header with Student Ambassador Profile */}
-        <header className="h-16 bg-white border-b border-[#EFE6DD] flex items-center justify-between px-8 flex-shrink-0 shadow-2xs">
-          <div className="flex items-center gap-2">
-            <Sparkles className="h-4 w-4 text-[#D89A86]" />
-            <h1 className="font-serif-brand font-bold text-lg text-[#3A2B24]">Campus Ambassador Suite</h1>
+        <header className="h-16 bg-white border-b border-[#EFE6DD] flex items-center justify-between px-4 sm:px-8 flex-shrink-0 shadow-2xs">
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+            <button
+              type="button"
+              onClick={() => setIsMobileSidebarOpen((prev) => !prev)}
+              className="lg:hidden p-2 rounded-xl border border-[#EFE6DD] text-[#3A2B24] hover:bg-[#FFF8F2] transition-colors shrink-0"
+              aria-label="Toggle navigation menu"
+            >
+              <Menu className="h-5 w-5" />
+            </button>
+            <Sparkles className="h-4 w-4 text-[#D89A86] shrink-0 hidden sm:inline-block" />
+            <h1 className="font-serif-brand font-bold text-base sm:text-lg text-[#3A2B24] truncate">Campus Ambassador Suite</h1>
           </div>
 
-          <div className="flex items-center gap-4">
-            <div className="text-xs font-semibold text-[#6C5C54] bg-[#FFF8F2] border border-[#EFE6DD] px-3.5 py-1.5 rounded-full flex items-center gap-1.5">
+          <div className="flex items-center gap-2 sm:gap-4 shrink-0">
+            <div className="hidden md:flex text-xs font-semibold text-[#6C5C54] bg-[#FFF8F2] border border-[#EFE6DD] px-3.5 py-1.5 rounded-full items-center gap-1.5">
               Available Balance: <span suppressHydrationWarning className="text-emerald-600 font-extrabold">₹{profile.balance.toLocaleString("en-IN")}</span>
             </div>
 
@@ -295,10 +319,12 @@ export default function AmbassadorLayout({ children }: { children: React.ReactNo
               }}
             />
 
-            <Link href="/products" target="_blank">
-              <Button variant="outline" className="rounded-full border-[#EFE6DD] text-xs font-bold text-[#3A2B24] hover:bg-[#FFF8F2] flex items-center gap-1.5">
-                <ShoppingBag className="h-3.5 w-3.5 text-[#D89A86]" /> Customer Store <ExternalLink className="h-3 w-3 text-[#6C5C54]" />
-              </Button>
+            <Link 
+              href="/products" 
+              target="_blank" 
+              className="hidden sm:inline-flex rounded-full border border-[#EFE6DD] text-xs font-bold text-[#3A2B24] hover:bg-[#FFF8F2] items-center gap-1.5 px-3.5 py-1.5 transition-colors cursor-pointer"
+            >
+              <ShoppingBag className="h-3.5 w-3.5 text-[#D89A86]" /> Customer Store <ExternalLink className="h-3 w-3 text-[#6C5C54]" />
             </Link>
 
             {/* Student Ambassador Top Header Profile Dropdown */}
@@ -382,7 +408,7 @@ export default function AmbassadorLayout({ children }: { children: React.ReactNo
           </div>
         </header>
 
-        <div className="flex-1 overflow-y-auto overflow-x-hidden min-w-0 p-6">
+        <div className="flex-1 overflow-y-auto overflow-x-auto min-w-0 p-4 sm:p-6 w-full">
           {children}
         </div>
 
@@ -393,7 +419,7 @@ export default function AmbassadorLayout({ children }: { children: React.ReactNo
           onClick={(toast) => {
             markAsRead(toast.id);
             dismissToast();
-            router.push("/ambassador/orders");
+            router.push("/ambassador/referrals");
           }}
         />
       </main>

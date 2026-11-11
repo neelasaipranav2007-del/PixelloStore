@@ -1,4 +1,6 @@
 import { NextResponse } from "next/server";
+import fs from "fs";
+import path from "path";
 import { prisma } from "@/lib/db";
 import { getAuthenticatedUser } from "@/lib/session";
 import { createRazorpayOrder, getRazorpayKeys } from "@/lib/razorpay";
@@ -41,13 +43,64 @@ export async function POST(req: Request) {
       const quantity = Math.max(1, Number(item.quantity) || 1);
 
       // Verify product price from Database if productId is available
-      if (item.productId) {
+      if (item.productId && !item.isHamper) {
         const dbProduct = await prisma.product.findUnique({
           where: { id: item.productId },
         });
         if (dbProduct) {
           itemPrice = dbProduct.basePrice;
         }
+      } else if (item.isHamper && item.hamperData && Array.isArray(item.hamperData.items)) {
+        // Authoritative server-side price validation for Build Your Own Hamper
+        let hamperItemsSubtotal = 0;
+        for (const hItem of item.hamperData.items) {
+          let hPrice = Number(hItem.price) || 0;
+          const hQty = Math.max(1, Number(hItem.quantity) || 1);
+          if (hItem.productId) {
+            const dbProd = await prisma.product.findUnique({ where: { id: hItem.productId } });
+            if (dbProd) {
+              hPrice = dbProd.basePrice;
+            }
+          }
+          hamperItemsSubtotal += hPrice * hQty;
+        }
+        const validBoxPrices: Record<string, number> = {
+          'signature-box': 149,
+          'wooden-crate': 199,
+          'velvet-heart': 249,
+          'kraft-eco': 89,
+        };
+        try {
+          const cfgPath = path.join(process.cwd(), "scratch", "hamper_settings.json");
+          if (fs.existsSync(cfgPath)) {
+            const raw = JSON.parse(fs.readFileSync(cfgPath, "utf-8"));
+            if (raw.packagingOptions && Array.isArray(raw.packagingOptions)) {
+              for (const p of raw.packagingOptions) {
+                if (p.id && p.price !== undefined) {
+                  validBoxPrices[p.id] = Number(p.price);
+                }
+              }
+            }
+          }
+        } catch (e) {}
+        const boxId = item.hamperData.packaging?.id || 'signature-box';
+        const boxPrice = validBoxPrices[boxId] !== undefined ? validBoxPrices[boxId] : 149;
+
+        const validAddonPrices: Record<string, number> = {
+          'fairy-lights': 49,
+          'dry-flowers': 39,
+          'wax-seal': 29,
+          'artisan-chocolates': 99,
+        };
+        let addonsSubtotal = 0;
+        if (Array.isArray(item.hamperData.addons)) {
+          for (const addon of item.hamperData.addons) {
+            const aId = typeof addon === 'string' ? addon : addon?.id;
+            addonsSubtotal += validAddonPrices[aId] !== undefined ? validAddonPrices[aId] : Number(addon?.price) || 0;
+          }
+        }
+
+        itemPrice = hamperItemsSubtotal + boxPrice + addonsSubtotal;
       }
 
       calculatedSubtotal += itemPrice * quantity;
@@ -59,6 +112,8 @@ export async function POST(req: Request) {
         price: itemPrice,
         image: item.image || "/images/wooden_frame_main.png",
         photos: Array.isArray(item.photos) && item.photos.length > 0 ? item.photos : [item.image || "/images/wooden_frame_main.png"],
+        isHamper: !!item.isHamper,
+        hamperData: item.hamperData || null,
       });
     }
 

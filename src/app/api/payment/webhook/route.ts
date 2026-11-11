@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { verifyWebhookSignature } from "@/lib/razorpay";
 import { portalEvents } from "@/lib/events";
+import { registerWebhookEvent } from "@/lib/idempotency";
+import { logAudit } from "@/lib/auditLogger";
 
 export const dynamic = "force-dynamic";
 
@@ -10,14 +12,28 @@ export async function POST(req: Request) {
     const rawBody = await req.text();
     const signature = req.headers.get("x-razorpay-signature") || "";
 
-    // 1. Verify Webhook Signature if signature header is provided
-    if (signature && !verifyWebhookSignature({ bodyString: rawBody, signature })) {
-      return NextResponse.json({ success: false, error: "Invalid webhook signature" }, { status: 400 });
+    // 1. Mandatory Webhook Signature Verification
+    if (!signature || !verifyWebhookSignature({ bodyString: rawBody, signature })) {
+      return NextResponse.json(
+        { success: false, error: "Unauthorized. Missing or invalid webhook cryptographic signature." },
+        { status: 401 }
+      );
     }
 
     const event = JSON.parse(rawBody);
     const eventType = event.event;
     const payload = event.payload;
+    const eventId = event.id || payload?.payment?.entity?.id || `evt_${Date.now()}`;
+
+    // 2. Idempotency Check: prevent duplicate webhook replay processing
+    const isNewEvent = registerWebhookEvent(eventId);
+    if (!isNewEvent) {
+      return NextResponse.json({
+        success: true,
+        message: "Duplicate webhook event acknowledged without re-processing.",
+        duplicate: true,
+      });
+    }
 
     if (eventType === "payment.captured" || eventType === "order.paid") {
       const paymentEntity = payload?.payment?.entity;
@@ -39,39 +55,48 @@ export async function POST(req: Request) {
         if (transaction) {
           await prisma.transaction.update({
             where: { id: transaction.id },
-            data: { status: "SUCCESS" },
+            data: {
+              status: "SUCCESS",
+              razorpayPaymentId,
+              razorpayOrderId: razorpayOrderId || transaction.razorpayOrderId,
+            },
           });
 
-          portalEvents.emit("order_update", { action: "PAYMENT_CAPTURED", orderId: transaction.orderId });
-        }
-      }
-    } else if (eventType === "payment.failed") {
-      const paymentEntity = payload?.payment?.entity;
-      const razorpayPaymentId = paymentEntity?.id;
-      const razorpayOrderId = paymentEntity?.order_id;
+          if (transaction.order && transaction.order.status === "PLACED") {
+            await prisma.order.update({
+              where: { id: transaction.order.id },
+              data: { status: "PAYMENT_CONFIRMED" },
+            });
 
-      if (razorpayPaymentId || razorpayOrderId) {
-        const transaction = await prisma.transaction.findFirst({
-          where: {
-            OR: [
-              razorpayPaymentId ? { razorpayPaymentId } : {},
-              razorpayOrderId ? { razorpayOrderId } : {},
-            ],
-          },
-        });
+            await prisma.orderStatusHistory.create({
+              data: {
+                orderId: transaction.order.id,
+                status: "PAYMENT_CONFIRMED",
+                note: `Payment captured via Razorpay Webhook (${razorpayPaymentId})`,
+              },
+            });
 
-        if (transaction) {
-          await prisma.transaction.update({
-            where: { id: transaction.id },
-            data: { status: "FAILED" },
-          });
+            portalEvents.emit("order_change", {
+              action: "UPDATE",
+              orderId: transaction.order.id,
+              status: "PAYMENT_CONFIRMED",
+            });
+          }
         }
+
+        // Record audit log
+        logAudit({
+          action: "WEBHOOK_PAYMENT_CAPTURED",
+          targetId: razorpayPaymentId,
+          details: { eventType, eventId, razorpayOrderId },
+          req,
+        }).catch(() => {});
       }
     }
 
     return NextResponse.json({ success: true, received: true });
-  } catch (error: any) {
-    console.error("Error in /api/payment/webhook:", error);
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+  } catch (err: any) {
+    console.error("Webhook processing error:", err);
+    return NextResponse.json({ success: false, error: err.message }, { status: 500 });
   }
 }

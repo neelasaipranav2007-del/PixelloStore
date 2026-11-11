@@ -1,10 +1,15 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { requireAdminAuth } from "@/lib/session";
+import { safeErrorResponse } from "@/lib/errorHandler";
 
 export const dynamic = "force-dynamic";
 
-export async function GET() {
+export async function GET(req: Request) {
   try {
+    const { admin, response } = await requireAdminAuth(req);
+    if (response) return response;
+
     const [orders, customersCount, productsCount, studiosCount, ambassadorsCount] = await Promise.all([
       prisma.order.findMany({
         include: { items: true, transaction: true },
@@ -40,7 +45,6 @@ export async function GET() {
       },
     });
   } catch (error: any) {
-    console.error("Error computing analytics:", error);
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+    return safeErrorResponse(error, 500, "Error fetching admin analytics");
   }
 }

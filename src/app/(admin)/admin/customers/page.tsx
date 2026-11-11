@@ -9,6 +9,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useOrders } from "@/context/OrderContext";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { sharedSSE } from "@/lib/sseClient";
 
 export interface CustomerRecord {
   id: string;
@@ -175,19 +176,16 @@ export default function AdminCustomersPage() {
 
     syncCustomers();
 
-    let eventSource: EventSource | null = null;
-    try {
-      eventSource = new EventSource("/api/events");
-      eventSource.addEventListener("customer_update", () => syncCustomers());
-      eventSource.addEventListener("order_update", () => syncCustomers());
-    } catch (e) {}
+    const unsubCust = sharedSSE.subscribe("customer_update", () => syncCustomers());
+    const unsubOrder = sharedSSE.subscribe("order_update", () => syncCustomers());
 
     window.addEventListener("auth_change", syncCustomers);
     window.addEventListener("storage", syncCustomers);
     window.addEventListener("order_change", syncCustomers);
 
     return () => {
-      if (eventSource) eventSource.close();
+      unsubCust();
+      unsubOrder();
       window.removeEventListener("auth_change", syncCustomers);
       window.removeEventListener("storage", syncCustomers);
       window.removeEventListener("order_change", syncCustomers);

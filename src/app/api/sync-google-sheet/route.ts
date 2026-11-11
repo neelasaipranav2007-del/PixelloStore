@@ -1,11 +1,21 @@
 import { NextResponse } from "next/server";
+import { getAuthenticatedAdmin } from "@/lib/session";
+import { safeErrorResponse } from "@/lib/errorHandler";
 
-export async function GET() {
-  const SPREADSHEET_ID = "1ZTw_Huk4okA8LTN7LK3y7nfoPuZXnHAnxNbc8oaauwY";
-  const GID = "1729008018";
-  const GOOGLE_CSV_URL = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:csv&gid=${GID}`;
-
+export async function GET(req: Request) {
   try {
+    const admin = await getAuthenticatedAdmin(req);
+    if (!admin) {
+      return NextResponse.json(
+        { success: false, error: "Unauthorized. Admin privileges required to access ambassador applicant data." },
+        { status: 401 }
+      );
+    }
+
+    const SPREADSHEET_ID = "1ZTw_Huk4okA8LTN7LK3y7nfoPuZXnHAnxNbc8oaauwY";
+    const GID = "1729008018";
+    const GOOGLE_CSV_URL = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:csv&gid=${GID}`;
+
     const res = await fetch(GOOGLE_CSV_URL, {
       cache: "no-store",
       headers: {
@@ -27,7 +37,6 @@ export async function GET() {
 
     for (let i = 1; i < lines.length; i++) {
       const line = lines[i];
-      // Robust CSV parser handling quoted comma values
       const cols = line.match(/(".*?"|[^",\s]+)(?=\s*,|\s*$)/g) || line.split(",");
       const cleanCols = cols.map((c) => c.replace(/^"|"$/g, "").trim());
 
@@ -58,16 +67,17 @@ export async function GET() {
           location: location,
           course: course,
           year: year,
-          instagramHandle: instagram,
-          status: "NEW_SUBMISSION",
-          suggestedPromoCode: `${fullName.split(" ")[0].toUpperCase()}${i}0`,
+          instagram: instagram,
         });
       }
     }
 
-    return NextResponse.json({ success: true, count: submissions.length, submissions });
+    return NextResponse.json({
+      success: true,
+      total: submissions.length,
+      submissions,
+    });
   } catch (error: any) {
-    console.error("Server API Sync Google Sheet Error:", error);
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+    return safeErrorResponse(error, 500, "Error synchronizing google sheet submissions");
   }
 }

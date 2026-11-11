@@ -1,12 +1,22 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { portalEvents } from "@/lib/events";
-import { createCustomerToken } from "@/lib/session";
+import { createCustomerToken, getAuthenticatedAdmin } from "@/lib/session";
+import { enforceRateLimit } from "@/lib/rateLimit";
+import { safeErrorResponse } from "@/lib/errorHandler";
+import { logAudit } from "@/lib/auditLogger";
 
 export const dynamic = "force-dynamic";
 
-export async function GET() {
+export async function GET(req: Request) {
   try {
+    const admin = await getAuthenticatedAdmin(req);
+    if (!admin) {
+      return NextResponse.json(
+        { success: false, error: "Unauthorized. Admin privileges required to view customer directory." },
+        { status: 401 }
+      );
+    }
     const statusSetting = await prisma.systemSetting.findUnique({
       where: { key: "customer_statuses" },
     });
@@ -116,15 +126,7 @@ export async function GET() {
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { name, email, phone, mobile, password, college, termsAccepted } = body;
-
-    const isExplicitlyAccepted = termsAccepted === true || termsAccepted === "true";
-    if (!isExplicitlyAccepted) {
-      return NextResponse.json(
-        { success: false, error: "Please accept the Terms & Conditions to continue." },
-        { status: 400 }
-      );
-    }
+    const { name, email, phone, mobile, password, college, birthday, termsAccepted } = body;
 
     const cleanMobile = (mobile || phone || "").replace(/\D/g, "").slice(-10);
     const cleanPhone = cleanMobile ? `+91 ${cleanMobile}` : undefined;
@@ -141,6 +143,16 @@ export async function POST(req: Request) {
         ],
       },
     });
+
+    if (!existingUser) {
+      const isExplicitlyAccepted = termsAccepted === true || termsAccepted === "true";
+      if (!isExplicitlyAccepted) {
+        return NextResponse.json(
+          { success: false, error: "Please accept the Terms & Conditions to continue." },
+          { status: 400 }
+        );
+      }
+    }
 
     if (existingUser) {
       const updated = await prisma.user.update({
@@ -175,6 +187,19 @@ export async function POST(req: Request) {
           },
         });
       } catch (err) {}
+
+      if (college !== undefined || birthday !== undefined) {
+        try {
+          const metaObj: Record<string, string> = {};
+          if (college) metaObj.college = college.trim();
+          if (birthday) metaObj.birthday = birthday.trim();
+          await prisma.systemSetting.upsert({
+            where: { key: `customer_meta_${updated.id}` },
+            create: { key: `customer_meta_${updated.id}`, value: JSON.stringify(metaObj) },
+            update: { value: JSON.stringify(metaObj) },
+          });
+        } catch (e) {}
+      }
 
       const response = NextResponse.json({
         success: true,
@@ -230,6 +255,19 @@ export async function POST(req: Request) {
       name: newUser.name,
     });
 
+    if (college !== undefined || birthday !== undefined) {
+      try {
+        const metaObj: Record<string, string> = {};
+        if (college) metaObj.college = college.trim();
+        if (birthday) metaObj.birthday = birthday.trim();
+        await prisma.systemSetting.upsert({
+          where: { key: `customer_meta_${newUser.id}` },
+          create: { key: `customer_meta_${newUser.id}`, value: JSON.stringify(metaObj) },
+          update: { value: JSON.stringify(metaObj) },
+        });
+      } catch (e) {}
+    }
+
     const response = NextResponse.json({
       success: true,
       user: newUser,
@@ -242,17 +280,26 @@ export async function POST(req: Request) {
       path: "/",
       maxAge: 30 * 24 * 60 * 60,
       sameSite: "lax",
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
     });
 
     return response;
   } catch (error: any) {
-    console.error("Error registering customer:", error);
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+    return safeErrorResponse(error, 500, "Error registering customer");
   }
 }
 
 export async function PATCH(req: Request) {
   try {
+    const admin = await getAuthenticatedAdmin(req);
+    if (!admin) {
+      return NextResponse.json(
+        { success: false, error: "Unauthorized. Admin privileges required to update customer status." },
+        { status: 401 }
+      );
+    }
+
     const body = await req.json();
     const { id, mobile, phone, status } = body;
 
@@ -289,11 +336,19 @@ export async function PATCH(req: Request) {
       },
     });
 
+    logAudit({
+      userId: admin.user.id,
+      actorRole: "ADMIN",
+      action: "CUSTOMER_STATUS_CHANGED",
+      targetId: targetKey,
+      details: { status },
+      req,
+    }).catch(() => {});
+
     portalEvents.emit("customer_change", { action: "STATUS_CHANGE", key: targetKey, status });
 
     return NextResponse.json({ success: true, status, key: targetKey, statusMap: currentMap });
   } catch (error: any) {
-    console.error("Error updating customer status:", error);
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+    return safeErrorResponse(error, 500, "Error updating customer status");
   }
 }

@@ -29,10 +29,11 @@ export default function AdminStudiosPage() {
           </p>
         </div>
 
-        <Link href="/admin/orders">
-          <Button className="btn-pixello-primary rounded-full text-xs font-bold h-11 px-6 flex items-center gap-2 shadow-xs cursor-pointer">
-            <FileText className="h-4 w-4" /> Manage All Orders
-          </Button>
+        <Link 
+          href="/admin/orders"
+          className="btn-pixello-primary rounded-full text-xs font-bold h-11 px-6 flex items-center gap-2 shadow-xs cursor-pointer"
+        >
+          <FileText className="h-4 w-4" /> Manage All Orders
         </Link>
       </div>
 
@@ -50,10 +51,11 @@ export default function AdminStudiosPage() {
           </div>
         </div>
 
-        <Link href="/admin/orders">
-          <Button variant="outline" className="rounded-full border-[#EFE6DD] text-xs font-bold h-10 px-5 text-[#3A2B24] hover:bg-white flex items-center gap-1.5 flex-shrink-0">
-            View Live Order Queue <ArrowRight className="h-3.5 w-3.5" />
-          </Button>
+        <Link 
+          href="/admin/orders"
+          className="rounded-full border border-[#EFE6DD] text-xs font-bold h-10 px-5 text-[#3A2B24] hover:bg-white flex items-center gap-1.5 flex-shrink-0 transition-colors cursor-pointer"
+        >
+          View Live Order Queue <ArrowRight className="h-3.5 w-3.5" />
         </Link>
       </div>
 

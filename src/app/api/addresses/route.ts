@@ -1,85 +1,69 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { getAuthenticatedUser } from "@/lib/session";
+import { getAuthenticatedUser, getAuthenticatedAdmin } from "@/lib/session";
+import { safeErrorResponse } from "@/lib/errorHandler";
+import { sanitizeText, isValidPincode } from "@/lib/validators";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(req: Request) {
   try {
+    const admin = await getAuthenticatedAdmin(req);
     const user = await getAuthenticatedUser(req);
-    if (!user) {
-      return NextResponse.json({ success: false, error: "Authentication required to view addresses." }, { status: 401 });
+
+    if (!admin && !user) {
+      return NextResponse.json(
+        { success: false, error: "Authentication required to view addresses." },
+        { status: 401 }
+      );
     }
 
-    const customerProfileId = user.customerProfile?.id;
+    const customerProfileId = user?.customerProfile?.id;
     const addresses = customerProfileId
       ? await prisma.address.findMany({ where: { customerProfileId } })
       : [];
+
     return NextResponse.json({ success: true, addresses });
   } catch (error: any) {
-    console.error("Error fetching addresses:", error);
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+    return safeErrorResponse(error, 500, "Error fetching addresses");
   }
 }
 
 export async function POST(req: Request) {
   try {
     const authUser = await getAuthenticatedUser(req);
+    if (!authUser) {
+      return NextResponse.json(
+        { success: false, error: "Authentication required to save addresses." },
+        { status: 401 }
+      );
+    }
+
     const body = await req.json();
-    const { userId, mobile, label, type, name, street, city, district, state, zipCode, pincode, phone } = body;
+    const { label, type, name, street, city, district, state, zipCode, pincode } = body;
 
-    const cleanMobile = (mobile || phone || "").replace(/\D/g, "").slice(-10);
-
-    let user = authUser;
-    if (!user) {
-      user = await prisma.user.findFirst({
-        where: {
-          OR: [
-            userId ? { id: userId } : {},
-            cleanMobile ? { phone: `+91 ${cleanMobile}` } : {},
-          ],
-        },
-        include: { customerProfile: true },
+    let customerProfileId = authUser.customerProfile?.id;
+    if (!customerProfileId) {
+      const profile = await prisma.customerProfile.create({
+        data: { userId: authUser.id },
       });
+      customerProfileId = profile.id;
     }
 
-    if (!user) {
-      user = await prisma.user.create({
-        data: {
-          name: name || "Customer",
-          phone: cleanMobile ? `+91 ${cleanMobile}` : null,
-          role: "CUSTOMER",
-          customerProfile: { create: {} },
-        },
-        include: { customerProfile: true },
-      });
-    } else if (!user.customerProfile) {
-      await prisma.customerProfile.create({
-        data: { userId: user.id },
-      });
-      user = await prisma.user.findUnique({
-        where: { id: user.id },
-        include: { customerProfile: true },
-      });
-    }
-
-    const fullCity = [city, district, state].filter(Boolean).join(", ");
-    const finalZip = zipCode || pincode || "500010";
-
-    const createdAddress = await prisma.address.create({
+    const code = zipCode || pincode || "500079";
+    const newAddress = await prisma.address.create({
       data: {
-        customerProfileId: user!.customerProfile!.id,
-        label: label || type || "Home",
-        street: street || "Address Line",
-        city: fullCity || "Hyderabad",
-        state: state || "Telangana",
-        zipCode: finalZip,
+        customerProfileId,
+        label: sanitizeText(label || type || "Home", 50),
+        street: sanitizeText(street || "", 200),
+        city: sanitizeText(city || district || "Hyderabad", 100),
+        state: sanitizeText(state || "Telangana", 100),
+        zipCode: String(code).trim().slice(0, 10),
       },
     });
 
-    return NextResponse.json({ success: true, address: createdAddress });
+    return NextResponse.json({ success: true, address: newAddress });
   } catch (error: any) {
-    console.error("Error creating address:", error);
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+    return safeErrorResponse(error, 500, "Error saving address");
   }
 }

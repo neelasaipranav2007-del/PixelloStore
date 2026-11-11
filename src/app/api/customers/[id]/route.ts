@@ -1,10 +1,38 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { portalEvents } from "@/lib/events";
+import { getAuthenticatedUser, getAuthenticatedAdmin } from "@/lib/session";
+import { safeErrorResponse } from "@/lib/errorHandler";
+import { logAudit } from "@/lib/auditLogger";
 
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
+    const admin = await getAuthenticatedAdmin(req);
+    const authUser = await getAuthenticatedUser(req);
+
+    if (!admin && !authUser) {
+      return NextResponse.json(
+        { success: false, error: "Unauthorized. Authentication required to view profile." },
+        { status: 401 }
+      );
+    }
+
+    // Ownership check (IDOR Protection)
+    const cleanUserPhone = (authUser?.phone || "").replace(/\D/g, "").slice(-10);
+    const cleanReqId = id.replace(/\D/g, "").slice(-10);
+    const isOwner =
+      authUser &&
+      (authUser.id === id ||
+        authUser.email === id ||
+        (cleanUserPhone && cleanUserPhone === cleanReqId));
+
+    if (!admin && !isOwner) {
+      return NextResponse.json(
+        { success: false, error: "Forbidden. You cannot view other customers' profiles." },
+        { status: 403 }
+      );
+    }
+
     const user = await prisma.user.findFirst({
       where: {
         OR: [
@@ -30,14 +58,39 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
 
     return NextResponse.json({ success: true, user });
   } catch (error: any) {
-    console.error("Error fetching customer:", error);
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+    return safeErrorResponse(error, 500, "Error fetching customer");
   }
 }
 
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
+    const admin = await getAuthenticatedAdmin(req);
+    const authUser = await getAuthenticatedUser(req);
+
+    if (!admin && !authUser) {
+      return NextResponse.json(
+        { success: false, error: "Unauthorized. Authentication required to update profile." },
+        { status: 401 }
+      );
+    }
+
+    // Ownership check (IDOR Protection)
+    const cleanUserPhone = (authUser?.phone || "").replace(/\D/g, "").slice(-10);
+    const cleanReqId = id.replace(/\D/g, "").slice(-10);
+    const isOwner =
+      authUser &&
+      (authUser.id === id ||
+        authUser.email === id ||
+        (cleanUserPhone && cleanUserPhone === cleanReqId));
+
+    if (!admin && !isOwner) {
+      return NextResponse.json(
+        { success: false, error: "Forbidden. You cannot modify other customers' profiles." },
+        { status: 403 }
+      );
+    }
+
     const body = await req.json();
     const { name, email, phone, mobile, password, image } = body;
 
@@ -51,43 +104,36 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     if (password !== undefined) dataToUpdate.password = password;
     if (image !== undefined) dataToUpdate.image = image;
 
-    // Match by ID, email, or phone
     const user = await prisma.user.findFirst({
       where: {
         OR: [
           { id },
           { email: id },
           { phone: id },
-          { phone: `+91 ${id}` },
         ],
       },
     });
 
-    let updated;
-    if (user) {
-      updated = await prisma.user.update({
-        where: { id: user.id },
-        data: dataToUpdate,
-        include: { customerProfile: true },
-      });
-    } else {
-      updated = await prisma.user.create({
-        data: {
-          name: name || "Customer",
-          email: email || null,
-          phone: cleanPhone || null,
-          password: password || "pixello123",
-          role: "CUSTOMER",
-          customerProfile: { create: {} },
-        },
-        include: { customerProfile: true },
-      });
+    if (!user) {
+      return NextResponse.json({ success: false, error: "Customer not found" }, { status: 404 });
     }
 
-    portalEvents.emit("customer_change", { action: "UPDATE", user: updated });
+    const updated = await prisma.user.update({
+      where: { id: user.id },
+      data: dataToUpdate,
+    });
+
+    logAudit({
+      userId: authUser?.id || admin?.user?.id,
+      actorRole: admin ? "ADMIN" : "CUSTOMER",
+      action: "CUSTOMER_PROFILE_UPDATED",
+      targetId: user.id,
+      details: { updatedFields: Object.keys(dataToUpdate) },
+      req,
+    }).catch(() => {});
+
     return NextResponse.json({ success: true, user: updated });
   } catch (error: any) {
-    console.error("Error updating customer:", error);
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+    return safeErrorResponse(error, 500, "Error updating customer");
   }
 }

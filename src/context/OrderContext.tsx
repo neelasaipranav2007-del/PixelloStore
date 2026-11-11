@@ -1,6 +1,7 @@
 "use client";
 
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from "react";
+import { sharedSSE } from "@/lib/sseClient";
 
 export interface OrderItem {
   id?: string;
@@ -11,19 +12,43 @@ export interface OrderItem {
   image: string;
   photos?: string[];
   customizationDetails?: string;
+  isHamper?: boolean;
+  hamperData?: any;
 }
 
 export type OrderStatus = 
+  | "Order Placed"
+  | "Payment Confirmed"
+  | "Order Confirmed"
+  | "In Production"
+  | "Ready for Delivery"
+  | "Delivery Assigned"
+  | "Picked Up"
+  | "In Transit"
+  | "Out for Delivery"
+  | "Delivered"
+  | "Completed"
   | "Processing" 
   | "Printing" 
   | "Packed" 
-  | "Ready for Delivery"
   | "Delivery Picked Up" 
-  | "Out for Delivery" 
-  | "Delivered" 
   | "Cancelled"
   | "Out of Stock (Refill Pending)" 
-  | "Replacement Requested";
+  | "Replacement Requested"
+  | "ORDER_PLACED"
+  | "PAYMENT_CONFIRMED"
+  | "ORDER_CONFIRMED"
+  | "IN_PRODUCTION"
+  | "READY_FOR_DELIVERY"
+  | "DELIVERY_ASSIGNED"
+  | "PICKED_UP"
+  | "IN_TRANSIT"
+  | "OUT_FOR_DELIVERY"
+  | "DELIVERED"
+  | "COMPLETED"
+  | "CANCELLED"
+  | "REPLACEMENT_REQUESTED"
+  | string;
 
 export interface OrderStatusHistoryItem {
   id?: string;
@@ -65,6 +90,8 @@ export interface Order {
   pickupTime?: string | null;
   deliveryTime?: string | null;
   deliveryType?: "Direct Delivery" | "Shipping";
+  isSurpriseGift?: boolean;
+  surpriseGiftMessage?: string | null;
   deliveryInfo?: {
     deliveryProvider?: string;
     deliveryPartnerName?: string;
@@ -220,13 +247,19 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
       }
 
       if (data.success && Array.isArray(data.orders)) {
-        const enrichedOrders = data.orders.map((o: Order) => {
+        const enrichedOrders = data.orders.map((o: any) => {
+          const rawStatus = o.status;
+          const statusStr: OrderStatus = typeof rawStatus === "string"
+            ? (rawStatus as OrderStatus)
+            : (rawStatus?.customerStatus || rawStatus?.name || rawStatus?.label || "Processing");
+
           if (typeof window !== "undefined") {
             try {
               const cacheKey = `pixello_order_doc_${o.id}`;
               const cached = JSON.parse(localStorage.getItem(cacheKey) || "{}");
               return {
                 ...o,
+                status: statusStr,
                 invoiceUrl: (o.invoiceUrl !== undefined && o.invoiceUrl !== null && o.invoiceUrl !== "") 
                   ? o.invoiceUrl 
                   : (cached.invoiceUrl || undefined),
@@ -238,14 +271,33 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
                   : (cached.trackingAwb || undefined),
               };
             } catch (e) {
-              return o;
+              return { ...o, status: statusStr };
             }
           }
-          return o;
+          return { ...o, status: statusStr };
         });
-        setOrders(enrichedOrders);
+        setOrders((prev) => {
+          if (
+            prev.length === enrichedOrders.length &&
+            prev.every((o, idx) => o.id === enrichedOrders[idx]?.id && o.status === enrichedOrders[idx]?.status && o.updatedAt === enrichedOrders[idx]?.updatedAt)
+          ) {
+            return prev;
+          }
+          return enrichedOrders;
+        });
         if (data.metrics) {
-          setMetrics(data.metrics);
+          setMetrics((prev) => {
+            if (
+              prev &&
+              prev.totalRevenue === data.metrics.totalRevenue &&
+              prev.totalOrdersCount === data.metrics.totalOrdersCount &&
+              prev.activeCount === data.metrics.activeCount &&
+              prev.deliveredCount === data.metrics.deliveredCount
+            ) {
+              return prev;
+            }
+            return data.metrics;
+          });
         }
       }
     } catch (err) {
@@ -263,39 +315,25 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
     }
     debounceTimerRef.current = setTimeout(() => {
       fetchOrdersFromBackend(false);
-    }, 300);
+    }, 500);
   }, [fetchOrdersFromBackend]);
 
   useEffect(() => {
     fetchOrdersFromBackend(true);
 
-    let eventSource: EventSource | null = null;
-    try {
-      eventSource = new EventSource("/api/events");
-      eventSource.addEventListener("order_update", () => {
-        triggerDebouncedFetch();
-      });
-      eventSource.addEventListener("order_change", () => {
-        triggerDebouncedFetch();
-      });
-      eventSource.addEventListener("notification_update", () => {
-        triggerDebouncedFetch();
-      });
-      eventSource.addEventListener("notification_change", () => {
-        triggerDebouncedFetch();
-      });
-    } catch {
-      // ignore event source error
-    }
+    const unsub1 = sharedSSE.subscribe("order_update", () => triggerDebouncedFetch());
+    const unsub2 = sharedSSE.subscribe("order_change", () => triggerDebouncedFetch());
+    const unsub3 = sharedSSE.subscribe("notification_update", () => triggerDebouncedFetch());
+    const unsub4 = sharedSSE.subscribe("notification_change", () => triggerDebouncedFetch());
 
     const handleStorageUpdate = () => {
       triggerDebouncedFetch();
     };
 
-    // Auto-sync polling every 3 seconds for 100% reliable cross-portal live sync
+    // Auto-sync polling every 15 seconds as a fallback to real-time SSE
     const autoSyncInterval = setInterval(() => {
       fetchOrdersFromBackend(false);
-    }, 3000);
+    }, 15000);
 
     window.addEventListener("pixello_orders_updated", handleStorageUpdate);
     window.addEventListener("pixello_order_created", handleStorageUpdate);
@@ -303,7 +341,10 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
     window.addEventListener("storage", handleStorageUpdate);
 
     return () => {
-      if (eventSource) eventSource.close();
+      unsub1();
+      unsub2();
+      unsub3();
+      unsub4();
       if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
       clearInterval(autoSyncInterval);
       window.removeEventListener("pixello_orders_updated", handleStorageUpdate);
@@ -329,6 +370,12 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
       const result = await res.json();
       if (result.success && result.order) {
         await fetchOrdersFromBackend(false);
+
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("pixello_orders_updated"));
+        window.dispatchEvent(new CustomEvent("order_update"));
+        localStorage.setItem("pixello_orders_sync_trigger", String(Date.now()));
+      }
         return result.order;
       } else {
         throw new Error(result.error || "Failed to create order");
@@ -378,6 +425,12 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
       }
 
       await fetchOrdersFromBackend(false);
+
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("pixello_orders_updated"));
+        window.dispatchEvent(new CustomEvent("order_update"));
+        localStorage.setItem("pixello_orders_sync_trigger", String(Date.now()));
+      }
     } catch (err) {
       console.error("Error updating order status on backend:", err);
     }
@@ -462,6 +515,12 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
         body: JSON.stringify(patchBody),
       });
       await fetchOrdersFromBackend(false);
+
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("pixello_orders_updated"));
+        window.dispatchEvent(new CustomEvent("order_update"));
+        localStorage.setItem("pixello_orders_sync_trigger", String(Date.now()));
+      }
     } catch (err) {
       console.error("Error updating order details on backend:", err);
     }

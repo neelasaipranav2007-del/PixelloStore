@@ -1,5 +1,6 @@
 import React from "react";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { Filter, Star, ShoppingCart, Heart, ChevronRight } from "lucide-react";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -19,6 +20,10 @@ const MOCK_PRODUCTS = [
 
 export default async function CategoryPage({ params }: { params: Promise<{ name: string }> }) {
   const { name } = await params;
+  
+  if (name.toLowerCase() === "photo-frames" || name.toLowerCase() === "frames") {
+    redirect("/frames");
+  }
   
   // Format slug name to readable Title (e.g. photo-frames -> Photo Frames)
   const categoryTitle = name.split("-").map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(" ");
@@ -43,14 +48,14 @@ export default async function CategoryPage({ params }: { params: Promise<{ name:
       </div>
 
       {/* Category Header */}
-      <div className="mb-8 flex flex-col gap-2 bg-gradient-to-r from-blue-50 to-indigo-50 p-8 rounded-2xl border border-blue-100">
-        <Badge className="w-fit bg-primary text-primary-foreground">Category</Badge>
-        <h1 className="text-4xl font-extrabold tracking-tight">{categoryTitle}</h1>
-        <p className="text-muted-foreground">Explore our top-rated personalized {categoryTitle.toLowerCase()} handcrafted and delivered with express tracking.</p>
+      <div className="mb-6 sm:mb-8 flex flex-col gap-2 bg-gradient-to-r from-[#FFF5ED] via-[#FFF8F2] to-[#FFFDFB] p-5 sm:p-8 rounded-3xl border border-[#EFE6DD]">
+        <Badge className="w-fit bg-[#D89A86] text-white">Category</Badge>
+        <h1 className="text-2xl sm:text-4xl font-extrabold tracking-tight font-serif-brand text-[#3A2B24]">{categoryTitle}</h1>
+        <p className="text-xs sm:text-sm text-[#6C5C54]">Explore our top-rated personalized {categoryTitle.toLowerCase()} handcrafted and delivered with express tracking.</p>
       </div>
 
       {/* Product Grid */}
-      <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3.5 sm:gap-6">
         {displayProducts.map((product) => (
           <div key={product.id} className="group overflow-hidden border border-[#EFE6DD] bg-white rounded-3xl shadow-xs hover:shadow-md transition-all duration-300 flex flex-col justify-between">
             <Link href={`/product/${product.id}`} className="block relative aspect-square overflow-hidden cursor-pointer w-full">

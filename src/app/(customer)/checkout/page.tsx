@@ -14,6 +14,8 @@ import { useProducts } from "@/context/ProductContext";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { calculateDeliveryFee } from "@/lib/deliveryFee";
+import { isCustomerEligibleForBirthdayDiscount } from "@/lib/birthdayHelper";
+import { BorderTrailCard2 } from "@/components/core/border-trail-card-2";
 
 export default function CheckoutPage() {
   const router = useRouter();
@@ -48,6 +50,14 @@ export default function CheckoutPage() {
   const [copiedUpi, setCopiedUpi] = useState(false);
   const [utrNumber, setUtrNumber] = useState("");
   const [promoError, setPromoError] = useState("");
+
+  // Surprise Gift Option (Hide Invoice & Prices, Wax-Sealed Card)
+  const [isSurpriseGift, setIsSurpriseGift] = useState(false);
+  const [surpriseGiftMessage, setSurpriseGiftMessage] = useState("");
+
+  // Campus Ambassador Input (Directly on checkout form)
+  const [campusAmbassadorInput, setCampusAmbassadorInput] = useState("");
+  const [ambassadorSuccessMsg, setAmbassadorSuccessMsg] = useState("");
 
   const subtotal = cartItems.reduce((acc, item) => acc + item.price * item.quantity, 0);
 
@@ -456,6 +466,8 @@ export default function CheckoutPage() {
         "POOJA10": "Pooja",
         "NEHA10": "Neha",
         "ANANYA10": "Ananya",
+        "PRIYA2026": "Priya",
+        "PRIYA10": "Priya",
       };
 
       if (KNOWN_AMBASSADORS[normalizedInput] || KNOWN_AMBASSADORS[codeClean]) {
@@ -473,6 +485,30 @@ export default function CheckoutPage() {
     if (!found) {
       setPromoError("Invalid promo code");
       return;
+    }
+
+    // Exclusive Birthday Offer Check: Only for customer who is having the birthday (within 72h)
+    if (normalizedInput === "BDAY25" || normalizedInput === "BIRTHDAY25" || normalizedInput.startsWith("BDAY")) {
+      let isEligible = false;
+      let userName = "there";
+      if (typeof window !== "undefined") {
+        try {
+          const savedUserStr = localStorage.getItem("pixello_user");
+          if (savedUserStr) {
+            const user = JSON.parse(savedUserStr);
+            userName = user.name || "there";
+            const rawBirthday = user.birthday || user.dob || user.dateOfBirth;
+            isEligible = isCustomerEligibleForBirthdayDiscount(rawBirthday);
+          }
+        } catch (e) {}
+      }
+
+      if (!isEligible) {
+        setPromoError(
+          "🎂 Exclusive Birthday Offer: BDAY25 is reserved exclusively for customers celebrating their birthday (active within 72 hours). Please add or update your birthday in My Profile!"
+        );
+        return;
+      }
     }
 
     // Clean up stale deleted list if it was mistakenly in localStorage
@@ -494,6 +530,10 @@ export default function CheckoutPage() {
         localStorage.setItem("pixello_referral_code", found.code || codeClean);
         sessionStorage.setItem("pixello_referral_code", found.code || codeClean);
       }
+      setAmbassadorSuccessMsg(`✓ Ambassador Code ${found.code || codeClean} Applied (${found.value || 10}% OFF)`);
+      setCampusAmbassadorInput(found.code || codeClean);
+    } else {
+      setAmbassadorSuccessMsg("");
     }
 
     if (found.maxCustomerLimit && found.maxCustomerLimit > 0 && (found.usageCount || 0) >= found.maxCustomerLimit) {
@@ -522,6 +562,26 @@ export default function CheckoutPage() {
       value: Number(found.value) || 10,
     });
     setPromoCodeInput("");
+  };
+
+  const handleApplyAmbassadorCode = (codeOverride?: string) => {
+    const raw = (codeOverride || campusAmbassadorInput).trim();
+    if (!raw) {
+      setPromoError("Please enter your campus ambassador code.");
+      return;
+    }
+    handleApplyPromoCode(raw);
+  };
+
+  const scrollToPaymentSection = () => {
+    if (!firstName.trim() || !phone.trim() || !address1.trim() || !pincode.trim()) {
+      alert("Please fill in your delivery details (First Name, Phone Number, Address Line 1, Pincode) before continuing.");
+      return;
+    }
+    const paymentEl = document.getElementById("payment-section");
+    if (paymentEl) {
+      paymentEl.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
   };
 
   const [orderSuccessModal, setOrderSuccessModal] = useState<{
@@ -671,18 +731,39 @@ export default function CheckoutPage() {
         method: "POST",
         headers,
         body: JSON.stringify({
-          items: cartItems.map((item) => ({
-            productId: (item as any).productId,
-            name: item.name,
-            size: item.size,
-            quantity: item.quantity,
-            price: item.price,
-            image: item.image,
-            photos: item.photos && item.photos.length > 0 ? item.photos : [item.image],
-          })),
+          items: cartItems.map((item) => {
+            let itemHamperData = (item as any).hamperData;
+            if (!itemHamperData && typeof window !== "undefined") {
+              try {
+                itemHamperData = JSON.parse(localStorage.getItem(`pixello_hamper_details_${item.id}`) || "null");
+              } catch (e) {}
+            }
+            let itemFrameCustomization = (item as any).frameCustomization;
+            if (!itemFrameCustomization && typeof window !== "undefined") {
+              try {
+                itemFrameCustomization = JSON.parse(localStorage.getItem(`pixello_frame_custom_${item.id}`) || "null");
+              } catch (e) {}
+            }
+            const isHamper = !!(item as any).isHamper || item.name.toLowerCase().includes("hamper") || !!itemHamperData;
+            return {
+              productId: (item as any).productId,
+              name: item.name,
+              size: item.size,
+              quantity: item.quantity,
+              price: item.price,
+              image: item.image,
+              photos: item.photos && item.photos.length > 0 ? item.photos : [item.image],
+              isHamper,
+              hamperData: itemHamperData || null,
+              frameCustomization: itemFrameCustomization || null,
+              customizationDetails: (item as any).customizationDetails || null,
+            };
+          }),
           deliveryAddress: formattedAddressStr,
           promoCode: refCodeToPass,
           deliveryType: "Shipping",
+          isSurpriseGift: isSurpriseGift,
+          surpriseGiftMessage: isSurpriseGift ? surpriseGiftMessage : undefined,
         }),
       });
 
@@ -710,6 +791,8 @@ export default function CheckoutPage() {
             assignedStudio: finalStudio,
             customerName: `${firstName} ${lastName}`.trim(),
             customerPhone: phone,
+            isSurpriseGift: isSurpriseGift,
+            surpriseGiftMessage: isSurpriseGift ? surpriseGiftMessage : undefined,
           }),
         });
 
@@ -738,6 +821,9 @@ export default function CheckoutPage() {
           address: confirmedOrder.shippingAddress || formattedAddressStr,
           paymentMethod: paymentMethod === "cod" ? "Cash on Delivery (COD)" : "UPI / Online Payment",
         });
+
+        // Direct navigation to Premium Memory Archive Order Success Page
+        router.push(`/order-success?orderId=${encodeURIComponent(confirmedOrder.id)}`);
 
         // Record T&C acceptance for checkout context (non-blocking)
         try {
@@ -877,10 +963,11 @@ export default function CheckoutPage() {
             )}
 
             <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
-              <Link href="/cart" className="w-full sm:w-auto">
-                <Button variant="outline" className="w-full sm:w-auto rounded-full border-[#EFE6DD] px-6 h-12 text-xs font-bold text-[#6C5C54] hover:bg-[#FFF8F2]">
-                  ← Return to Cart
-                </Button>
+              <Link 
+                href="/cart" 
+                className="w-full sm:w-auto rounded-full border border-[#EFE6DD] px-6 h-12 text-xs font-bold text-[#6C5C54] hover:bg-[#FFF8F2] flex items-center justify-center transition-colors cursor-pointer"
+              >
+                ← Return to Cart
               </Link>
               <Button 
                 onClick={() => router.push("/login?redirect=/checkout")}
@@ -909,7 +996,7 @@ export default function CheckoutPage() {
           <div className="flex-1 flex flex-col gap-8">
             {/* Shipping Details */}
             <Card className="border border-[#EFE6DD] bg-white rounded-3xl shadow-xs">
-              <CardContent className="p-6 md:p-8">
+              <CardContent className="p-4 sm:p-6 md:p-8">
                 <div className="flex items-center gap-3 mb-6">
                   <div className="h-8 w-8 rounded-full bg-[#FFF8F2] text-[#D89A86] border border-[#D89A86]/30 flex items-center justify-center font-bold">1</div>
                   <h2 className="font-serif-brand text-xl font-bold text-[#3A2B24]">Shipping Details</h2>
@@ -1065,13 +1152,116 @@ export default function CheckoutPage() {
 
                     <p className="text-xs text-[#6C5C54] mt-2 text-center">We use your location to match the nearest verified photo studio.</p>
                   </div>
+
+                  {/* SURPRISE GIFT (HIDE INVOICE & PRICES) */}
+                  <div className="md:col-span-2 mt-2">
+                    <div
+                      className={cn(
+                        "rounded-2xl border p-4 sm:p-5 transition-all select-none",
+                        isSurpriseGift
+                          ? "border-[#D89A86] bg-[#FFF8F2] shadow-xs ring-1 ring-[#D89A86]/40"
+                          : "border-[#F2C8B5] bg-[#FFF8F2]/60 hover:border-[#D89A86]/70"
+                      )}
+                    >
+                      <label className="flex items-start gap-3.5 cursor-pointer">
+                        <div className="pt-0.5">
+                          <input
+                            type="checkbox"
+                            id="checkout_surprise_gift_cb"
+                            checked={isSurpriseGift}
+                            onChange={(e) => setIsSurpriseGift(e.target.checked)}
+                            className="h-5 w-5 rounded-md border-2 border-[#F2C8B5] text-[#D89A86] focus:ring-[#D89A86] accent-[#D89A86] cursor-pointer"
+                          />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 font-bold text-sm text-[#3A2B24]">
+                            <span className="text-base">🎁</span>
+                            <span>This is a Surprise Gift! (Hide Invoice &amp; Prices)</span>
+                          </div>
+                          <p className="text-xs text-[#6C5C54] mt-1 leading-relaxed font-normal">
+                            We will omit price tags, include a wax-sealed complimentary card, and package it in discreet luxury gift wrap.
+                          </p>
+
+                          {/* Complimentary Wax-Sealed Note Input */}
+                          {isSurpriseGift && (
+                            <div className="mt-3.5 pt-3.5 border-t border-[#F2C8B5]/60 animate-in fade-in space-y-1.5">
+                              <label className="text-xs font-bold text-[#3A2B24] flex items-center gap-1.5">
+                                <Sparkles className="h-3.5 w-3.5 text-[#D89A86]" />
+                                <span>Complimentary Wax-Sealed Gift Card Dedication (Optional):</span>
+                              </label>
+                              <input
+                                type="text"
+                                value={surpriseGiftMessage}
+                                onChange={(e) => setSurpriseGiftMessage(e.target.value)}
+                                placeholder="e.g. Wishing you a very Happy Birthday! With love from your bestie."
+                                className="w-full text-xs p-3 rounded-xl border border-[#F2C8B5] bg-white text-[#3A2B24] placeholder:text-[#9C8C84] focus:outline-none focus:border-[#D89A86] shadow-2xs"
+                              />
+                              <p className="text-[10px] text-[#8C7A72]">
+                                Your handwritten note will be preserved on cold-pressed archival parchment sealed with gold metallic wax.
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                      </label>
+                    </div>
+                  </div>
+
+                  {/* CAMPUS AMBASSADOR CODE INPUT */}
+                  <div className="md:col-span-2 mt-3">
+                    <label className="text-xs font-bold text-[#6C5C54] tracking-wider uppercase block mb-2">
+                      HAVE A CAMPUS AMBASSADOR CODE?
+                    </label>
+                    <div className="flex gap-2">
+                      <Input
+                        value={campusAmbassadorInput}
+                        onChange={(e) => {
+                          setCampusAmbassadorInput(e.target.value.toUpperCase());
+                          if (ambassadorSuccessMsg) setAmbassadorSuccessMsg("");
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            handleApplyAmbassadorCode();
+                          }
+                        }}
+                        placeholder="e.g. PRIYA2026"
+                        className="rounded-2xl border border-[#EFE6DD] bg-white text-xs sm:text-sm font-bold tracking-wider text-[#3A2B24] placeholder:text-[#9C8C84] placeholder:font-normal h-12 px-4 shadow-2xs uppercase"
+                      />
+                      <Button
+                        type="button"
+                        onClick={() => handleApplyAmbassadorCode()}
+                        className="rounded-2xl bg-[#3A2B24] hover:bg-[#2A1E18] text-white px-5 sm:px-6 h-12 text-xs font-bold shadow-2xs cursor-pointer transition-all shrink-0"
+                      >
+                        Apply
+                      </Button>
+                    </div>
+
+                    {ambassadorSuccessMsg && (
+                      <div className="mt-2 text-xs font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 rounded-xl p-2.5 flex items-center gap-2 animate-in fade-in">
+                        <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
+                        <span>{ambassadorSuccessMsg}</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* CONTINUE TO PAYMENT BUTTON */}
+                  <div className="md:col-span-2 flex justify-end mt-2">
+                    <button
+                      type="button"
+                      onClick={scrollToPaymentSection}
+                      className="rounded-full sm:rounded-2xl bg-[#D89A86] hover:bg-[#c68976] text-white px-6 py-3.5 font-bold text-sm shadow-md hover:shadow-lg active:scale-98 flex items-center gap-2 cursor-pointer transition-all"
+                    >
+                      <span>Continue to Payment</span>
+                      <ArrowRight className="h-4 w-4" />
+                    </button>
+                  </div>
                 </div>
               </CardContent>
             </Card>
 
             {/* Payment Options */}
-            <Card className="border border-[#EFE6DD] bg-white rounded-3xl shadow-xs overflow-hidden">
-              <CardContent className="p-6 md:p-8">
+            <Card id="payment-section" className="border border-[#EFE6DD] bg-white rounded-3xl shadow-xs overflow-hidden scroll-mt-24">
+              <CardContent className="p-4 sm:p-6 md:p-8">
                 <div className="flex items-center gap-3 mb-6">
                   <div className="h-8 w-8 rounded-full bg-[#FFF8F2] text-[#D89A86] border border-[#D89A86]/30 flex items-center justify-center font-bold">2</div>
                   <h2 className="font-serif-brand text-xl font-bold text-[#3A2B24]">Payment Method</h2>
@@ -1221,31 +1411,55 @@ export default function CheckoutPage() {
           {/* Sidebar Summary */}
           <div className="w-full lg:w-96 flex-shrink-0">
             <Card className="border border-[#EFE6DD] bg-white rounded-3xl shadow-xs sticky top-24">
-              <CardContent className="p-6">
+              <CardContent className="p-4 sm:p-6">
                 <h3 className="font-serif-brand font-bold text-xl mb-4 text-[#3A2B24]">Order Summary</h3>
                 
                 <div className="flex flex-col gap-4 mb-6">
-                  {cartItems.map((item) => (
-                    <div key={item.id} className="flex items-center gap-3 group">
-                      <div className="h-12 w-12 rounded-xl overflow-hidden bg-[#FFF8F2] border border-[#EFE6DD] flex-shrink-0">
-                        <img src={item.image} alt={item.name} className="object-cover h-full w-full" />
+                  {cartItems.map((item) => {
+                    const customPhoto = (item.photos && item.photos.length > 0 && item.photos[0]) ? item.photos[0] : item.image;
+                    return (
+                      <div key={item.id} className="flex items-center gap-3 group">
+                        <div className="h-12 w-12 rounded-xl overflow-hidden bg-[#FFF8F2] border border-[#EFE6DD] flex-shrink-0">
+                          <img src={customPhoto} alt={item.name} className="object-cover h-full w-full" />
+                        </div>
+                        <div className="flex-1 text-sm">
+                          <div className="font-medium text-[#3A2B24] flex items-center gap-1.5 flex-wrap">
+                            <span>{item.name}</span>
+                            {(item.name?.toLowerCase().includes("hamper") || (item as any).isHamper) && (
+                              <span className="text-[9px] font-extrabold uppercase px-1.5 py-0.2 rounded-full bg-[#D89A86] text-white">
+                                🎁 Hamper
+                              </span>
+                            )}
+                          </div>
+                          {(() => {
+                            const messageMatch = item.size?.match(/\[Message:\s*(.*?)\]/i);
+                            const cleanSize = item.size ? item.size.replace(/\[Message:\s*.*?\]/i, "").trim() : item.size;
+                            const customMsg = messageMatch ? messageMatch[1].trim() : null;
+                            return (
+                              <div>
+                                <div className="text-xs text-[#6C5C54]">Size: {cleanSize || item.size} • Qty: {item.quantity}</div>
+                                {customMsg && (
+                                  <div className="text-[11px] font-bold text-[#D89A86] flex items-center gap-1 mt-0.5">
+                                    <Sparkles className="h-3 w-3 text-[#D89A86]" /> Inscription: &ldquo;{customMsg}&rdquo;
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })()}
+                        </div>
+                        <div className="text-right">
+                          <div className="font-bold text-sm text-[#D89A86]">₹{item.price * item.quantity}</div>
+                          <button
+                            type="button"
+                            onClick={() => removeFromCart(item.id)}
+                            className="text-[10px] font-bold text-rose-500 hover:text-rose-700 hover:underline cursor-pointer transition-colors"
+                          >
+                            Remove
+                          </button>
+                        </div>
                       </div>
-                      <div className="flex-1 text-sm">
-                        <div className="font-medium text-[#3A2B24]">{item.name}</div>
-                        <div className="text-xs text-[#6C5C54]">Size: {item.size} • Qty: {item.quantity}</div>
-                      </div>
-                      <div className="text-right">
-                        <div className="font-bold text-sm text-[#D89A86]">₹{item.price * item.quantity}</div>
-                        <button
-                          type="button"
-                          onClick={() => removeFromCart(item.id)}
-                          className="text-[10px] font-bold text-rose-500 hover:text-rose-700 hover:underline cursor-pointer transition-colors"
-                        >
-                          Remove
-                        </button>
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
 
                 {/* PROMO CODE SECTION */}
@@ -1269,6 +1483,8 @@ export default function CheckoutPage() {
                         onClick={() => {
                           setAppliedPromo(null);
                           setPromoError("");
+                          setCampusAmbassadorInput("");
+                          setAmbassadorSuccessMsg("");
                           if (typeof window !== "undefined") {
                             localStorage.removeItem("pixello_referral_code");
                             sessionStorage.removeItem("pixello_referral_code");
@@ -1305,6 +1521,35 @@ export default function CheckoutPage() {
                       <AlertCircle className="h-3.5 w-3.5 text-rose-600 shrink-0" />
                       <span>{promoError}</span>
                     </p>
+                  )}
+
+                  {!appliedPromo && availablePromos.length > 0 && (
+                    <div className="mt-3">
+                      <BorderTrailCard2
+                        glowColor="pink"
+                        trailSize={90}
+                        active={true}
+                        className="p-3 rounded-2xl bg-gradient-to-r from-[#FFF9F5] to-[#FFF4ED] border-[#F2C8B5]/80"
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="min-w-0">
+                            <span className="text-[9px] font-extrabold uppercase text-[#D89A86] tracking-wide block">
+                              Available Special Offer
+                            </span>
+                            <span className="font-mono font-bold text-xs text-[#3A2B24] truncate block">
+                              {availablePromos[0].code} • {availablePromos[0].type === "percentage" ? `${availablePromos[0].value}% OFF` : `₹${availablePromos[0].value} OFF`}
+                            </span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => handleApplyPromoCode(availablePromos[0].code)}
+                            className="shrink-0 px-3 py-1 rounded-full text-[11px] font-bold bg-[#D89A86] text-white hover:bg-[#C58572] transition-colors shadow-2xs cursor-pointer"
+                          >
+                            Apply
+                          </button>
+                        </div>
+                      </BorderTrailCard2>
+                    </div>
                   )}
                 </div>
 
@@ -1381,36 +1626,78 @@ export default function CheckoutPage() {
                   )}
                 </div>
 
-                <Button
-                  size="lg"
+                {/* PRIMARY CHECKOUT ACTION BUTTON */}
+                <button
+                  type="button"
                   disabled={isProcessingPayment || !checkoutTermsAccepted}
-                  className="btn-pixello-primary w-full h-14 text-base rounded-full shadow-md cursor-pointer disabled:opacity-50 flex items-center justify-center gap-2"
                   onClick={handlePayment}
+                  className="relative w-full group overflow-hidden rounded-2xl bg-gradient-to-r from-[#D89A86] via-[#CF8D79] to-[#BF7B65] hover:from-[#d3937f] hover:to-[#b36f59] text-white p-3.5 sm:p-4 shadow-lg shadow-[#D89A86]/25 hover:shadow-xl hover:shadow-[#D89A86]/35 active:scale-[0.99] transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed border border-white/25"
                 >
+                  {/* Subtle top specular shimmer */}
+                  <div className="absolute inset-0 bg-gradient-to-b from-white/15 to-transparent pointer-events-none" />
+
                   {isProcessingPayment ? (
-                    <>
-                      <Loader2 className="h-5 w-5 animate-spin text-white" />
-                      <span>{paymentMethod === "cod" ? "Placing Cash on Delivery Order..." : "Opening Secure Razorpay Gateway..."}</span>
-                    </>
+                    <div className="relative flex items-center justify-center gap-3 py-1">
+                      <Loader2 className="h-6 w-6 animate-spin text-white shrink-0" />
+                      <span className="font-extrabold text-sm sm:text-base tracking-wide">
+                        {paymentMethod === "cod" ? "Placing Cash on Delivery Order..." : "Opening Secure Razorpay Gateway..."}
+                      </span>
+                    </div>
                   ) : paymentMethod === "cod" ? (
-                    <>
-                      <Truck className="h-5 w-5 text-white" />
-                      <span>Place Order (Cash on Delivery) • ₹{total.toFixed(2)}</span>
-                    </>
+                    <div className="relative flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="h-11 w-11 rounded-xl bg-white/20 border border-white/30 flex items-center justify-center shrink-0 shadow-xs group-hover:scale-105 transition-transform">
+                          <Truck className="h-5 w-5 text-white" />
+                        </div>
+                        <div className="text-left min-w-0">
+                          <span className="block font-black text-sm sm:text-base text-white tracking-wide truncate">
+                            Place Order
+                          </span>
+                          <span className="block text-[11px] text-white/90 font-medium truncate">
+                            Cash on Delivery • Pay at doorstep
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-1.5 bg-black/15 hover:bg-black/20 border border-white/25 px-3 py-1.5 rounded-xl shrink-0 shadow-xs">
+                        <span className="font-black text-sm sm:text-base text-white">
+                          ₹{total.toFixed(2)}
+                        </span>
+                        <ArrowRight className="h-4 w-4 text-white/90 group-hover:translate-x-0.5 transition-transform" />
+                      </div>
+                    </div>
                   ) : (
-                    <>
-                      <CreditCard className="h-5 w-5 text-white" />
-                      <span>Pay ₹{total.toFixed(2)} with UPI / Online</span>
-                    </>
+                    <div className="relative flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="h-11 w-11 rounded-xl bg-white/20 border border-white/30 flex items-center justify-center shrink-0 shadow-xs group-hover:scale-105 transition-transform">
+                          <CreditCard className="h-5 w-5 text-white" />
+                        </div>
+                        <div className="text-left min-w-0">
+                          <span className="block font-black text-sm sm:text-base text-white tracking-wide truncate">
+                            Pay Securely Online
+                          </span>
+                          <span className="block text-[11px] text-white/90 font-medium truncate">
+                            UPI, Cards, NetBanking (Razorpay)
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-1.5 bg-black/15 hover:bg-black/20 border border-white/25 px-3 py-1.5 rounded-xl shrink-0 shadow-xs">
+                        <span className="font-black text-sm sm:text-base text-white">
+                          ₹{total.toFixed(2)}
+                        </span>
+                        <ArrowRight className="h-4 w-4 text-white/90 group-hover:translate-x-0.5 transition-transform" />
+                      </div>
+                    </div>
                   )}
-                </Button>
+                </button>
 
                 {/* CANCEL ORDER BUTTON */}
                 <Button
                   type="button"
                   variant="outline"
                   onClick={() => setShowCancelModal(true)}
-                  className="w-full h-12 mt-3 rounded-full border-rose-200 hover:border-rose-300 text-rose-700 hover:text-rose-800 bg-rose-50/60 hover:bg-rose-100/70 font-bold text-xs flex items-center justify-center gap-2 cursor-pointer transition-all shadow-2xs"
+                  className="w-full h-11 mt-3 rounded-2xl border-rose-200/80 hover:border-rose-300 text-rose-700 hover:text-rose-800 bg-rose-50/50 hover:bg-rose-100/70 font-bold text-xs flex items-center justify-center gap-2 cursor-pointer transition-all shadow-2xs"
                 >
                   <Ban className="h-4 w-4 text-rose-600" />
                   <span>Cancel Order</span>

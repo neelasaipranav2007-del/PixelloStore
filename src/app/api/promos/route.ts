@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { portalEvents } from "@/lib/events";
+import { getAuthenticatedAdmin } from "@/lib/session";
+import { logAudit } from "@/lib/auditLogger";
+import { safeErrorResponse } from "@/lib/errorHandler";
 
 export const dynamic = "force-dynamic";
 
@@ -69,6 +72,26 @@ export async function GET(req: Request) {
             category: coupon.category,
             status: coupon.status,
             description: coupon.description,
+            isAmbassador: false,
+          },
+        });
+      }
+
+      // 2.5. Check Birthday Milestone Celebration Code (72-Hour Active Window)
+      if (clean === "BDAY25" || clean === "BIRTHDAY25" || clean === "BDAYMAGIC" || clean === "BDAYSPECIAL") {
+        return NextResponse.json({
+          success: true,
+          promo: {
+            id: "bday_celebration_25",
+            code: clean,
+            type: "percentage",
+            value: 25,
+            minOrder: 0,
+            maxCustomerLimit: null,
+            usageCount: 1,
+            category: "All Categories",
+            status: "Active",
+            description: "🎉 Special 72-Hour Birthday Milestone Celebration (25% OFF)",
             isAmbassador: false,
           },
         });
@@ -185,6 +208,14 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   try {
+    const admin = await getAuthenticatedAdmin(req);
+    if (!admin) {
+      return NextResponse.json(
+        { success: false, error: "Unauthorized. Admin privileges required to create promo codes." },
+        { status: 401 }
+      );
+    }
+
     const body = await req.json();
     const { code, type, value, minOrder, maxCustomerLimit, category, status, description } = body;
 
@@ -234,6 +265,17 @@ export async function PATCH(req: Request) {
   try {
     const body = await req.json();
     const { id, code, type, value, minOrder, maxCustomerLimit, category, status, description, incrementUsage } = body;
+
+    // Modifying promo rules requires admin auth; usage increment during order is allowed
+    if (!incrementUsage) {
+      const admin = await getAuthenticatedAdmin(req);
+      if (!admin) {
+        return NextResponse.json(
+          { success: false, error: "Unauthorized. Admin privileges required to update promo codes." },
+          { status: 401 }
+        );
+      }
+    }
 
     if (!id && !code) {
       return NextResponse.json({ success: false, error: "Missing promo ID or code" }, { status: 400 });
@@ -313,6 +355,14 @@ export async function PATCH(req: Request) {
 
 export async function DELETE(req: Request) {
   try {
+    const admin = await getAuthenticatedAdmin(req);
+    if (!admin) {
+      return NextResponse.json(
+        { success: false, error: "Unauthorized. Admin privileges required to delete promo codes." },
+        { status: 401 }
+      );
+    }
+
     const { searchParams } = new URL(req.url);
     const id = searchParams.get("id");
     const code = searchParams.get("code");
