@@ -1,0 +1,680 @@
+<USER_REQUEST>
+# PIXELLOSTORE — COMPLETE 25-POINT SECURITY IMPLEMENTATION
+
+Act as a Senior Application Security Engineer, Full-Stack Developer, Backend Architect, and DevSecOps Engineer.
+
+I want you to implement all 25 security measures listed below in my existing PixelloStore e-commerce application.
+
+The objective is to make PixelloStore a secure, production-ready e-commerce platform that protects customer information, uploaded photographs, payments, orders, authentication, database records, and all user portals.
+
+## 1. EXISTING APPLICATION TECHNOLOGY
+
+My application uses:
+
+- Next.js
+- TypeScript
+- Tailwind CSS
+- Prisma ORM
+- Existing database and product catalog
+- Existing authentication system
+- Customer Portal
+- Admin Portal
+- Ambassador Portal
+- Delivery Portal
+- Razorpay payment gateway
+- Product image uploads
+- AI-powered visual product search
+- AI Hamper Designer
+- Build Your Own Hamper
+- Shopping cart and checkout
+- Order management and delivery tracking
+
+## 2. CRITICAL RULES — DO NOT BREAK MY APPLICATION
+
+Before implementation:
+
+1. Inspect the entire existing codebase.
+2. Understand the current authentication and authorization architecture.
+3. Inspect all API routes and server actions.
+4. Inspect the actual Prisma schema and database relationships.
+5. Inspect the existing Razorpay integration.
+6. Inspect product image storage and customer-uploaded image handling.
+7. Identify the hosting and deployment environment.
+8. Identify which security controls already exist.
+
+IMPORTANT:
+
+- Do not rebuild the website from scratch.
+- Do not replace the existing UI or redesign existing portals.
+- Do not remove existing features.
+- Do not reset or truncate the database.
+- Do not delete existing customer accounts, products, orders, or payments.
+- Do not introduce duplicate authentication or payment systems.
+- Do not blindly modify Prisma models.
+- Do not expose API keys, passwords, database credentials, or payment secrets.
+- Do not weaken existing authentication to make testing easier.
+- Preserve all existing customer and business workflows.
+- Make changes incrementally and test after each major implementation phase.
+
+If a security measure already exists and is implemented correctly, audit and verify it rather than creating a duplicate implementation.
+
+# PHASE 1 — CRITICAL SECURITY IMPLEMENTATION
+
+## 1. Authentication on Every API Route
+
+Secure every protected API route and server action.
+
+- Verify the user's authentication session on the server.
+- Reject unauthenticated requests to protected endpoints.
+- Validate session expiration.
+- Prevent unauthorized access through direct API requests.
+- Use centralized authentication helpers where appropriate.
+- Ensure sensitive operations cannot bypass authentication.
+
+Do not rely only on frontend authentication or hidden buttons.
+
+## 2. Role-Based Access Control (RBAC)
+
+Implement strict role-based permissions for:
+
+- Admin
+- Customer
+- Ambassador
+- Delivery
+
+Each role must access only its authorized resources.
+
+Examples:
+
+- Customers can access their own orders and profiles.
+- Ambassadors can access their own referral and commission information.
+- Delivery users can access only their authorized delivery assignments.
+- Admin users can access authorized administrative functions.
+
+Enforce roles on the backend, not just in the frontend.
+
+Never trust role information supplied by the browser.
+
+## 3. Row Level Security and Customer Data Ownership
+
+Inspect whether the existing database supports Row Level Security.
+
+If supported and compatible with the current Prisma architecture, implement appropriate database-level policies.
+
+Otherwise, implement equivalent server-side ownership checks on every customer-specific database operation.
+
+Ensure:
+
+- Customers cannot read another customer's orders.
+- Customers cannot modify another customer's addresses.
+- Customers cannot access another customer's uploaded photographs.
+- Ambassadors cannot access other ambassadors' private records.
+- Delivery users cannot access unrelated assignments.
+
+Preserve authorized Admin access.
+
+## 4. Never Trust Frontend Data
+
+Treat all frontend-supplied data as untrusted.
+
+Validate the following on the backend:
+
+- Product prices.
+- Product quantities.
+- Discounts and coupon codes.
+- Cart totals.
+- Hamper totals.
+- Product variants.
+- Stock availability.
+- Order status.
+- Payment status.
+- Refund status.
+- User roles.
+- Delivery status.
+
+Calculate prices and totals using current database records.
+
+Never allow the customer to modify the final payment amount through browser developer tools or API manipulation.
+
+## 5. IDOR Protection
+
+Prevent Insecure Direct Object Reference vulnerabilities.
+
+Check ownership and authorization whenever a user requests a record using an ID.
+
+Protect:
+
+- Customer orders.
+- Customer profiles.
+- Saved addresses.
+- Shopping carts.
+- Uploaded photographs.
+- Hamper records.
+- Ambassador commissions.
+- Referral records.
+- Delivery assignments.
+- Private documents.
+
+Return an appropriate unauthorized or not-found response when access is not permitted.
+
+Do not expose whether another customer's private record exists.
+
+## 6. Razorpay Payment Signature Verification
+
+Secure the complete Razorpay payment flow.
+
+- Create payment orders on the server.
+- Verify payment signatures on the server.
+- Validate the expected order ID and payment amount.
+- Associate payments with the correct PixelloStore order.
+- Reject manipulated payment information.
+- Never trust frontend payment-success messages.
+- Never mark an order as paid without valid verification.
+
+Keep Razorpay secret credentials on the server.
+
+## 7. Razorpay Webhook Signature Verification
+
+Secure all Razorpay webhook endpoints.
+
+- Verify webhook signatures using the configured webhook secret.
+- Use the exact raw request body required for signature verification.
+- Reject invalid signatures.
+- Prevent duplicate webhook processing.
+- Store processed event identifiers.
+- Make payment and order updates idempotent.
+- Validate payment and order associations.
+
+Do not process an unverified webhook as a genuine payment event.
+
+## 8. Private Customer Photo Storage
+
+Protect all customer-uploaded photographs.
+
+This is especially important because PixelloStore allows customers to upload personal photographs for frames, Polaroids, and customized gifts.
+
+Implement:
+
+- Private storage for customer-uploaded photographs.
+- Separate public product catalog images from private customer images.
+- Authorized file-access checks.
+- Short-lived signed URLs where supported.
+- Secure upload and retrieval permissions.
+- Safe image deletion and retention procedures.
+
+Do not make private customer photographs publicly accessible through predictable URLs.
+
+## 9. Secure Image and File Upload Validation
+
+Secure all image-upload endpoints, including:
+
+- Product customization.
+- AI visual search.
+- Hamper customization.
+- Customer profile uploads, if supported.
+- Admin product image uploads.
+
+Validate:
+
+- Actual file type and signature.
+- Allowed image formats.
+- File size.
+- Image dimensions.
+- Pixel count.
+- Malformed image files.
+
+Allow only formats required by the respective feature, such as JPEG, PNG, and WebP.
+
+Use safe image decoding and re-encoding where appropriate.
+
+Prevent uploaded files from being executed as code.
+
+## 10. Admin Portal Route and API Protection
+
+Secure the complete Admin Portal.
+
+- Verify Admin authentication on the server.
+- Protect all Admin routes.
+- Protect all Admin API endpoints.
+- Protect server actions.
+- Prevent customers from accessing Admin functionality.
+- Prevent Ambassadors and Delivery users from accessing unauthorized Admin data.
+- Protect sensitive downloads and reports.
+- Apply permission checks to important Admin operations.
+
+Hiding an Admin button is not sufficient security.
+
+## 11. Admin Two-Factor Authentication
+
+Implement Admin-only two-factor authentication.
+
+Prefer TOTP-based authentication compatible with authenticator applications.
+
+Requirements:
+
+- Require an additional verification code after Admin password authentication.
+- Securely store encrypted TOTP secrets.
+- Generate single-use recovery codes.
+- Store recovery codes securely using hashes.
+- Apply rate limiting to verification attempts.
+- Support secure recovery and re-enrollment.
+- Record relevant security events.
+
+Do not break existing customer, Ambassador, or Delivery login flows.
+
+Do not allow access to protected Admin functionality before the second factor is verified.
+
+## 12. HTTPS Everywhere
+
+Ensure all production traffic uses HTTPS.
+
+- Redirect HTTP to HTTPS.
+- Secure authentication cookies.
+- Use Secure and HttpOnly cookie attributes where appropriate.
+- Configure appropriate SameSite settings.
+- Enable HSTS after verifying the complete domain and subdomain configuration.
+- Ensure API endpoints use HTTPS.
+- Ensure external payment and storage integrations use secure connections.
+
+# PHASE 2 — HIGH-PRIORITY SECURITY IMPLEMENTATION
+
+## 13. API Rate Limiting
+
+Implement rate limiting for sensitive endpoints.
+
+Protect:
+
+- Login.
+- Registration.
+- OTP requests.
+- Password reset.
+- Product search.
+- AI visual search.
+- AI Hamper Designer.
+- File uploads.
+- Contact forms.
+- Checkout.
+- Public promotional forms.
+
+Use appropriate limits based on the operation and risk.
+
+Use a shared rate-limit store, such as Redis, if required by the deployment architecture.
+
+Avoid relying exclusively on in-memory rate limiting in a multi-instance or serverless environment.
+
+Return HTTP 429 when limits are exceeded.
+
+## 14. Input Validation and Sanitization
+
+Validate all incoming data using an appropriate schema-validation library such as Zod, if compatible with the existing project.
+
+Protect:
+
+- Registration forms.
+- Login forms.
+- Customer details.
+- Addresses.
+- Product reviews.
+- Gift messages.
+- Hamper customization.
+- Contact forms.
+- Search queries.
+- Admin inputs.
+- API request bodies.
+
+Apply length limits, type checks, format checks, and safe output handling.
+
+Prevent cross-site scripting and injection vulnerabilities.
+
+Never render untrusted customer input using unsafe HTML.
+
+## 15. Parameterized Database Queries
+
+Audit all Prisma database operations and raw SQL queries.
+
+- Use safe Prisma query methods.
+- Use parameterized raw queries where required.
+- Avoid unsafe SQL string concatenation.
+- Avoid unsafe raw-query methods with user-controlled input.
+- Validate all query inputs.
+- Review dynamic filtering and sorting.
+
+Do not unnecessarily rewrite queries that are already safe.
+
+## 16. Secure CORS Configuration
+
+Configure CORS according to the actual PixelloStore deployment.
+
+- Allow only trusted frontend origins where cross-origin access is required.
+- Separate development and production origins.
+- Restrict allowed HTTP methods.
+- Restrict allowed request headers.
+- Avoid wildcard origins when credentials are enabled.
+- Do not reflect arbitrary origins.
+
+Remember that CORS is not a substitute for authentication or authorization.
+
+## 17. Security Headers
+
+Configure appropriate HTTP security headers.
+
+Implement and validate:
+
+- Content-Security-Policy.
+- Strict-Transport-Security.
+- X-Content-Type-Options.
+- Referrer-Policy.
+- Permissions-Policy.
+- frame-ancestors through CSP.
+
+Ensure the configuration remains compatible with:
+
+- Razorpay checkout scripts.
+- Product images.
+- Image storage.
+- Authentication.
+- Fonts.
+- Existing third-party integrations.
+
+Do not introduce an overly restrictive CSP that breaks existing functionality.
+
+## 18. Admin Activity Audit Logs
+
+Create or extend an Admin Audit Log system.
+
+Record important administrative actions, including:
+
+- Product creation.
+- Product deletion.
+- Price changes.
+- Stock changes.
+- Order status changes.
+- Refund operations.
+- Customer account suspension.
+- Ambassador commission modifications.
+- Delivery assignments.
+- Admin role changes.
+- Security configuration changes.
+
+Each audit record should capture:
+
+- Actor ID.
+- Actor role.
+- Action.
+- Affected record identifier.
+- Timestamp.
+- Relevant before-and-after values, where appropriate.
+- Request correlation ID.
+
+Never record passwords, payment secrets, authentication tokens, or unnecessary personal information.
+
+Protect audit logs from unauthorized modification and deletion.
+
+## 19. Debug Mode Disabled in Production
+
+Audit production error handling.
+
+- Disable development debug output.
+- Avoid exposing stack traces.
+- Avoid returning database error details to customers.
+- Hide internal file paths.
+- Prevent secret leakage in API responses.
+- Keep useful diagnostic details in protected server logs.
+- Use appropriate production environment settings.
+
+Ensure users receive understandable error messages.
+
+## 20. Duplicate Order and Payment Prevention — Idempotency
+
+Prevent accidental duplicate orders and payment operations.
+
+Implement idempotency for relevant operations:
+
+- Checkout submission.
+- Order creation.
+- Payment initiation.
+- Payment verification.
+- Razorpay webhook processing.
+- Refund processing.
+
+Use appropriate unique constraints or idempotency records.
+
+Handle simultaneous requests and network retries safely.
+
+Do not create duplicate orders when a customer double-clicks the checkout button or retries after a timeout.
+
+Do not process the same payment event twice.
+
+## 21. Secure Environment Variables and API Keys
+
+Audit all application secrets.
+
+Protect:
+
+- DATABASE_URL.
+- RAZORPAY_KEY_SECRET.
+- RAZORPAY_WEBHOOK_SECRET.
+- Authentication secrets.
+- AI provider API keys.
+- Storage credentials.
+- Email provider credentials.
+- Redis credentials.
+- Other third-party API keys.
+
+Requirements:
+
+- Keep secrets server-side.
+- Do not expose private values through NEXT_PUBLIC variables.
+- Do not commit secrets to GitHub.
+- Ensure environment files are ignored by Git.
+- Redact secrets from logs.
+- Use the hosting provider's secure environment-variable facility.
+- Rotate any credentials found exposed.
+
+Preserve the existing integrations.
+
+## 22. Database Backups and Recovery
+
+Implement or verify a reliable backup and recovery strategy.
+
+- Configure automated database backups using the capabilities of the existing database provider.
+- Protect backup access.
+- Encrypt backups where supported.
+- Establish a retention policy.
+- Document restoration steps.
+- Perform a safe restore test in an isolated environment.
+- Verify database consistency after restoration.
+
+Do not reset or overwrite production data while testing recovery.
+
+## 23. Dependency Vulnerability Scanning
+
+Audit application dependencies.
+
+Use:
+
+- npm audit.
+- Dependency vulnerability scanning.
+- Lockfile checks.
+- Appropriate automated security monitoring.
+
+Identify vulnerable packages and their severity.
+
+Update dependencies carefully.
+
+Before upgrading:
+
+- Check compatibility.
+- Review breaking changes.
+- Run tests.
+- Run TypeScript checks.
+- Run the production build.
+
+Do not blindly force-upgrade every package.
+
+## 24. Suspicious Login and Activity Monitoring
+
+Implement security-event monitoring.
+
+Detect and record:
+
+- Repeated failed login attempts.
+- Unusual login activity.
+- Excessive OTP requests.
+- Repeated password reset attempts.
+- Suspicious Admin login activity.
+- Excessive image uploads.
+- Unusual AI endpoint usage.
+- Repeated unauthorized API requests.
+- Unusual payment verification failures.
+
+Use configurable alert thresholds.
+
+Protect security logs from unauthorized access.
+
+Do not permanently block legitimate customers based on a single suspicious request.
+
+## 25. Secure Customer Sessions and Logout
+
+Audit and harden the existing session-management system.
+
+Implement:
+
+- Secure cookie configuration.
+- Appropriate session expiration.
+- Session invalidation on logout.
+- Secure session renewal.
+- Protection against session fixation.
+- Appropriate session revocation after password changes.
+- Revocation of sessions after account compromise.
+- Additional verification for sensitive account changes.
+- Safe handling of concurrent sessions.
+
+Do not store sensitive authentication tokens in insecure browser storage.
+
+Preserve the existing authentication architecture wherever possible.
+
+# PHASE 3 — SECURITY TESTING
+
+After implementation, test every security measure.
+
+Create isolated test accounts for each role.
+
+Perform the following tests:
+
+1. Unauthenticated users attempting to access protected APIs.
+2. Customers attempting to access Admin APIs.
+3. Customers attempting to access another customer's orders.
+4. Customers attempting to access another customer's photographs.
+5. Ambassadors attempting to access another ambassador's commissions.
+6. Delivery users attempting to access unauthorized assignments.
+7. Frontend product price manipulation.
+8. Frontend stock manipulation.
+9. Order status manipulation.
+10. Invalid Razorpay payment signatures.
+11. Invalid Razorpay webhook signatures.
+12. Duplicate webhook delivery.
+13. Duplicate checkout submissions.
+14. Invalid image file uploads.
+15. Oversized image uploads.
+16. Unauthorized storage URL access.
+17. Excessive AI requests.
+18. Excessive login attempts.
+19. Malicious input in customer forms.
+20. Direct Admin route access.
+21. Session reuse after logout.
+22. Unauthorized changes to Admin-only settings.
+23. Attempts to access protected audit logs.
+24. Production error-message and secret leakage.
+25. Database ownership and access-control verification.
+
+All testing must be conducted in an authorized staging environment using test accounts and test data.
+
+Do not attack production or use real customer data.
+
+# PHASE 4 — FINAL VALIDATION
+
+After implementation, run:
+
+- TypeScript checks.
+- ESLint.
+- Relevant unit and integration tests.
+- Prisma validation.
+- Prisma generation, where applicable.
+- Database migration validation.
+- Production build.
+- Security regression tests.
+
+Verify that the following existing features continue to work:
+
+- Customer registration and login.
+- Admin login.
+- Ambassador login.
+- Delivery login.
+- Product browsing.
+- Product search.
+- AI visual search.
+- AI Hamper Designer.
+- Build Your Own Hamper.
+- Cart operations.
+- Razorpay test payments.
+- Order creation.
+- Order tracking.
+- Admin product management.
+- Ambassador commission workflows.
+- Delivery workflows.
+
+# PHASE 5 — FINAL SECURITY REPORT
+
+Generate a complete security implementation report.
+
+For every one of the 25 measures, report:
+
+- Security measure name.
+- Existing implementation status.
+- Vulnerability discovered, if any.
+- Files changed.
+- Implementation performed.
+- Test performed.
+- Test result.
+- Remaining limitations.
+
+Use these statuses:
+
+- PASS — Implemented and successfully tested.
+- PARTIAL — Implemented but needs additional validation.
+- FAIL — Vulnerability remains or test failed.
+- NOT APPLICABLE — Not relevant to the existing architecture, with explanation.
+
+Also provide:
+
+1. Critical vulnerabilities discovered.
+2. Critical vulnerabilities fixed.
+3. High-priority vulnerabilities fixed.
+4. Database changes.
+5. Environment variables required.
+6. Deployment configuration changes.
+7. Remaining risks.
+8. Recommended security maintenance schedule.
+
+# FINAL REQUIREMENTS
+
+Do not merely create security documentation.
+
+Actually inspect, implement, and test the necessary security protections in my existing application.
+
+Do not report a feature as secure merely because code was added.
+
+Do not claim that the application is completely secure.
+
+If a feature requires hosting-provider configuration, external infrastructure, manual credentials, or additional setup, explain the exact requirement.
+
+If any implementation could affect existing customer data or production operations, stop and explain the required migration or approval before applying it.
+
+FINAL OBJECTIVE:
+
+Implement all 25 security measures in PixelloStore, protect every customer-facing and administrative workflow, secure payments and uploaded photographs, and produce a verified security audit report without rebuilding or breaking the existing application.
+</USER_REQUEST>
+<ADDITIONAL_METADATA>
+The current local time is: 2026-10-31T10:45:14+05:30.
+</ADDITIONAL_METADATA>
