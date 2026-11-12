@@ -12,7 +12,6 @@ import {
   Eye, 
   EyeOff, 
   AlertCircle, 
-  Sparkles, 
   KeyRound,
   Store,
   CheckCircle2,
@@ -66,12 +65,6 @@ export default function AdminLoginPage() {
       }
     }
   }, [router]);
-
-  const handleAutoFill = () => {
-    setMobileNumber(activeAdminPhone);
-    setPassword(activeAdminPass);
-    setErrorMessage("");
-  };
 
   const handleAdminLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -264,14 +257,6 @@ export default function AdminLoginPage() {
               </span>
             </div>
             <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={handleAutoFill}
-                className="text-[10px] font-bold bg-[#FFF8F2] text-[#D89A86] border border-[#D89A86]/40 hover:bg-[#D89A86] hover:text-white transition-colors px-2.5 py-0.5 rounded-full cursor-pointer flex items-center gap-1"
-                title="Auto-fill master admin credentials"
-              >
-                <Sparkles className="h-2.5 w-2.5" /> Quick Fill
-              </button>
               <span className="text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200 px-2 py-0.5 rounded-full flex items-center gap-1">
                 <ShieldCheck className="h-3 w-3 text-amber-600" /> Protected Area
               </span>
