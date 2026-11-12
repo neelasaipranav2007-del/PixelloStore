@@ -89,6 +89,7 @@ const DEFAULT_ADMIN_PROFILE = {
   username: "admin",
   password: "admin123",
   securityPin: "1234",
+  privacyPassword: "privacy@2026",
   phone: "+91 96184 01231",
   role: "Super Administrator",
   platformName: "Pixello Store",
@@ -117,6 +118,7 @@ export default function AdminSettingsPage() {
   const [isMounted, setIsMounted] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showSecurityPin, setShowSecurityPin] = useState(false);
+  const [showPrivacyPassword, setShowPrivacyPassword] = useState(false);
   const [newCustomPin, setNewCustomPin] = useState("");
   const [newCustomFee, setNewCustomFee] = useState<number | "">("");
   const [newCustomLabel, setNewCustomLabel] = useState("");
@@ -190,6 +192,7 @@ export default function AdminSettingsPage() {
           setAdminProfile((prev) => ({
             ...prev,
             securityPin: data.credentials.securityPin || prev.securityPin || "1234",
+            privacyPassword: data.credentials.privacyPassword || prev.privacyPassword || "privacy@2026",
           }));
         }
       })
@@ -219,6 +222,7 @@ export default function AdminSettingsPage() {
             username: parsed.username || DEFAULT_ADMIN_PROFILE.username || "admin",
             password: parsed.password || DEFAULT_ADMIN_PROFILE.password || "admin123",
             securityPin: parsed.securityPin || DEFAULT_ADMIN_PROFILE.securityPin || "1234",
+            privacyPassword: parsed.privacyPassword || DEFAULT_ADMIN_PROFILE.privacyPassword || "privacy@2026",
           });
         } catch (e) {}
       }
@@ -751,6 +755,7 @@ export default function AdminSettingsPage() {
         phone: cleanPhone,
         password: adminProfile.password || "admin123",
         securityPin: cleanPin,
+        privacyPassword: adminProfile.privacyPassword || "privacy@2026",
       };
 
       localStorage.setItem("pixello_admin_settings", JSON.stringify(profileToSave));
@@ -758,6 +763,7 @@ export default function AdminSettingsPage() {
         phone: cleanPhone, 
         password: profileToSave.password,
         securityPin: cleanPin,
+        privacyPassword: profileToSave.privacyPassword,
         name: profileToSave.name, 
         email: profileToSave.email,
         username: profileToSave.username || "admin"
@@ -776,6 +782,7 @@ export default function AdminSettingsPage() {
             body: JSON.stringify({
               loginPassword: profileToSave.password,
               securityPin: cleanPin,
+              privacyPassword: profileToSave.privacyPassword,
               name: profileToSave.name,
               email: profileToSave.email,
               phone: cleanPhone,
@@ -1264,6 +1271,46 @@ export default function AdminSettingsPage() {
                     )}
                   </button>
                 </div>
+              </div>
+
+              {/* Emergency Privacy Password (Lockout Recovery Key) */}
+              <div>
+                <label className="text-xs font-bold text-[#3A2B24] mb-1.5 flex items-center justify-between">
+                  <span className="flex items-center gap-1.5">
+                    <ShieldCheck className="h-3.5 w-3.5 text-[#D89A86]" /> Emergency Privacy Password *
+                  </span>
+                  <span className="text-[10px] text-amber-600 font-bold">Lockout Recovery</span>
+                </label>
+                <div className="relative flex items-center">
+                  <Input 
+                    type={showPrivacyPassword ? "text" : "password"}
+                    value={adminProfile.privacyPassword || ""} 
+                    onChange={(e) => setAdminProfile({ ...adminProfile, privacyPassword: e.target.value })}
+                    placeholder="privacy@2026"
+                    className="rounded-xl border-[#EFE6DD] text-xs font-mono font-bold text-[#3A2B24] bg-[#FFF8F2]/40 h-11 pr-11 focus-visible:ring-[#D89A86]" 
+                    required
+                  />
+                  <button
+                    type="button"
+                    tabIndex={-1}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setShowPrivacyPassword((prev) => !prev);
+                    }}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 p-2 rounded-lg text-[#6C5C54] hover:text-[#3A2B24] hover:bg-[#EFE6DD]/40 cursor-pointer z-10 transition-colors"
+                    title={showPrivacyPassword ? "Hide password" : "Show password"}
+                  >
+                    {showPrivacyPassword ? (
+                      <EyeOff className="h-4 w-4 text-[#D89A86]" />
+                    ) : (
+                      <Eye className="h-4 w-4 text-[#6C5C54]" />
+                    )}
+                  </button>
+                </div>
+                <p className="text-[10px] text-[#6C5C54] mt-1">
+                  Secret privacy key used to unlock the Admin Portal if locked out after 5 consecutive failed login attempts.
+                </p>
               </div>
 
               {/* Admin Notification / Support Email */}

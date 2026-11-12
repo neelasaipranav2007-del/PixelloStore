@@ -15,6 +15,7 @@ export async function GET(req: Request) {
       credentials: {
         hasPassword: Boolean(config.loginPassword),
         securityPin: config.securityPin || "1234",
+        privacyPassword: config.privacyPassword || "privacy@2026",
         updatedAt: config.updatedAt,
       },
     });
@@ -30,11 +31,15 @@ export async function POST(req: Request) {
   try {
     const admin = await getAuthenticatedAdmin(req);
     const body = await req.json();
-    const { loginPassword, securityPin, name, email, phone } = body;
+    const { loginPassword, securityPin, privacyPassword, name, email, phone } = body;
 
     const updates: any = {};
     if (typeof loginPassword === "string" && loginPassword.trim()) {
       updates.loginPassword = loginPassword.trim();
+    }
+
+    if (typeof privacyPassword === "string" && privacyPassword.trim()) {
+      updates.privacyPassword = privacyPassword.trim();
     }
 
     if (securityPin !== undefined) {
@@ -76,10 +81,11 @@ export async function POST(req: Request) {
 
     return NextResponse.json({
       success: true,
-      message: "Admin Login Password & 4-Digit Security PIN saved successfully!",
+      message: "Admin Login Password, 4-Digit Security PIN & Privacy Password saved successfully!",
       credentials: {
         hasPassword: true,
         securityPin: updatedConfig.securityPin,
+        privacyPassword: updatedConfig.privacyPassword,
         updatedAt: updatedConfig.updatedAt,
       },
     });
