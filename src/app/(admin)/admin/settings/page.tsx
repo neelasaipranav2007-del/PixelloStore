@@ -34,6 +34,16 @@ import {
   X,
   Package,
   Upload,
+  RotateCcw,
+  RefreshCw,
+  AlertTriangle,
+  Loader2,
+  Building2,
+  Users,
+  FileText,
+  CheckSquare,
+  Square,
+  ShieldAlert,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getDeliveryConfig, saveDeliveryConfig, DEFAULT_DELIVERY_CONFIG, DeliveryConfig } from "@/lib/deliveryFee";
@@ -78,6 +88,7 @@ const DEFAULT_ADMIN_PROFILE = {
   email: "neelasaipranav2007@gmail.com",
   username: "admin",
   password: "admin123",
+  securityPin: "1234",
   phone: "+91 96184 01231",
   role: "Super Administrator",
   platformName: "Pixello Store",
@@ -90,6 +101,7 @@ const DEFAULT_ADMIN_PROFILE = {
 
 export default function AdminSettingsPage() {
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<string>("credentials");
   const [deliveryConfig, setDeliveryConfigState] = useState<DeliveryConfig>(DEFAULT_DELIVERY_CONFIG);
   const [adminProfile, setAdminProfile] = useState(DEFAULT_ADMIN_PROFILE);
   const [homepageStats, setHomepageStats] = useState<HomepageStatsConfig>(DEFAULT_HOMEPAGE_STATS);
@@ -104,9 +116,36 @@ export default function AdminSettingsPage() {
   const [previewSizeLabel, setPreviewSizeLabel] = useState<string>("4x6 INCH");
   const [isMounted, setIsMounted] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [showSecurityPin, setShowSecurityPin] = useState(false);
   const [newCustomPin, setNewCustomPin] = useState("");
   const [newCustomFee, setNewCustomFee] = useState<number | "">("");
   const [newCustomLabel, setNewCustomLabel] = useState("");
+
+  // Live Records & Danger Zone States
+  const [platformCounts, setPlatformCounts] = useState({
+    customers: 1,
+    manufacturers: 1,
+    categories: 10,
+    products: 97,
+    customerOrders: 1,
+    purchaseOrders: 1,
+    gstInvoices: 1,
+    payments: 1,
+    totalRecords: 113,
+  });
+  const [isLoadingCounts, setIsLoadingCounts] = useState(false);
+  const [deleteSecondaryStaff, setDeleteSecondaryStaff] = useState(false);
+  const [resetStoreDefaults, setResetStoreDefaults] = useState(false);
+
+  // Danger Zone Confirmation Modal States
+  const [isResetModalOpen, setIsResetModalOpen] = useState(false);
+  const [resetConfirmText, setResetConfirmText] = useState("");
+  const [resetPassword, setResetPassword] = useState("");
+  const [resetPin, setResetPin] = useState("");
+  const [showResetPassword, setShowResetPassword] = useState(false);
+  const [showResetPin, setShowResetPin] = useState(false);
+  const [isResettingData, setIsResettingData] = useState(false);
+  const [resetError, setResetError] = useState<string | null>(null);
 
   useEffect(() => {
     setIsMounted(true);
@@ -144,7 +183,32 @@ export default function AdminSettingsPage() {
       })
       .catch(() => {});
 
+    fetch("/api/admin/credentials")
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.success && data.credentials) {
+          setAdminProfile((prev) => ({
+            ...prev,
+            securityPin: data.credentials.securityPin || prev.securityPin || "1234",
+          }));
+        }
+      })
+      .catch(() => {});
+
+    fetch("/api/admin/reset-data")
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.success && data.counts) {
+          setPlatformCounts(data.counts);
+        }
+      })
+      .catch(() => {});
+
     if (typeof window !== "undefined") {
+      if (window.location.hash === "#reset" || window.location.search.includes("tab=reset")) {
+        setActiveTab("reset");
+      }
+
       const saved = localStorage.getItem("pixello_admin_settings");
       if (saved) {
         try {
@@ -154,11 +218,107 @@ export default function AdminSettingsPage() {
             ...parsed,
             username: parsed.username || DEFAULT_ADMIN_PROFILE.username || "admin",
             password: parsed.password || DEFAULT_ADMIN_PROFILE.password || "admin123",
+            securityPin: parsed.securityPin || DEFAULT_ADMIN_PROFILE.securityPin || "1234",
           });
         } catch (e) {}
       }
     }
   }, []);
+
+  const fetchPlatformCounts = async () => {
+    setIsLoadingCounts(true);
+    try {
+      const res = await fetch("/api/admin/reset-data");
+      const data = await res.json();
+      if (data.success && data.counts) {
+        setPlatformCounts(data.counts);
+      }
+    } catch (err) {
+      console.warn("Could not fetch platform counts:", err);
+    } finally {
+      setIsLoadingCounts(false);
+    }
+  };
+
+  const handlePermanentResetData = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setResetError(null);
+
+    if (resetConfirmText.trim() !== "RESET ALL DATA") {
+      setResetError("Please type exactly 'RESET ALL DATA' to confirm.");
+      return;
+    }
+
+    if (!resetPassword.trim()) {
+      setResetError("Please enter your Admin Login Password.");
+      return;
+    }
+
+    const cleanPin = resetPin.replace(/\D/g, "").slice(0, 4);
+    if (cleanPin.length !== 4) {
+      setResetError("Please enter your 4-Digit Security PIN.");
+      return;
+    }
+
+    setIsResettingData(true);
+
+    try {
+      const res = await fetch("/api/admin/reset-data", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          confirmText: "RESET ALL DATA",
+          password: resetPassword.trim(),
+          securityPin: cleanPin,
+          deleteSecondaryStaff,
+          resetStoreDefaults,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok || !data.success) {
+        setResetError(data.error || "Reset failed. Verification error.");
+        setIsResettingData(false);
+        return;
+      }
+
+      // Success! Clear client storage
+      if (typeof window !== "undefined") {
+        localStorage.removeItem("pixello_registered_customers");
+        localStorage.removeItem("pixello_user");
+        localStorage.removeItem("pixello_cart");
+        localStorage.removeItem("pixello_orders");
+        localStorage.removeItem("pixello_customer_status_overrides");
+        window.dispatchEvent(new Event("auth_change"));
+        window.dispatchEvent(new Event("pixello_orders_updated"));
+        window.dispatchEvent(new Event("storage"));
+      }
+
+      setPlatformCounts(data.counts || {
+        customers: 0,
+        manufacturers: deleteSecondaryStaff ? 0 : 1,
+        categories: 0,
+        products: 0,
+        customerOrders: 0,
+        purchaseOrders: 0,
+        gstInvoices: 0,
+        payments: 0,
+        totalRecords: 0,
+      });
+
+      setIsResetModalOpen(false);
+      setResetConfirmText("");
+      setResetPassword("");
+      setResetPin("");
+      setResetError(null);
+      showToast("✓ All platform business & customer data permanently reset successfully!");
+    } catch (err: any) {
+      setResetError(err.message || "Failed to reset data.");
+    } finally {
+      setIsResettingData(false);
+    }
+  };
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -585,16 +745,19 @@ export default function AdminSettingsPage() {
     e.preventDefault();
     try {
       const cleanPhone = (adminProfile.phone || "").replace(/\D/g, "").slice(-10) || "9618401231";
+      const cleanPin = (adminProfile.securityPin || "").replace(/\D/g, "").slice(0, 4) || "1234";
       const profileToSave = {
         ...adminProfile,
         phone: cleanPhone,
         password: adminProfile.password || "admin123",
+        securityPin: cleanPin,
       };
 
       localStorage.setItem("pixello_admin_settings", JSON.stringify(profileToSave));
       localStorage.setItem("pixello_admin_credentials", JSON.stringify({ 
         phone: cleanPhone, 
         password: profileToSave.password,
+        securityPin: cleanPin,
         name: profileToSave.name, 
         email: profileToSave.email,
         username: profileToSave.username || "admin"
@@ -607,6 +770,17 @@ export default function AdminSettingsPage() {
 
       try {
         await Promise.all([
+          fetch("/api/admin/credentials", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              loginPassword: profileToSave.password,
+              securityPin: cleanPin,
+              name: profileToSave.name,
+              email: profileToSave.email,
+              phone: cleanPhone,
+            }),
+          }),
           fetch("/api/settings/homepage-stats", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -678,15 +852,284 @@ export default function AdminSettingsPage() {
 
       <div>
         <h2 className="font-serif-brand text-3xl font-bold text-[#3A2B24]">Admin Platform &amp; Account Settings</h2>
-        <p className="text-xs text-[#6C5C54] mt-1">Manage administrator login credentials, delivery rates matrix, WhatsApp, Email &amp; platform commissions.</p>
+        <p className="text-xs text-[#6C5C54] mt-1">Manage administrator login credentials, 2-Factor Security PIN, platform data reset, delivery rates &amp; store configurations.</p>
       </div>
 
-      <form onSubmit={handleSaveSettings} className="flex flex-col gap-6">
+      {/* ========================================================================= */}
+      {/* 🧭 TOP NAVIGATION TABS (MATCHING ADMIN INTERFACE SPECIFICATION) */}
+      {/* ========================================================================= */}
+      <div className="flex items-center gap-2 overflow-x-auto pb-2 border-b border-[#EFE6DD] scrollbar-none">
+        <button
+          type="button"
+          onClick={() => setActiveTab("credentials")}
+          className={cn(
+            "px-4 py-2.5 rounded-2xl text-xs font-bold whitespace-nowrap transition-all flex items-center gap-2 cursor-pointer",
+            activeTab === "credentials"
+              ? "bg-[#3A2B24] text-white shadow-xs"
+              : "text-[#6C5C54] hover:text-[#3A2B24] hover:bg-[#EFE6DD]/40"
+          )}
+        >
+          <KeyRound className="h-3.5 w-3.5 text-[#D89A86]" /> Admin Credentials &amp; PIN
+        </button>
+
+        <button
+          type="button"
+          onClick={() => {
+            setActiveTab("reset");
+            fetchPlatformCounts();
+          }}
+          className={cn(
+            "px-4 py-2.5 rounded-2xl text-xs font-bold whitespace-nowrap transition-all flex items-center gap-2 cursor-pointer border",
+            activeTab === "reset"
+              ? "bg-rose-600 text-white border-rose-600 shadow-xs"
+              : "text-rose-700 hover:bg-rose-50 border-rose-200/80 bg-rose-50/40"
+          )}
+        >
+          <RotateCcw className="h-3.5 w-3.5 text-rose-500" /> Reset All Data
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab("profile")}
+          className={cn(
+            "px-4 py-2.5 rounded-2xl text-xs font-bold whitespace-nowrap transition-all flex items-center gap-2 cursor-pointer",
+            activeTab === "profile"
+              ? "bg-[#3A2B24] text-white shadow-xs"
+              : "text-[#6C5C54] hover:text-[#3A2B24] hover:bg-[#EFE6DD]/40"
+          )}
+        >
+          <Building2 className="h-3.5 w-3.5 text-[#D89A86]" /> Agency Profile &amp; GST
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab("banners")}
+          className={cn(
+            "px-4 py-2.5 rounded-2xl text-xs font-bold whitespace-nowrap transition-all flex items-center gap-2 cursor-pointer",
+            activeTab === "banners"
+              ? "bg-[#3A2B24] text-white shadow-xs"
+              : "text-[#6C5C54] hover:text-[#3A2B24] hover:bg-[#EFE6DD]/40"
+          )}
+        >
+          <Award className="h-3.5 w-3.5 text-[#D89A86]" /> Homepage &amp; Badges
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab("frames")}
+          className={cn(
+            "px-4 py-2.5 rounded-2xl text-xs font-bold whitespace-nowrap transition-all flex items-center gap-2 cursor-pointer",
+            activeTab === "frames"
+              ? "bg-[#3A2B24] text-white shadow-xs"
+              : "text-[#6C5C54] hover:text-[#3A2B24] hover:bg-[#EFE6DD]/40"
+          )}
+        >
+          <Sparkles className="h-3.5 w-3.5 text-[#D89A86]" /> Frame Studio
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab("hamper")}
+          className={cn(
+            "px-4 py-2.5 rounded-2xl text-xs font-bold whitespace-nowrap transition-all flex items-center gap-2 cursor-pointer",
+            activeTab === "hamper"
+              ? "bg-[#3A2B24] text-white shadow-xs"
+              : "text-[#6C5C54] hover:text-[#3A2B24] hover:bg-[#EFE6DD]/40"
+          )}
+        >
+          <Gift className="h-3.5 w-3.5 text-[#D89A86]" /> Hamper Store
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab("delivery")}
+          className={cn(
+            "px-4 py-2.5 rounded-2xl text-xs font-bold whitespace-nowrap transition-all flex items-center gap-2 cursor-pointer",
+            activeTab === "delivery"
+              ? "bg-[#3A2B24] text-white shadow-xs"
+              : "text-[#6C5C54] hover:text-[#3A2B24] hover:bg-[#EFE6DD]/40"
+          )}
+        >
+          <Truck className="h-3.5 w-3.5 text-[#D89A86]" /> Delivery &amp; Shipping
+        </button>
+      </div>
+
+      {/* ========================================================================= */}
+      {/* ⚠️ DANGER ZONE: RESET ALL PLATFORM DATA (EXACT DESIGN AS SPECIFIED) */}
+      {/* ========================================================================= */}
+      {activeTab === "reset" && (
+        <Card className="border border-rose-200/90 bg-white rounded-3xl shadow-sm overflow-hidden animate-in fade-in duration-200">
+          <CardContent className="p-6 md:p-8 flex flex-col gap-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-[#EFE6DD] gap-3">
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 rounded-2xl bg-rose-100 border border-rose-200 flex items-center justify-center text-rose-600">
+                  <RotateCcw className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="font-serif-brand text-xl font-bold text-rose-950 flex items-center gap-2">
+                    Reset All Platform Data <span className="text-rose-600 text-sm font-semibold">(Danger Zone)</span>
+                  </h3>
+                  <p className="text-xs text-[#6C5C54] mt-0.5 font-medium">
+                    Permanently delete all business, catalog, pricing, customer, supplier, order, invoice, payment, and uploaded file data so you can start completely fresh.
+                  </p>
+                </div>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={fetchPlatformCounts}
+                disabled={isLoadingCounts}
+                className="h-9 px-3.5 rounded-xl border-[#EFE6DD] text-xs font-bold text-[#3A2B24] hover:bg-[#FFF8F2] flex items-center gap-1.5 cursor-pointer self-start sm:self-auto"
+              >
+                <RefreshCw className={cn("h-3.5 w-3.5 text-[#D89A86]", isLoadingCounts && "animate-spin")} /> Refresh Counts
+              </Button>
+            </div>
+
+            {/* LIVE RECORDS CURRENTLY STORED */}
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-[11px] font-bold text-[#6C5C54] uppercase tracking-wider flex items-center gap-1.5">
+                  <Package className="h-3.5 w-3.5 text-[#D89A86]" /> LIVE RECORDS CURRENTLY STORED
+                </span>
+                <span className="text-xs font-bold text-[#6C5C54]">
+                  {platformCounts.totalRecords} core business record(s)
+                </span>
+              </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                {/* Customers */}
+                <div className="p-4 rounded-2xl bg-[#FFF8F2]/60 border border-[#EFE6DD] flex flex-col">
+                  <span className="text-xs font-medium text-[#6C5C54]">Customers</span>
+                  <span className="text-2xl font-bold text-[#3A2B24] mt-1">{platformCounts.customers}</span>
+                </div>
+                {/* Manufacturers */}
+                <div className="p-4 rounded-2xl bg-[#FFF8F2]/60 border border-[#EFE6DD] flex flex-col">
+                  <span className="text-xs font-medium text-[#6C5C54]">Manufacturers</span>
+                  <span className="text-2xl font-bold text-[#3A2B24] mt-1">{platformCounts.manufacturers}</span>
+                </div>
+                {/* Categories */}
+                <div className="p-4 rounded-2xl bg-[#FFF8F2]/60 border border-[#EFE6DD] flex flex-col">
+                  <span className="text-xs font-medium text-[#6C5C54]">Categories</span>
+                  <span className="text-2xl font-bold text-[#3A2B24] mt-1">{platformCounts.categories}</span>
+                </div>
+                {/* Products & Catalog */}
+                <div className="p-4 rounded-2xl bg-[#FFF8F2]/60 border border-[#EFE6DD] flex flex-col">
+                  <span className="text-xs font-medium text-[#6C5C54]">Products &amp; Catalog</span>
+                  <span className="text-2xl font-bold text-[#3A2B24] mt-1">{platformCounts.products}</span>
+                </div>
+                {/* Customer Orders */}
+                <div className="p-4 rounded-2xl bg-[#FFF8F2]/60 border border-[#EFE6DD] flex flex-col">
+                  <span className="text-xs font-medium text-[#6C5C54]">Customer Orders</span>
+                  <span className="text-2xl font-bold text-[#3A2B24] mt-1">{platformCounts.customerOrders}</span>
+                </div>
+                {/* Purchase Orders */}
+                <div className="p-4 rounded-2xl bg-[#FFF8F2]/60 border border-[#EFE6DD] flex flex-col">
+                  <span className="text-xs font-medium text-[#6C5C54]">Purchase Orders</span>
+                  <span className="text-2xl font-bold text-[#3A2B24] mt-1">{platformCounts.purchaseOrders}</span>
+                </div>
+                {/* GST Invoices */}
+                <div className="p-4 rounded-2xl bg-[#FFF8F2]/60 border border-[#EFE6DD] flex flex-col">
+                  <span className="text-xs font-medium text-[#6C5C54]">GST Invoices</span>
+                  <span className="text-2xl font-bold text-[#3A2B24] mt-1">{platformCounts.gstInvoices}</span>
+                </div>
+                {/* Payments */}
+                <div className="p-4 rounded-2xl bg-[#FFF8F2]/60 border border-[#EFE6DD] flex flex-col">
+                  <span className="text-xs font-medium text-[#6C5C54]">Payments</span>
+                  <span className="text-2xl font-bold text-[#3A2B24] mt-1">{platformCounts.payments}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Columns: Will Be Permanently Deleted & Preserved Safely By Default */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Red Column */}
+              <div className="p-5 rounded-2xl bg-rose-50/70 border border-rose-200/90 flex flex-col gap-3">
+                <div className="flex items-center gap-2 text-rose-800 font-bold text-xs uppercase tracking-wider">
+                  <Trash2 className="h-4 w-4 text-rose-600" /> Will Be Permanently Deleted
+                </div>
+                <ul className="text-xs text-rose-950/90 space-y-2 list-disc list-inside">
+                  <li>All Customers, Delivery Addresses, Custom Prices, Carts &amp; Customer Portal Logins</li>
+                  <li>All Categories, Subcategories, Products, Published Catalog Items &amp; Product Photos</li>
+                  <li>All Inventory Balances, Stock Adjustments &amp; Movement History</li>
+                  <li>All Customer Orders, Split/Manual Purchase Orders, GST Invoices &amp; Recorded Payments</li>
+                  <li>All Notifications, Prior Audit Logs, &amp; Counters reset to 1001</li>
+                </ul>
+              </div>
+
+              {/* Green Column */}
+              <div className="p-5 rounded-2xl bg-emerald-50/70 border border-emerald-200/90 flex flex-col gap-3">
+                <div className="flex items-center gap-2 text-emerald-800 font-bold text-xs uppercase tracking-wider">
+                  <CheckCircle2 className="h-4 w-4 text-emerald-600" /> Preserved Safely By Default
+                </div>
+                <ul className="text-xs text-emerald-950/90 space-y-2 list-disc list-inside">
+                  <li>Your active Admin login account ({adminProfile.email || "admin@pixellostore.com"}) and 4-digit Security PIN stay working</li>
+                  <li>Default Global Margin resets cleanly to 15% so Margin Pricing works immediately</li>
+                  <li>System Roles and Storage Buckets stay configured for immediate reuse</li>
+                  <li>Store Profile, Bank Details, Logo &amp; Staff Users stay intact unless checked below</li>
+                </ul>
+              </div>
+            </div>
+
+            {/* OPTIONAL ADDITIONAL CLEANUP */}
+            <div className="p-4 rounded-2xl bg-[#FFF8F2]/60 border border-[#EFE6DD] flex flex-col gap-3">
+              <span className="text-[11px] font-bold text-[#6C5C54] uppercase tracking-wider">
+                OPTIONAL ADDITIONAL CLEANUP
+              </span>
+              <div className="flex flex-col gap-2.5">
+                <label className="flex items-start gap-2.5 cursor-pointer text-xs text-[#3A2B24] font-medium">
+                  <input
+                    type="checkbox"
+                    checked={deleteSecondaryStaff}
+                    onChange={(e) => setDeleteSecondaryStaff(e.target.checked)}
+                    className="mt-0.5 rounded border-[#EFE6DD] text-rose-600 focus:ring-rose-500 cursor-pointer"
+                  />
+                  <span>Also delete other Staff &amp; secondary Admin accounts (0 account(s) currently). Your own active Admin account will never be deleted.</span>
+                </label>
+                <label className="flex items-start gap-2.5 cursor-pointer text-xs text-[#3A2B24] font-medium">
+                  <input
+                    type="checkbox"
+                    checked={resetStoreDefaults}
+                    onChange={(e) => setResetStoreDefaults(e.target.checked)}
+                    className="mt-0.5 rounded border-[#EFE6DD] text-rose-600 focus:ring-rose-500 cursor-pointer"
+                  />
+                  <span>Also reset Store Profile, GSTIN, Bank Details &amp; Logo back to initial factory defaults (clears uploaded brand logo too).</span>
+                </label>
+              </div>
+            </div>
+
+            {/* Bottom Alert & Trigger Button */}
+            <div className="p-4 rounded-2xl bg-amber-50/70 border border-amber-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="flex items-center gap-2 text-xs text-amber-900 font-medium">
+                <AlertTriangle className="h-4 w-4 text-amber-600 flex-shrink-0" />
+                <span>This action cannot be undone. Export PDF backups from Orders or Customers before proceeding if you want an offline copy.</span>
+              </div>
+              <Button
+                type="button"
+                onClick={() => {
+                  setIsResetModalOpen(true);
+                  setResetConfirmText("");
+                  setResetPassword("");
+                  setResetPin("");
+                  setResetError(null);
+                }}
+                className="bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-xl h-10 px-5 flex items-center gap-2 cursor-pointer shadow-sm self-start sm:self-auto whitespace-nowrap"
+              >
+                <RotateCcw className="h-3.5 w-3.5 text-white" /> Reset All Data...
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      <form onSubmit={handleSaveSettings} className={cn("flex flex-col gap-6", activeTab === "reset" && "hidden")}>
         
         {/* ========================================================================= */}
         {/* 🔐 ADMIN LOGIN CREDENTIALS & SECURITY CARD */}
         {/* ========================================================================= */}
-        <Card className="border border-[#EFE6DD] bg-white rounded-3xl shadow-sm overflow-hidden">
+        <Card className={cn(
+          "border border-[#EFE6DD] bg-white rounded-3xl shadow-sm overflow-hidden",
+          activeTab !== "credentials" && activeTab !== "profile" && "hidden"
+        )}>
           <CardContent className="p-6 md:p-8 flex flex-col gap-5">
             <div className="flex items-center justify-between pb-4 border-b border-[#EFE6DD]">
               <div className="flex items-center gap-3">
@@ -782,6 +1225,47 @@ export default function AdminSettingsPage() {
                 </div>
               </div>
 
+              {/* 4-Digit Security PIN (2FA Key) */}
+              <div>
+                <label className="text-xs font-bold text-[#3A2B24] mb-1.5 flex items-center justify-between">
+                  <span className="flex items-center gap-1.5">
+                    <KeyRound className="h-3.5 w-3.5 text-[#D89A86]" /> 4-Digit Security PIN *
+                  </span>
+                  <span className="text-[10px] text-rose-600 font-bold">2FA Security Key</span>
+                </label>
+                <div className="relative flex items-center">
+                  <Input 
+                    type={showSecurityPin ? "text" : "password"}
+                    maxLength={4}
+                    value={adminProfile.securityPin || ""} 
+                    onChange={(e) => {
+                      const clean = e.target.value.replace(/\D/g, "").slice(0, 4);
+                      setAdminProfile({ ...adminProfile, securityPin: clean });
+                    }}
+                    placeholder="1234"
+                    className="rounded-xl border-[#EFE6DD] text-xs font-mono font-bold tracking-widest text-[#3A2B24] bg-[#FFF8F2]/40 h-11 pr-11 focus-visible:ring-[#D89A86]" 
+                    required
+                  />
+                  <button
+                    type="button"
+                    tabIndex={-1}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setShowSecurityPin((prev) => !prev);
+                    }}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 p-2 rounded-lg text-[#6C5C54] hover:text-[#3A2B24] hover:bg-[#EFE6DD]/40 cursor-pointer z-10 transition-colors"
+                    title={showSecurityPin ? "Hide PIN" : "Show PIN"}
+                  >
+                    {showSecurityPin ? (
+                      <EyeOff className="h-4 w-4 text-[#D89A86]" />
+                    ) : (
+                      <Eye className="h-4 w-4 text-[#6C5C54]" />
+                    )}
+                  </button>
+                </div>
+              </div>
+
               {/* Admin Notification / Support Email */}
               <div>
                 <label className="text-xs font-bold text-[#3A2B24] mb-1.5 flex items-center gap-1.5">
@@ -810,13 +1294,13 @@ export default function AdminSettingsPage() {
             </div>
 
             <div className="p-3 bg-amber-50/70 border border-amber-200/80 rounded-2xl text-[11px] text-amber-900 flex items-center justify-between">
-              <span>💡 <strong>Live Security Sync:</strong> Saving changes will immediately update the login credentials on <strong>/admin/login</strong>.</span>
+              <span>💡 <strong>Live Security Sync:</strong> Saving changes will immediately update the login password for <strong>/admin/login</strong> and sync your 4-digit 2FA Security PIN across all administrative deletion actions.</span>
               <Button
                 type="submit"
                 size="sm"
                 className="bg-[#3A2B24] hover:bg-[#2E201A] text-white text-xs font-bold rounded-xl h-8 px-4 flex items-center gap-1.5 cursor-pointer shadow-2xs"
               >
-                <Save className="h-3.5 w-3.5 text-[#D89A86]" /> Save Credentials
+                <Save className="h-3.5 w-3.5 text-[#D89A86]" /> Save Credentials &amp; PIN
               </Button>
             </div>
           </CardContent>
@@ -2685,6 +3169,168 @@ export default function AdminSettingsPage() {
                 <CheckCircle2 className="h-4 w-4" /> Save &amp; Update Packaging Box
               </Button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* ⚠️ CONFIRM PERMANENT RESET OF ALL DATA MODAL (EXACT DESIGN AS SPECIFIED) */}
+      {/* ========================================================================= */}
+      {isResetModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl border border-[#EFE6DD] shadow-2xl w-full max-w-lg overflow-hidden animate-in zoom-in-95 duration-200">
+            {/* Modal Header */}
+            <div className="p-6 pb-4 border-b border-[#EFE6DD] flex items-center justify-between bg-rose-50/40">
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 rounded-2xl bg-rose-100 border border-rose-200 flex items-center justify-center text-rose-600">
+                  <AlertTriangle className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="font-serif-brand text-lg font-bold text-rose-950">
+                    Confirm Permanent Reset of All Data
+                  </h3>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsResetModalOpen(false)}
+                className="p-1.5 rounded-xl text-[#6C5C54] hover:bg-white/80 cursor-pointer transition-colors"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            {/* Modal Body Form */}
+            <form onSubmit={handlePermanentResetData} className="p-6 flex flex-col gap-4">
+              <p className="text-xs text-[#6C5C54]">
+                All customers, manufacturers, categories, products, margins, inventory, orders, purchase orders, invoices, payments, and uploaded files will be permanently deleted.
+              </p>
+
+              {/* Selected Scope Box */}
+              <div className="p-4 bg-rose-50/70 border border-rose-200/90 rounded-2xl text-xs text-rose-950 flex flex-col gap-1.5">
+                <span className="font-bold text-rose-900">Selected Scope:</span>
+                <ul className="space-y-1 list-disc list-inside text-[11px] text-rose-900/90">
+                  <li>Delete all business, catalog, customer, supplier, order, invoice &amp; payment data</li>
+                  <li>Delete all Customer Portal logins &amp; reset Order/PO/Invoice sequences to 1001</li>
+                  <li>Delete Staff / other Admin accounts: {deleteSecondaryStaff ? "Yes" : "No"}</li>
+                  <li>Reset Store Profile &amp; Brand Logo: {resetStoreDefaults ? "Yes" : "No"}</li>
+                </ul>
+              </div>
+
+              {resetError && (
+                <div className="p-3 bg-red-100 border border-red-300 rounded-2xl text-xs font-bold text-red-900 flex items-center gap-2">
+                  <AlertTriangle className="h-4 w-4 text-red-600 flex-shrink-0" />
+                  <span>{resetError}</span>
+                </div>
+              )}
+
+              {/* 1. Type RESET ALL DATA to confirm */}
+              <div>
+                <label className="text-xs font-bold text-[#3A2B24] mb-1.5 block">
+                  Type <span className="font-mono text-rose-600 font-extrabold">RESET ALL DATA</span> to confirm *
+                </label>
+                <Input
+                  value={resetConfirmText}
+                  onChange={(e) => {
+                    setResetConfirmText(e.target.value);
+                    if (resetError) setResetError(null);
+                  }}
+                  placeholder="RESET ALL DATA"
+                  className="rounded-xl border-[#EFE6DD] text-xs font-mono font-bold text-[#3A2B24] bg-[#FFF8F2]/40 h-11 focus-visible:ring-rose-500"
+                  required
+                  autoFocus
+                />
+              </div>
+
+              {/* 2. Admin Login Password */}
+              <div>
+                <label className="text-xs font-bold text-[#3A2B24] mb-1.5 flex items-center justify-between">
+                  <span className="flex items-center gap-1.5">
+                    <Lock className="h-3.5 w-3.5 text-[#D89A86]" /> Admin Login Password *
+                  </span>
+                </label>
+                <div className="relative flex items-center">
+                  <Input
+                    type={showResetPassword ? "text" : "password"}
+                    value={resetPassword}
+                    onChange={(e) => {
+                      setResetPassword(e.target.value);
+                      if (resetError) setResetError(null);
+                    }}
+                    placeholder="Enter your login password"
+                    className="rounded-xl border-[#EFE6DD] text-xs font-bold text-[#3A2B24] bg-[#FFF8F2]/40 h-11 pr-11 focus-visible:ring-rose-500"
+                    required
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowResetPassword(!showResetPassword)}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 p-2 text-[#6C5C54] hover:text-[#3A2B24] cursor-pointer"
+                  >
+                    {showResetPassword ? <EyeOff className="h-4 w-4 text-[#D89A86]" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
+              </div>
+
+              {/* 3. 4-Digit Security PIN */}
+              <div>
+                <label className="text-xs font-bold text-[#3A2B24] mb-1.5 flex items-center justify-between">
+                  <span className="flex items-center gap-1.5">
+                    <KeyRound className="h-3.5 w-3.5 text-[#D89A86]" /> 4-Digit Security PIN *
+                  </span>
+                  <span className="text-[10px] text-[#6C5C54] font-medium">Security Key</span>
+                </label>
+                <div className="relative flex items-center">
+                  <Input
+                    type={showResetPin ? "text" : "password"}
+                    maxLength={4}
+                    value={resetPin}
+                    onChange={(e) => {
+                      const val = e.target.value.replace(/\D/g, "").slice(0, 4);
+                      setResetPin(val);
+                      if (resetError) setResetError(null);
+                    }}
+                    placeholder="• • • •"
+                    className="rounded-xl border-[#EFE6DD] text-center font-mono font-bold tracking-widest text-sm text-[#3A2B24] bg-[#FFF8F2]/40 h-11 pr-11 focus-visible:ring-rose-500"
+                    required
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowResetPin(!showResetPin)}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 p-2 text-[#6C5C54] hover:text-[#3A2B24] cursor-pointer"
+                  >
+                    {showResetPin ? <EyeOff className="h-4 w-4 text-[#D89A86]" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-[#EFE6DD]">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setIsResetModalOpen(false)}
+                  disabled={isResettingData}
+                  className="rounded-xl text-xs font-bold h-10 px-4 border-[#EFE6DD] text-[#6C5C54] hover:bg-[#FFF8F2] cursor-pointer"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={isResettingData || resetConfirmText.trim() !== "RESET ALL DATA" || !resetPassword || resetPin.length !== 4}
+                  className="rounded-xl text-xs font-bold h-10 px-5 bg-rose-600 hover:bg-rose-700 text-white flex items-center gap-1.5 cursor-pointer shadow-md disabled:opacity-50"
+                >
+                  {isResettingData ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin text-white" /> Resetting All Data...
+                    </>
+                  ) : (
+                    <>
+                      <Trash2 className="h-4 w-4 text-white" /> Permanently Reset All Data
+                    </>
+                  )}
+                </Button>
+              </div>
+            </form>
           </div>
         </div>
       )}

@@ -5,6 +5,7 @@ import { createCustomerToken, getAuthenticatedAdmin } from "@/lib/session";
 import { enforceRateLimit } from "@/lib/rateLimit";
 import { safeErrorResponse } from "@/lib/errorHandler";
 import { logAudit } from "@/lib/auditLogger";
+import { verifyAdminCredentials } from "@/lib/adminSecurity";
 
 export const dynamic = "force-dynamic";
 
@@ -350,5 +351,135 @@ export async function PATCH(req: Request) {
     return NextResponse.json({ success: true, status, key: targetKey, statusMap: currentMap });
   } catch (error: any) {
     return safeErrorResponse(error, 500, "Error updating customer status");
+  }
+}
+
+/**
+ * DELETE /api/customers
+ * Permanently deletes a customer from the database using 2-Factor Authentication (Password + 4-Digit Security PIN)
+ */
+export async function DELETE(req: Request) {
+  try {
+    const admin = await getAuthenticatedAdmin(req);
+    if (!admin) {
+      return NextResponse.json(
+        { success: false, error: "Unauthorized. Admin privileges required to delete customer data." },
+        { status: 401 }
+      );
+    }
+
+    const body = await req.json();
+    const { id, phone, password, securityPin } = body;
+
+    if (!id && !phone) {
+      return NextResponse.json(
+        { success: false, error: "Customer ID or Phone number is required." },
+        { status: 400 }
+      );
+    }
+
+    // 2-Factor Authentication Verification
+    const verification = await verifyAdminCredentials(password, securityPin);
+    if (!verification.valid) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: verification.error || "Security authentication failed. Incorrect Password or 4-Digit Security PIN.",
+        },
+        { status: 401 }
+      );
+    }
+
+    const cleanMob = (phone || "").replace(/\D/g, "").slice(-10);
+
+    // Find the customer user
+    const targetUser = await prisma.user.findFirst({
+      where: {
+        OR: [
+          ...(id ? [{ id }] : []),
+          ...(cleanMob ? [{ phone: { contains: cleanMob } }] : []),
+        ],
+        role: "CUSTOMER",
+      },
+      include: {
+        customerProfile: true,
+      },
+    });
+
+    if (targetUser) {
+      // Atomic deletion of customer records
+      await prisma.$transaction(async (tx) => {
+        // Delete child orders and order dependencies if any
+        const orders = await tx.order.findMany({
+          where: {
+            OR: [
+              ...(targetUser.customerProfile ? [{ customerProfileId: targetUser.customerProfile.id }] : []),
+              ...(cleanMob ? [{ customerPhone: { contains: cleanMob } }] : []),
+            ],
+          },
+          select: { id: true },
+        });
+
+        const orderIds = orders.map((o) => o.id);
+        if (orderIds.length > 0) {
+          await tx.orderItem.deleteMany({ where: { orderId: { in: orderIds } } });
+          await tx.deliveryInfo.deleteMany({ where: { orderId: { in: orderIds } } });
+          await tx.commission.deleteMany({ where: { orderId: { in: orderIds } } });
+          await tx.transaction.deleteMany({ where: { orderId: { in: orderIds } } });
+          await tx.order.deleteMany({ where: { id: { in: orderIds } } });
+        }
+
+        // Delete user's cart, wishlist, notifications, terms
+        await tx.cartItem.deleteMany({ where: { userId: targetUser.id } }).catch(() => {});
+        await tx.wishlistItem.deleteMany({ where: { userId: targetUser.id } }).catch(() => {});
+        await tx.notification.deleteMany({ where: { userId: targetUser.id } }).catch(() => {});
+        await tx.termsAcceptance.deleteMany({ where: { userId: targetUser.id } }).catch(() => {});
+
+        if (targetUser.customerProfile) {
+          await tx.address.deleteMany({ where: { customerProfileId: targetUser.customerProfile.id } }).catch(() => {});
+          await tx.customerProfile.delete({ where: { id: targetUser.customerProfile.id } }).catch(() => {});
+        }
+
+        // Delete user record
+        await tx.user.delete({ where: { id: targetUser.id } });
+      });
+    }
+
+    // Clean up customer_statuses system setting
+    try {
+      const existing = await prisma.systemSetting.findUnique({
+        where: { key: "customer_statuses" },
+      });
+      if (existing?.value) {
+        const currentMap = JSON.parse(existing.value);
+        if (cleanMob) delete currentMap[cleanMob];
+        if (id) delete currentMap[id];
+        await prisma.systemSetting.update({
+          where: { key: "customer_statuses" },
+          data: { value: JSON.stringify(currentMap) },
+        });
+      }
+    } catch {}
+
+    logAudit({
+      userId: admin.user.id,
+      actorRole: "ADMIN",
+      action: "CUSTOMER_PERMANENTLY_DELETED",
+      targetId: id || cleanMob,
+      details: JSON.stringify({ cleanMob, deletedAt: new Date().toISOString() }),
+      req,
+    }).catch(() => {});
+
+    portalEvents.emit("customer_change", { action: "DELETED", key: id || cleanMob });
+
+    return NextResponse.json({
+      success: true,
+      message: "Customer and associated data permanently deleted from database.",
+      deletedId: id,
+      deletedPhone: cleanMob,
+    });
+  } catch (error: any) {
+    console.error("Failed to delete customer:", error);
+    return safeErrorResponse(error, 500, "Error deleting customer");
   }
 }
